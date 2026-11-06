@@ -87,6 +87,10 @@ class UserManager {
       return { error: 'Неверное имя пользователя или пароль.' };
     }
 
+    if (user.isBlocked) {
+      return { error: 'Ваш аккаунт заблокирован администратором!' };
+    }
+
     return { success: true, user: this.sanitizeUser(user) };
   }
 
@@ -102,12 +106,45 @@ class UserManager {
       list.push({
         username: user.username,
         bunCoins: user.bunCoins || 0,
+        isBlocked: Boolean(user.isBlocked),
+        inventoryCount: (user.inventory || []).length,
         equipped: user.equipped,
         stats: user.stats || { gamesPlayed: 0, wins: 0 },
         createdAt: user.createdAt
       });
     }
     return list.sort((a, b) => (b.bunCoins || 0) - (a.bunCoins || 0));
+  }
+
+  blockUser(username, isBlocked = true) {
+    if (!username) return { error: 'Имя пользователя не указано' };
+    const key = username.trim().toLowerCase();
+    const user = this.users.get(key);
+    if (!user) return { error: 'Пользователь не найден' };
+    user.isBlocked = Boolean(isBlocked);
+    this.saveUsers();
+    return { success: true, user: this.sanitizeUser(user), isBlocked: user.isBlocked };
+  }
+
+  deleteUser(username) {
+    if (!username) return { error: 'Имя пользователя не указано' };
+    const key = username.trim().toLowerCase();
+    if (!this.users.has(key)) return { error: 'Пользователь не найден' };
+    this.users.delete(key);
+    this.saveUsers();
+    return { success: true };
+  }
+
+  setCoins(username, amount) {
+    if (!username) return 0;
+    const key = username.trim().toLowerCase();
+    const user = this.users.get(key);
+    if (user) {
+      user.bunCoins = Math.max(0, parseInt(amount, 10) || 0);
+      this.saveUsers();
+      return user.bunCoins;
+    }
+    return 0;
   }
 
   sanitizeUser(user) {
@@ -128,7 +165,8 @@ class UserManager {
         title: titleItem ? titleItem.name : { ru: 'Выживший', en: 'Survivor', uz: 'Omon Qolgan' },
         titleColor: titleItem ? (titleItem.color || '') : ''
       },
-      stats: user.stats || { gamesPlayed: 0, wins: 0 }
+      stats: user.stats || { gamesPlayed: 0, wins: 0 },
+      isBlocked: Boolean(user.isBlocked)
     };
   }
 

@@ -1071,6 +1071,48 @@ class GameManager {
       }
     });
   }
+
+  getActiveRoomsSummary() {
+    const summary = [];
+    for (const [code, room] of this.rooms.entries()) {
+      const alivePlayers = room.players.filter(p => p.isAlive);
+      const botsCount = room.players.filter(p => p.isBot).length;
+      const host = room.players.find(p => p.id === room.hostId);
+      summary.push({
+        code: room.code,
+        status: room.status,
+        currentRound: room.currentRound,
+        maxRounds: room.maxRounds,
+        disaster: room.disaster ? {
+          title: room.disaster.title,
+          desc: room.disaster.desc
+        } : null,
+        hostName: host ? host.name : 'Unknown',
+        totalPlayers: room.players.length,
+        aliveCount: alivePlayers.length,
+        botsCount: botsCount,
+        players: room.players.map(p => ({
+          id: p.id,
+          name: p.name,
+          username: p.username || null,
+          character: p.character,
+          isAlive: p.isAlive,
+          isBot: p.isBot,
+          isHost: p.id === room.hostId
+        }))
+      });
+    }
+    return summary;
+  }
+
+  closeRoom(code) {
+    if (this.rooms.has(code)) {
+      this.io.to(code).emit('roomClosedByAdmin', { message: 'Комната была закрыта администратором' });
+      this.rooms.delete(code);
+      return true;
+    }
+    return false;
+  }
 }
 
 module.exports = GameManager;

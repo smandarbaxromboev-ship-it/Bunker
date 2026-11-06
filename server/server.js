@@ -174,6 +174,45 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback({ success: true, users });
   });
 
+  socket.on('adminBlockUser', ({ login, password, username, isBlocked }, callback) => {
+    if (!checkAdminAuth(login, password)) {
+      if (typeof callback === 'function') callback({ error: 'Доступ запрещен' });
+      return;
+    }
+    const res = userManager.blockUser(username, isBlocked);
+    if (res.success && isBlocked) {
+      io.emit('userBlocked', { username, message: 'Ваш аккаунт был заблокирован администратором!' });
+    }
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('adminDeleteUser', ({ login, password, username }, callback) => {
+    if (!checkAdminAuth(login, password)) {
+      if (typeof callback === 'function') callback({ error: 'Доступ запрещен' });
+      return;
+    }
+    const res = userManager.deleteUser(username);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('adminGetRooms', ({ login, password }, callback) => {
+    if (!checkAdminAuth(login, password)) {
+      if (typeof callback === 'function') callback({ error: 'Доступ запрещен' });
+      return;
+    }
+    const rooms = gameManager.getActiveRoomsSummary();
+    if (typeof callback === 'function') callback({ success: true, rooms });
+  });
+
+  socket.on('adminCloseRoom', ({ login, password, roomCode }, callback) => {
+    if (!checkAdminAuth(login, password)) {
+      if (typeof callback === 'function') callback({ error: 'Доступ запрещен' });
+      return;
+    }
+    const closed = gameManager.closeRoom(roomCode);
+    if (typeof callback === 'function') callback({ success: closed });
+  });
+
   socket.on('getUserProfile', ({ username }, callback) => {
     const u = userManager.getUser(username);
     if (typeof callback === 'function') callback(u);

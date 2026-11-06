@@ -172,11 +172,31 @@ export default function App() {
       }
     });
 
+    socket.on('userBlocked', ({ username, message }) => {
+      const mySaved = localStorage.getItem('bunker_user');
+      if (mySaved) {
+        try {
+          const parsed = JSON.parse(mySaved);
+          if (parsed.username && parsed.username.toLowerCase() === (username || '').toLowerCase()) {
+            alert(message || 'Ваш аккаунт заблокирован администратором!');
+            handleLogout();
+          }
+        } catch (e) {}
+      }
+    });
+
+    socket.on('roomClosedByAdmin', ({ message }) => {
+      alert(message || 'Комната была принудительно закрыта администратором!');
+      handleLeaveRoom();
+    });
+
     return () => {
       socket.off('connect');
       socket.off('roomStateUpdate');
       socket.off('chatMessage');
       socket.off('userProfileUpdated');
+      socket.off('userBlocked');
+      socket.off('roomClosedByAdmin');
     };
   }, []);
 

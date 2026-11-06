@@ -1220,3 +1220,4 @@ const SHOP_ITEMS = [
 ];
 
 module.exports = SHOP_ITEMS;
+
