@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Trophy, RotateCcw, ShieldCheck, UserCheck, Eye, Sparkles } from 'lucide-react';
+import { Trophy, RotateCcw, ShieldCheck, UserCheck, Eye, Sparkles, ArrowLeft } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 import { translations, getLocalized } from '../utils/translations';
 import PlayerCard from './PlayerCard';
 
-export default function GameOverView({ roomState, myPlayerId, onRestart, lang = 'ru' }) {
+export default function GameOverView({ roomState, myPlayerId, onRestart, onLeaveGame, lang = 'ru' }) {
   const t = translations[lang] || translations.ru;
   const isHost = roomState?.hostId === myPlayerId;
   const players = roomState?.players || [];
@@ -102,8 +102,21 @@ export default function GameOverView({ roomState, myPlayerId, onRestart, lang = 
         </div>
       </div>
 
-      {/* Restart Button */}
-      <div className="pt-6 border-t border-zinc-800 flex justify-center">
+      {/* Restart & Leave Buttons */}
+      <div className="pt-6 border-t border-zinc-800 flex flex-wrap items-center justify-center gap-3">
+        {onLeaveGame && (
+          <button
+            onClick={() => {
+              soundManager.playBeep(600, 0.05);
+              onLeaveGame();
+            }}
+            className="px-6 py-3.5 rounded-2xl font-display font-bold text-sm tracking-wider flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-700 transition cursor-pointer shadow-md"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>{t.btnLeaveGame || '← В главное меню'}</span>
+          </button>
+        )}
+
         {isHost ? (
           <button
             onClick={() => {
@@ -113,7 +126,7 @@ export default function GameOverView({ roomState, myPlayerId, onRestart, lang = 
             className="px-8 py-3.5 rounded-2xl font-display font-bold text-base tracking-wider flex items-center gap-3 bg-amber-500 hover:bg-amber-400 text-black shadow-xl shadow-amber-500/20 transition cursor-pointer"
           >
             <RotateCcw className="w-5 h-5" />
-            {t.btnPlayAgain}
+            <span>{t.btnPlayAgain}</span>
           </button>
         ) : (
           <div className="text-sm text-zinc-400 font-mono">

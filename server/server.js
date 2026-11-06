@@ -268,6 +268,6 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`=================================================`);
   console.log(` bunker SERVER ONLINE: http://localhost:${PORT}`);
   console.log(` Терминал "Бункер: 7 Раундов Откровений" активен.`);
-  console.log(` Админ панель: login: Samandar, parol: 05052013`);
+  console.log(` Админ панель защищена: /admin`);
   console.log(`=================================================`);
 });

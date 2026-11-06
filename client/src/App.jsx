@@ -21,11 +21,12 @@ import CardDetailModal from './components/CardDetailModal';
 import TrumpActionModal from './components/TrumpActionModal';
 import AuthModal from './components/AuthModal';
 import ShopModal from './components/ShopModal';
-import AdminPanelModal from './components/AdminPanelModal';
+import AdminPageView from './components/AdminPageView';
 
-const socket = io();
+const socket = io("https://bunker-ymqm.onrender.com");
 
 export default function App() {
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
   const [inRoom, setInRoom] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('bunker_theme') || 'dark');
   const [lang, setLang] = useState(() => localStorage.getItem('bunker_lang') || 'ru');
@@ -54,10 +55,29 @@ export default function App() {
   const [inspectCardData, setInspectCardData] = useState(null); // { player, card }
   const [activeTrumpCard, setActiveTrumpCard] = useState(null);
 
-  // New Modals
+  // Modals
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShopModal, setShowShopModal] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
+
+  // URL Popstate tracking for /admin and /
+  useEffect(() => {
+    const handlePopState = () => setCurrentPath(window.location.pathname);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (path) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+  };
+
+  const handleLeaveRoom = () => {
+    setInRoom(false);
+    setRoomState(null);
+    localStorage.removeItem('bunker_room_code');
+    localStorage.removeItem('bunker_player_id');
+    setMyPlayerId('');
+  };
 
   const t = translations[lang] || translations.ru;
 
@@ -276,12 +296,23 @@ export default function App() {
   const isHost = roomState?.hostId === myPlayerId;
   const isChatLocked = roomState?.status === 'ROUND_VOTING' || roomState?.status === 'ROUND_RESULT';
 
+  // DEDICATED /admin ROUTE
+  if (currentPath === '/admin') {
+    return (
+      <AdminPageView
+        socket={socket}
+        lang={lang}
+        onBack={() => navigateTo('/')}
+      />
+    );
+  }
+
   // MAIN WELCOME / JOIN SCREEN
   if (!inRoom) {
     return (
       <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 flex flex-col justify-between p-3 sm:p-6 text-slate-800 dark:text-zinc-100 transition-colors duration-200">
         <div className="max-w-4xl mx-auto w-full pt-2 sm:pt-6">
-          {/* Top Bar with User Profile, Shop, Admin, Theme Toggle & Language Selector */}
+          {/* Top Bar with User Profile, Shop, Theme Toggle & Language Selector */}
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4 sm:mb-6">
             {/* Left: User Auth / BunCoins Pill */}
             <div>
@@ -304,7 +335,7 @@ export default function App() {
                   <button
                     onClick={handleLogout}
                     title={t.authLogout}
-                    className="text-zinc-400 hover:text-red-400 text-xs font-mono ml-1 px-1"
+                    className="text-zinc-400 hover:text-red-400 text-xs font-mono ml-1 px-1 cursor-pointer"
                   >
                     ✕
                   </button>
@@ -312,7 +343,7 @@ export default function App() {
               ) : (
                 <button
                   onClick={() => setShowAuthModal(true)}
-                  className="px-3 py-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-mono font-bold text-xs uppercase shadow transition flex items-center space-x-1.5"
+                  className="px-3 py-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-mono font-bold text-xs uppercase shadow transition flex items-center space-x-1.5 cursor-pointer"
                 >
                   <span>🔐</span>
                   <span>{t.btnAuth}</span>
@@ -323,31 +354,22 @@ export default function App() {
               )}
             </div>
 
-            {/* Right: Shop, Admin, Theme & Language */}
+            {/* Right: Shop, Theme & Language */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowShopModal(true)}
                 title={t.shopBtn}
-                className="px-3 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1"
+                className="px-3 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer"
               >
                 <span>🛒</span>
                 <span className="hidden sm:inline">{t.shopBtn}</span>
-              </button>
-
-              <button
-                onClick={() => setShowAdminModal(true)}
-                title="Панель администратора (Samandar / 05052013)"
-                className="px-3 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-red-500 hover:bg-red-600 hover:text-white font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1"
-              >
-                <span>🔑</span>
-                <span className="hidden sm:inline">Admin</span>
               </button>
 
               {/* Theme Toggle */}
               <button
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                 title={theme === 'dark' ? "Включить светлую тему" : "Включить темную тему"}
-                className="p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 shadow-sm transition"
+                className="p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 shadow-sm transition cursor-pointer"
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
               </button>
@@ -356,7 +378,7 @@ export default function App() {
               <div className="flex items-center bg-white dark:bg-zinc-900 rounded-2xl p-1 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold shadow-sm">
                 <button
                   onClick={() => handleSetLang('ru')}
-                  className={`px-2.5 py-1 rounded-xl transition ${
+                  className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
                     lang === 'ru' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -364,7 +386,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => handleSetLang('en')}
-                  className={`px-2.5 py-1 rounded-xl transition ${
+                  className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
                     lang === 'en' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -372,7 +394,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => handleSetLang('uz')}
-                  className={`px-2.5 py-1 rounded-xl transition ${
+                  className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
                     lang === 'uz' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -538,15 +560,6 @@ export default function App() {
             onUserUpdated={handleUserUpdated}
           />
         )}
-
-        {/* Admin Panel Modal */}
-        {showAdminModal && (
-          <AdminPanelModal
-            socket={socket}
-            lang={lang}
-            onClose={() => setShowAdminModal(false)}
-          />
-        )}
       </div>
     );
   }
@@ -566,7 +579,7 @@ export default function App() {
           user={user}
           onOpenAuth={() => setShowAuthModal(true)}
           onOpenShop={() => setShowShopModal(true)}
-          onOpenAdmin={() => setShowAdminModal(true)}
+          onLeaveRoom={handleLeaveRoom}
           onLogout={handleLogout}
         />
         <main className="flex-1 max-w-6xl mx-auto w-full py-4 sm:py-6">
@@ -574,15 +587,13 @@ export default function App() {
             roomState={roomState}
             myPlayerId={myPlayerId}
             onRestart={handleRestartGame}
+            onLeaveGame={handleLeaveRoom}
             lang={lang}
           />
         </main>
 
         {showShopModal && (
           <ShopModal socket={socket} lang={lang} user={user} onClose={() => setShowShopModal(false)} onUserUpdated={handleUserUpdated} />
-        )}
-        {showAdminModal && (
-          <AdminPanelModal socket={socket} lang={lang} onClose={() => setShowAdminModal(false)} />
         )}
       </div>
     );
@@ -603,7 +614,7 @@ export default function App() {
           user={user}
           onOpenAuth={() => setShowAuthModal(true)}
           onOpenShop={() => setShowShopModal(true)}
-          onOpenAdmin={() => setShowAdminModal(true)}
+          onLeaveRoom={handleLeaveRoom}
           onLogout={handleLogout}
         />
         <main className="flex-1 max-w-6xl mx-auto w-full py-4 sm:py-6">
@@ -613,15 +624,13 @@ export default function App() {
             onStartGame={handleStartGame}
             onAddBot={handleAddBot}
             onRemoveBot={handleRemoveBot}
+            onLeaveLobby={handleLeaveRoom}
             lang={lang}
           />
         </main>
 
         {showShopModal && (
           <ShopModal socket={socket} lang={lang} user={user} onClose={() => setShowShopModal(false)} onUserUpdated={handleUserUpdated} />
-        )}
-        {showAdminModal && (
-          <AdminPanelModal socket={socket} lang={lang} onClose={() => setShowAdminModal(false)} />
         )}
       </div>
     );
@@ -641,7 +650,7 @@ export default function App() {
         user={user}
         onOpenAuth={() => setShowAuthModal(true)}
         onOpenShop={() => setShowShopModal(true)}
-        onOpenAdmin={() => setShowAdminModal(true)}
+        onLeaveRoom={handleLeaveRoom}
         onLogout={handleLogout}
       />
 
@@ -842,15 +851,6 @@ export default function App() {
           user={user}
           onClose={() => setShowShopModal(false)}
           onUserUpdated={handleUserUpdated}
-        />
-      )}
-
-      {/* 8. Admin Panel Modal (Samandar / 05052013) */}
-      {showAdminModal && (
-        <AdminPanelModal
-          socket={socket}
-          lang={lang}
-          onClose={() => setShowAdminModal(false)}
         />
       )}
     </div>

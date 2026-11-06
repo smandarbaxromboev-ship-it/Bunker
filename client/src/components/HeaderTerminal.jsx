@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Radio, Volume2, VolumeX, Flame,
   ChevronDown, ChevronUp, Sun, Moon,
-  ShoppingBag, Key, User, Coins, LogOut
+  ShoppingBag, User, Coins, LogOut, ArrowLeft
 } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 import { translations, getLocalized } from '../utils/translations';
@@ -19,7 +19,7 @@ export default function HeaderTerminal({
   user,
   onOpenAuth,
   onOpenShop,
-  onOpenAdmin,
+  onLeaveRoom,
   onLogout
 }) {
   const [showDisaster, setShowDisaster] = useState(false);
@@ -42,8 +42,24 @@ export default function HeaderTerminal({
   return (
     <header className="border-b border-slate-200 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md sticky top-0 z-40 px-2.5 sm:px-6 py-2 transition-colors duration-200 shadow-sm">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
-        {/* Left: Brand & Room code */}
+        {/* Left: Brand & Room code & Back button */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {onLeaveRoom && (
+            <button
+              onClick={() => {
+                soundManager.playBeep(600, 0.05);
+                if (window.confirm(lang === 'uz' ? 'Bunkerdan chiqishni xohlaysizmi?' : lang === 'en' ? 'Leave bunker and return to menu?' : 'Вы действительно хотите выйти из бункера в главное меню?')) {
+                  onLeaveRoom();
+                }
+              }}
+              title={t.btnLeaveGame || t.btnBack}
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-red-50 dark:bg-zinc-900 dark:hover:bg-red-950/60 text-slate-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm cursor-pointer shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.btnBack}</span>
+            </button>
+          )}
+
           <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-center justify-center shrink-0">
             <Radio className="w-4 h-4 animate-pulse" />
           </div>
@@ -91,14 +107,14 @@ export default function HeaderTerminal({
           </div>
         )}
 
-        {/* Right: BunCoins, Shop, Admin, Theme, Lang, Sound */}
+        {/* Right: BunCoins, Shop, Theme, Lang, Sound */}
         <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
           {/* BunCoins Balance & Profile / Auth */}
           {user ? (
             <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/40 rounded-xl px-2 py-1">
               <button
                 onClick={onOpenShop}
-                className="flex items-center space-x-1 text-xs font-mono font-bold text-amber-600 dark:text-amber-400 hover:text-amber-300 transition"
+                className="flex items-center space-x-1 text-xs font-mono font-bold text-amber-600 dark:text-amber-400 hover:text-amber-300 transition cursor-pointer"
                 title={t.shopTitle}
               >
                 <span>{user.characterDetails?.avatar || '🥷'}</span>
@@ -111,7 +127,7 @@ export default function HeaderTerminal({
               <button
                 onClick={onLogout}
                 title={t.authLogout}
-                className="text-slate-400 hover:text-red-400 p-0.5 ml-1 transition"
+                className="text-slate-400 hover:text-red-400 p-0.5 ml-1 transition cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
@@ -119,7 +135,7 @@ export default function HeaderTerminal({
           ) : (
             <button
               onClick={onOpenAuth}
-              className="px-2.5 py-1 text-xs font-mono font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 transition shadow flex items-center space-x-1"
+              className="px-2.5 py-1 text-xs font-mono font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 transition shadow flex items-center space-x-1 cursor-pointer"
             >
               <User className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{t.btnAuth}</span>
@@ -130,25 +146,16 @@ export default function HeaderTerminal({
           <button
             onClick={onOpenShop}
             title={t.shopBtn}
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 transition shadow-sm"
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 transition shadow-sm cursor-pointer"
           >
             <ShoppingBag className="w-4 h-4" />
-          </button>
-
-          {/* Admin Panel Button */}
-          <button
-            onClick={onOpenAdmin}
-            title="Админ панель (Samandar / 05052013)"
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-red-500 hover:bg-red-600 hover:text-white transition shadow-sm"
-          >
-            <Key className="w-4 h-4" />
           </button>
 
           {/* Light / Dark Mode Toggle */}
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? t.lightThemeTooltip : t.darkThemeTooltip}
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 transition"
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 transition cursor-pointer"
           >
             {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
           </button>
@@ -157,7 +164,7 @@ export default function HeaderTerminal({
           <div className="flex items-center bg-slate-100 dark:bg-zinc-900 rounded-xl p-0.5 border border-slate-200 dark:border-zinc-800 text-[11px] font-mono font-bold">
             <button
               onClick={() => setLang('ru')}
-              className={`px-1.5 sm:px-2 py-1 rounded-lg transition ${
+              className={`px-1.5 sm:px-2 py-1 rounded-lg transition cursor-pointer ${
                 lang === 'ru' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -165,7 +172,7 @@ export default function HeaderTerminal({
             </button>
             <button
               onClick={() => setLang('en')}
-              className={`px-1.5 sm:px-2 py-1 rounded-lg transition ${
+              className={`px-1.5 sm:px-2 py-1 rounded-lg transition cursor-pointer ${
                 lang === 'en' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -173,7 +180,7 @@ export default function HeaderTerminal({
             </button>
             <button
               onClick={() => setLang('uz')}
-              className={`px-1.5 sm:px-2 py-1 rounded-lg transition ${
+              className={`px-1.5 sm:px-2 py-1 rounded-lg transition cursor-pointer ${
                 lang === 'uz' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -184,7 +191,7 @@ export default function HeaderTerminal({
           {/* Sound Toggle */}
           <button
             onClick={toggleSound}
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 transition"
+            className="p-1.5 sm:p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 transition cursor-pointer"
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-slate-400 dark:text-zinc-500" /> : <Volume2 className="w-4 h-4 text-amber-500 dark:text-amber-400" />}
           </button>
@@ -207,7 +214,7 @@ export default function HeaderTerminal({
                 {getLocalized(roomState.disaster.desc, lang)}
               </span>
             </div>
-            <button className="text-slate-400 dark:text-zinc-500 hover:text-amber-500 shrink-0">
+            <button className="text-slate-400 dark:text-zinc-500 hover:text-amber-500 shrink-0 cursor-pointer">
               {showDisaster ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </button>
           </div>
