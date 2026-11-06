@@ -1,5 +1,5 @@
 // Card Generator with 350+ cards per category & Global Zero-Repeat Guarantee across games
-const db = require('./cardsDatabase');
+const cardsManager = require('./cardsManager');
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -87,12 +87,12 @@ function generateAgeCard() {
 
 // Deck generator for an entire room of players (guarantees ZERO DUPLICATES across game sessions!)
 function generateDecksForPlayers(playerCount) {
-  const pickedProfs = getUniqueBatch(db.PROFESSIONS, globalHistory.professions, playerCount);
-  const pickedHealth = getUniqueBatch(db.HEALTH, globalHistory.health, playerCount);
-  const pickedHobbies = getUniqueBatch(db.HOBBIES, globalHistory.hobbies, playerCount);
-  const pickedLuggage = getUniqueBatch(db.LUGGAGE, globalHistory.luggage, playerCount);
-  const pickedFacts = getUniqueBatch(db.FACTS, globalHistory.facts, playerCount);
-  const pickedSpecials = getUniqueBatch(db.SPECIALS, globalHistory.specials, playerCount);
+  const pickedProfs = getUniqueBatch(cardsManager.getActivePool('PROFESSIONS'), globalHistory.professions, playerCount);
+  const pickedHealth = getUniqueBatch(cardsManager.getActivePool('HEALTH'), globalHistory.health, playerCount);
+  const pickedHobbies = getUniqueBatch(cardsManager.getActivePool('HOBBIES'), globalHistory.hobbies, playerCount);
+  const pickedLuggage = getUniqueBatch(cardsManager.getActivePool('LUGGAGE'), globalHistory.luggage, playerCount);
+  const pickedFacts = getUniqueBatch(cardsManager.getActivePool('FACTS'), globalHistory.facts, playerCount);
+  const pickedSpecials = getUniqueBatch(cardsManager.getActivePool('SPECIALS'), globalHistory.specials, playerCount);
 
   const playerDecks = [];
 

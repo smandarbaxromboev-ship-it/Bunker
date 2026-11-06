@@ -35,23 +35,26 @@ export default function CountdownTimer({ expiresAt, timerType, lang = 'ru' }) {
   const seconds = timeLeft % 60;
   const formatted = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 
+  const isExtraTime = timerType === 'EXTRA_TIME';
   const isCritical = timeLeft < 60; // Less than 1 minute
   const isUrgent = timeLeft < 180; // Less than 3 minutes
 
   return (
     <div
       className={`px-3 py-1 rounded-xl font-mono font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all shadow-sm ${
-        isCritical
+        isExtraTime
+          ? 'bg-amber-500 text-zinc-950 font-extrabold animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.6)]'
+          : isCritical
           ? 'bg-red-500 text-white animate-pulse shadow-red-500/30'
           : isUrgent
           ? 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-700'
           : 'bg-slate-100 text-slate-800 border border-slate-200 dark:bg-zinc-900 dark:text-zinc-200 dark:border-zinc-800'
       }`}
     >
-      <Clock className={`w-3.5 h-3.5 ${isCritical ? 'animate-spin' : ''}`} />
+      <Clock className={`w-3.5 h-3.5 ${isCritical || isExtraTime ? 'animate-spin' : ''}`} />
       <span className="tracking-widest">{formatted}</span>
-      <span className="text-[10px] hidden sm:inline opacity-80 uppercase font-sans">
-        {timerType === 'REVEAL' ? t.turnTime60s : t.roundTime20m}
+      <span className="text-[10px] hidden sm:inline opacity-90 uppercase font-sans">
+        {isExtraTime ? (t.extraTimeAlert || '+5m EXTRA') : timerType === 'REVEAL' ? t.turnTime60s : t.roundTime20m}
       </span>
     </div>
   );

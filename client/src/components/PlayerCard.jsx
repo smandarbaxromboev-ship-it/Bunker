@@ -4,6 +4,7 @@ import {
   Backpack, FileText, ShieldAlert, Lock, Skull, Check, User, Ghost, Maximize2 
 } from 'lucide-react';
 import { translations, getLocalized } from '../utils/translations';
+import CharacterAvatar from './CharacterAvatar';
 
 const ICON_MAP = {
   age: Calendar,
@@ -29,6 +30,7 @@ export default function PlayerCard({
   const t = translations[lang] || translations.ru;
   const isAlive = player.isAlive;
   const deck = player.deck || [];
+  const character = player.character;
 
   const handleCardClick = (card) => {
     // Toggle in-place expand or trigger modal inspector
@@ -45,39 +47,35 @@ export default function PlayerCard({
 
   return (
     <div
-      className={`rounded-3xl border transition-all duration-200 overflow-hidden flex flex-col justify-between ${
+      className={`rounded-3xl border transition-all duration-300 overflow-hidden flex flex-col justify-between relative ${
         !isAlive
-          ? 'bg-slate-100 dark:bg-zinc-950/70 border-slate-200 dark:border-zinc-850 opacity-60 shadow-none'
+          ? 'bg-slate-100 dark:bg-zinc-950/80 border-red-600/60 opacity-60 shadow-none grayscale-[40%]'
           : isSelf
-          ? 'bg-white dark:bg-zinc-900 border-amber-500 shadow-md ring-1 ring-amber-500/30'
+          ? 'bg-white dark:bg-zinc-900 border-amber-500 shadow-md ring-2 ring-amber-500/40'
           : 'bg-white dark:bg-zinc-900/90 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 shadow-sm'
       }`}
     >
       {/* Top Header Card Bar */}
       <div className={`p-3 sm:p-3.5 border-b flex items-center justify-between gap-2 ${
         !isAlive 
-          ? 'border-slate-200 dark:border-zinc-800 bg-slate-200/50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-500' 
+          ? 'border-red-900/50 bg-red-950/20 text-slate-500 dark:text-zinc-500' 
           : isSelf 
           ? 'border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10' 
           : 'border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/40'
       }`}>
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-            !isAlive
-              ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800/50'
-              : player.isHost
-              ? 'bg-amber-500 text-black shadow-sm'
-              : isSelf
-              ? 'bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/40'
-              : 'bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'
-          }`}>
-            {!isAlive ? <Ghost className="w-4 h-4 text-purple-600 dark:text-purple-400" /> : <User className="w-4 h-4" />}
-          </div>
+          <CharacterAvatar
+            character={character}
+            isAlive={isAlive}
+            isExiled={!isAlive}
+            size="md"
+            lang={lang}
+          />
 
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className={`font-display font-bold text-sm sm:text-base truncate ${
-                !isAlive ? 'line-through text-slate-400 dark:text-zinc-400' : isSelf ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-white'
+                !isAlive ? 'line-through text-red-500 dark:text-red-400' : isSelf ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-white'
               }`}>
                 {player.name}
               </span>
@@ -87,16 +85,27 @@ export default function PlayerCard({
                 </span>
               )}
             </div>
-            <div className="text-[11px] font-mono flex items-center gap-1 mt-0.5">
+            
+            <div className="text-[10px] font-mono flex items-center gap-1.5 mt-0.5">
+              {character?.title && (
+                <span className={`font-bold uppercase tracking-wider truncate max-w-[120px] ${
+                  !isAlive ? 'line-through text-zinc-500' : (character.titleColor || 'text-slate-400')
+                }`}>
+                  {getLocalized(character.title, lang)}
+                </span>
+              )}
+
+              <span className="text-zinc-600 dark:text-zinc-700">•</span>
+
               {isAlive ? (
-                <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
                   {t.alive}
                 </span>
               ) : (
-                <span className="text-purple-600 dark:text-purple-400 font-medium flex items-center gap-1">
-                  <span>👻</span>
-                  {t.ghost}
+                <span className="text-red-600 dark:text-red-400 font-extrabold flex items-center gap-1 shrink-0 uppercase">
+                  <span>💀</span>
+                  {t.exiled}
                 </span>
               )}
             </div>

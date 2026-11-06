@@ -1,16 +1,22 @@
 import React, { useEffect } from 'react';
-import { Skull, ArrowRight, ShieldCheck, UserX, Trophy } from 'lucide-react';
+import { Skull, ArrowRight, ShieldCheck, UserX, Trophy, Clock } from 'lucide-react';
 import { soundManager } from '../utils/audio';
-import { translations } from '../utils/translations';
+import { translations, getLocalized } from '../utils/translations';
+import CharacterAvatar from './CharacterAvatar';
 
 export default function RoundResultModal({ roomState, myPlayerId, onNextRound, lang = 'ru' }) {
   const t = translations[lang] || translations.ru;
   const isHost = roomState?.hostId === myPlayerId;
   const results = roomState?.votingResults;
   const exiled = results?.exiledPlayer;
-  const voteCounts = results?.voteCounts || {};
+  const isExtraTimeElimination = Boolean(results?.isExtraTime);
   const remainingAlive = (roomState?.players || []).filter(p => p.isAlive).length;
   const willEndNow = remainingAlive <= 2 || roomState?.currentRound >= 7;
+
+  // Find exiled player's object to get avatar details if needed
+  const exiledPlayerObj = exiled 
+    ? (roomState?.players || []).find(p => p.id === exiled.id) || exiled
+    : null;
 
   useEffect(() => {
     if (exiled) {
@@ -21,64 +27,96 @@ export default function RoundResultModal({ roomState, myPlayerId, onNextRound, l
   }, [exiled]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md">
-      <div className="bg-zinc-950 border-2 border-red-600 rounded-3xl max-w-md w-full p-5 sm:p-7 shadow-[0_0_50px_rgba(239,68,68,0.3)] flex flex-col text-center">
-        {/* Icon */}
-        <div className="w-14 h-14 rounded-2xl bg-red-950/60 border border-red-600 text-red-500 mx-auto flex items-center justify-center mb-3 animate-bounce">
-          {exiled ? <UserX className="w-7 h-7" /> : <ShieldCheck className="w-7 h-7 text-emerald-400" />}
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md animate-fadeIn">
+      <div className="bg-zinc-950 border-2 border-red-600 rounded-3xl max-w-lg w-full p-5 sm:p-7 shadow-[0_0_60px_rgba(239,68,68,0.4)] flex flex-col text-center relative overflow-hidden">
+        {/* Ambient red hazard glow */}
+        <div className="absolute -top-24 -left-24 w-48 h-48 bg-red-600/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="text-xs uppercase tracking-wider text-red-500 font-bold font-mono">
-          {t.stageResult} #{results?.round || roomState?.currentRound}
+        {/* Round result badge */}
+        <div className="flex items-center justify-center space-x-2 text-xs uppercase tracking-widest text-red-400 font-mono font-bold mb-2">
+          <span>{t.stageResult} #{results?.round || roomState?.currentRound}</span>
+          {isExtraTimeElimination && (
+            <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded border border-amber-500/40 flex items-center space-x-1">
+              <Clock className="w-3 h-3" />
+              <span>+5М ОВЕРТАЙМ</span>
+            </span>
+          )}
         </div>
-
-        <h2 className="text-xl sm:text-2xl font-display font-bold text-white mt-1">
-          {exiled ? t.survivorExiledTitle : t.nobodyExiledTitle}
-        </h2>
 
         {exiled ? (
-          <div className="my-4 p-4 rounded-2xl bg-red-950/40 border border-red-800/60">
-            <div className="text-xl font-bold font-display text-red-400">
-              {exiled.name}
+          <>
+            {/* BIG RED BIOHAZARD ELIMINATION STAMP */}
+            <div className="inline-block mx-auto mb-3 px-4 py-1.5 bg-red-600 text-white font-mono font-extrabold text-sm sm:text-base uppercase tracking-widest rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.7)] rotate-[-1deg] border border-red-400 animate-pulse">
+              ⚠️ {t.exiledHugeStamp || 'ИЗГНАН ИЗ БУНКЕРА'} ⚠️
             </div>
-            <div className="text-xs text-purple-300 mt-1 font-mono">
-              {t.exiledStatus}
+
+            {/* Exiled Character Avatar & Details */}
+            <div className="my-3 p-4 rounded-2xl bg-gradient-to-b from-red-950/60 to-zinc-950 border-2 border-red-600/70 shadow-inner flex flex-col items-center">
+              <CharacterAvatar 
+                character={exiledPlayerObj?.character}
+                isAlive={false}
+                isExiled={true}
+                size="xl"
+                lang={lang}
+                showTitle={true}
+              />
+
+              <div className="text-2xl font-black font-display text-red-400 mt-2 line-through decoration-red-600 decoration-4">
+                {exiled.name}
+              </div>
+
+              {exiled.votesReceived !== undefined && (
+                <div className="mt-1 text-xs font-mono text-zinc-400 bg-red-950/40 px-2.5 py-0.5 rounded-full border border-red-700/50">
+                  {isExtraTimeElimination ? t.exiledByExtraTime : `${t.exiledByMajority} (${exiled.votesReceived})`}
+                </div>
+              )}
+
+              <p className="text-xs text-purple-300 mt-2 font-mono flex items-center space-x-1">
+                <span>👻</span>
+                <span>{t.exiledStatus}</span>
+              </p>
             </div>
-          </div>
+          </>
         ) : (
-          <div className="my-4 p-4 rounded-2xl bg-emerald-950/20 border border-emerald-800/40 text-emerald-300 text-xs">
-            {t.tieVotesNotice}
+          <div className="my-6 p-5 rounded-2xl bg-emerald-950/30 border-2 border-emerald-600/60 text-emerald-300 text-sm font-mono flex flex-col items-center">
+            <ShieldCheck className="w-12 h-12 text-emerald-400 mb-2" />
+            <span className="font-bold">{t.nobodyExiledTitle}</span>
+            <span className="text-xs text-emerald-400/80 mt-1">{t.tieVotesNotice}</span>
           </div>
         )}
 
         {/* Remaining info */}
-        <div className="text-xs text-amber-400 font-mono bg-zinc-900 p-2.5 rounded-xl border border-zinc-800 mb-4">
-          {t.remainingAliveInBunker} <strong>{remainingAlive}</strong> / {t.spotsLabel} <strong>2</strong>
+        <div className="text-xs text-amber-400 font-mono bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800 mb-4 flex items-center justify-between">
+          <span className="text-zinc-400">{t.remainingAliveInBunker}</span>
+          <span className="font-bold text-sm text-emerald-400">
+            {remainingAlive} / 2
+          </span>
         </div>
 
-        {/* Next Button */}
+        {/* Next Round Button */}
         {isHost ? (
           <button
             onClick={() => {
               soundManager.playBeep(900, 0.08);
               onNextRound();
             }}
-            className="w-full py-3 rounded-xl font-display font-bold text-sm tracking-wide flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black shadow-lg shadow-amber-500/20 transition cursor-pointer"
+            className="w-full py-3.5 rounded-xl font-display font-bold text-sm tracking-wide flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-lg shadow-amber-500/30 transition cursor-pointer"
           >
             {willEndNow ? (
               <>
-                <Trophy className="w-4 h-4" />
+                <Trophy className="w-5 h-5" />
                 <span>{t.btnDetermineWinners}</span>
               </>
             ) : (
               <>
                 <span>{t.btnNextRound} {roomState.currentRound + 1}</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-5 h-5" />
               </>
             )}
           </button>
         ) : (
-          <div className="text-xs text-zinc-400 font-mono">
+          <div className="text-xs text-zinc-400 font-mono py-2 bg-zinc-900/50 rounded-xl border border-zinc-800/60">
             {t.waitingHost}
           </div>
         )}

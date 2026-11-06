@@ -95,17 +95,25 @@ export default function LobbyView({ roomState, myPlayerId, onStartGame, onAddBot
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                  p.isHost ? 'bg-amber-500 text-black' : p.isBot ? 'bg-cyan-100 dark:bg-cyan-900/60 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-700' : 'bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'
-                }`}>
-                  {p.isHost ? '★' : p.isBot ? 'BOT' : `#${idx + 1}`}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-bold truncate text-slate-900 dark:text-white">
-                    {p.name} {p.id === myPlayerId && <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono">{t.you}</span>}
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="text-xl shrink-0 p-1 rounded-xl bg-zinc-950/40 border border-zinc-700/60">
+                    {p.character?.avatar || (p.isBot ? '🤖' : '🥷')}
                   </div>
-                  <div className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">
-                    {p.isHost ? t.roleHost : p.isBot ? t.roleBot : t.rolePlayer}
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold truncate text-slate-900 dark:text-white">
+                      {p.name} {p.id === myPlayerId && <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono">{t.you}</span>}
+                    </div>
+                    <div className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono flex items-center space-x-1">
+                      <span>{p.isHost ? t.roleHost : p.isBot ? t.roleBot : t.rolePlayer}</span>
+                      {p.character?.title && (
+                        <>
+                          <span>•</span>
+                          <span className={p.character?.titleColor || 'text-amber-500 font-bold'}>
+                            {getLocalized(p.character.title, lang)}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

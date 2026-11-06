@@ -1,0 +1,46 @@
+{
+  "tester_61to": {
+    "username": "Tester_61to",
+    "password": "password123",
+    "bunCoins": 200,
+    "inventory": [
+      "char_stalker",
+      "frame_default",
+      "title_survivor",
+      "char_medic"
+    ],
+    "equipped": {
+      "character": "char_medic",
+      "frame": "frame_default",
+      "title": "title_survivor"
+    },
+    "stats": {
+      "gamesPlayed": 0,
+      "wins": 0,
+      "roundsSurvived": 0
+    },
+    "createdAt": "2026-11-06T05:24:33.550Z"
+  },
+  "tester_snjn": {
+    "username": "Tester_snjn",
+    "password": "password123",
+    "bunCoins": 250,
+    "inventory": [
+      "char_stalker",
+      "frame_default",
+      "title_survivor",
+      "char_medic"
+    ],
+    "equipped": {
+      "character": "char_medic",
+      "frame": "frame_default",
+      "title": "title_survivor"
+    },
+    "stats": {
+      "gamesPlayed": 0,
+      "wins": 0,
+      "roundsSurvived": 0
+    },
+    "createdAt": "2026-11-06T05:24:57.019Z"
+  }
+}

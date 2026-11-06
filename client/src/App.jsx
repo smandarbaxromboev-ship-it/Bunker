@@ -19,6 +19,9 @@ import ChatPanel from './components/ChatPanel';
 import GhostVisionHUD from './components/GhostVisionHUD';
 import CardDetailModal from './components/CardDetailModal';
 import TrumpActionModal from './components/TrumpActionModal';
+import AuthModal from './components/AuthModal';
+import ShopModal from './components/ShopModal';
+import AdminPanelModal from './components/AdminPanelModal';
 
 const socket = io();
 
@@ -26,7 +29,21 @@ export default function App() {
   const [inRoom, setInRoom] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('bunker_theme') || 'dark');
   const [lang, setLang] = useState(() => localStorage.getItem('bunker_lang') || 'ru');
-  const [playerName, setPlayerName] = useState(() => localStorage.getItem('bunker_player_name') || '');
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('bunker_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [playerName, setPlayerName] = useState(() => {
+    const savedUser = localStorage.getItem('bunker_user');
+    if (savedUser) {
+      try { return JSON.parse(savedUser).username; } catch (e) {}
+    }
+    return localStorage.getItem('bunker_player_name') || '';
+  });
   const [joinCode, setJoinCode] = useState('');
   const [myPlayerId, setMyPlayerId] = useState(() => localStorage.getItem('bunker_player_id') || '');
   const [roomState, setRoomState] = useState(null);
@@ -36,6 +53,11 @@ export default function App() {
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [inspectCardData, setInspectCardData] = useState(null); // { player, card }
   const [activeTrumpCard, setActiveTrumpCard] = useState(null);
+
+  // New Modals
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showShopModal, setShowShopModal] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
 
   const t = translations[lang] || translations.ru;
 
@@ -106,6 +128,35 @@ export default function App() {
     };
   }, []);
 
+  // Sync profile on mount
+  useEffect(() => {
+    if (user?.username) {
+      socket.emit('getProfile', { username: user.username }, (res) => {
+        if (res && res.user) {
+          setUser(res.user);
+          localStorage.setItem('bunker_user', JSON.stringify(res.user));
+        }
+      });
+    }
+  }, []);
+
+  const handleAuthSuccess = (authedUser) => {
+    setUser(authedUser);
+    localStorage.setItem('bunker_user', JSON.stringify(authedUser));
+    setPlayerName(authedUser.username);
+    localStorage.setItem('bunker_player_name', authedUser.username);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('bunker_user');
+  };
+
+  const handleUserUpdated = (updatedUser) => {
+    setUser(updatedUser);
+    localStorage.setItem('bunker_user', JSON.stringify(updatedUser));
+  };
+
   const handleSwitchMobileTab = (tab) => {
     setMobileTab(tab);
     if (tab === 'chat') {
@@ -120,7 +171,7 @@ export default function App() {
     localStorage.setItem('bunker_player_name', name);
     soundManager.playBeep(800, 0.08);
 
-    socket.emit('createRoom', { playerName: name }, (res) => {
+    socket.emit('createRoom', { playerName: name, userProfile: user }, (res) => {
       if (res?.error) {
         setErrorMessage(res.error);
         return;
@@ -147,7 +198,7 @@ export default function App() {
     localStorage.setItem('bunker_player_name', name);
     soundManager.playBeep(700, 0.08);
 
-    socket.emit('joinRoom', { roomCode: code, playerName: name }, (res) => {
+    socket.emit('joinRoom', { roomCode: code, playerName: name, userProfile: user }, (res) => {
       if (res?.error) {
         setErrorMessage(res.error);
         return;
@@ -230,43 +281,104 @@ export default function App() {
     return (
       <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 flex flex-col justify-between p-3 sm:p-6 text-slate-800 dark:text-zinc-100 transition-colors duration-200">
         <div className="max-w-4xl mx-auto w-full pt-2 sm:pt-6">
-          {/* Top Bar with Theme Toggle & Language Selector */}
-          <div className="flex justify-end items-center gap-2 mb-4 sm:mb-6">
-            {/* Theme Toggle */}
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              title={theme === 'dark' ? "Включить светлую тему" : "Включить темную тему"}
-              className="p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 shadow-sm transition"
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
-            </button>
+          {/* Top Bar with User Profile, Shop, Admin, Theme Toggle & Language Selector */}
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4 sm:mb-6">
+            {/* Left: User Auth / BunCoins Pill */}
+            <div>
+              {user ? (
+                <div className="flex items-center space-x-2 bg-white dark:bg-zinc-900 border border-amber-500/40 rounded-2xl p-1.5 px-3 shadow-sm">
+                  <span className="text-xl">{user.characterDetails?.avatar || '🥷'}</span>
+                  <div className="text-left font-mono">
+                    <div className="text-xs font-bold text-slate-800 dark:text-zinc-100 flex items-center space-x-1">
+                      <span>{user.username}</span>
+                      <span className="bg-amber-500/20 text-amber-500 px-1.5 py-0.2 rounded text-[10px] font-bold">
+                        🪙 {user.bunCoins}
+                      </span>
+                    </div>
+                    {user.characterDetails?.title && (
+                      <div className="text-[10px] text-zinc-400">
+                        {getLocalized(user.characterDetails.title, lang)}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    title={t.authLogout}
+                    className="text-zinc-400 hover:text-red-400 text-xs font-mono ml-1 px-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="px-3 py-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-mono font-bold text-xs uppercase shadow transition flex items-center space-x-1.5"
+                >
+                  <span>🔐</span>
+                  <span>{t.btnAuth}</span>
+                  <span className="bg-black/20 text-[10px] px-1.5 py-0.5 rounded text-amber-200">
+                    +500 🪙
+                  </span>
+                </button>
+              )}
+            </div>
 
-            {/* Language Selector */}
-            <div className="flex items-center bg-white dark:bg-zinc-900 rounded-2xl p-1 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold shadow-sm">
+            {/* Right: Shop, Admin, Theme & Language */}
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => handleSetLang('ru')}
-                className={`px-3 py-1.5 rounded-xl transition ${
-                  lang === 'ru' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
+                onClick={() => setShowShopModal(true)}
+                title={t.shopBtn}
+                className="px-3 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1"
               >
-                🇷🇺 РУС
+                <span>🛒</span>
+                <span className="hidden sm:inline">{t.shopBtn}</span>
               </button>
+
               <button
-                onClick={() => handleSetLang('en')}
-                className={`px-3 py-1.5 rounded-xl transition ${
-                  lang === 'en' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
+                onClick={() => setShowAdminModal(true)}
+                title="Панель администратора (Samandar / 05052013)"
+                className="px-3 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-red-500 hover:bg-red-600 hover:text-white font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1"
               >
-                🇬🇧 ENG
+                <span>🔑</span>
+                <span className="hidden sm:inline">Admin</span>
               </button>
+
+              {/* Theme Toggle */}
               <button
-                onClick={() => handleSetLang('uz')}
-                className={`px-3 py-1.5 rounded-xl transition ${
-                  lang === 'uz' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                title={theme === 'dark' ? "Включить светлую тему" : "Включить темную тему"}
+                className="p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 shadow-sm transition"
               >
-                🇺🇿 UZB
+                {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
               </button>
+
+              {/* Language Selector */}
+              <div className="flex items-center bg-white dark:bg-zinc-900 rounded-2xl p-1 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold shadow-sm">
+                <button
+                  onClick={() => handleSetLang('ru')}
+                  className={`px-2.5 py-1 rounded-xl transition ${
+                    lang === 'ru' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  RU
+                </button>
+                <button
+                  onClick={() => handleSetLang('en')}
+                  className={`px-2.5 py-1 rounded-xl transition ${
+                    lang === 'en' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  EN
+                </button>
+                <button
+                  onClick={() => handleSetLang('uz')}
+                  className={`px-2.5 py-1 rounded-xl transition ${
+                    lang === 'uz' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  UZ
+                </button>
+              </div>
             </div>
           </div>
 
@@ -405,6 +517,36 @@ export default function App() {
         <footer className="text-center py-3 text-[10px] sm:text-[11px] text-slate-400 dark:text-zinc-600 font-mono">
           БУНКЕР: 7 РАУНДОВ • МУЛЬТИПЛЕЕР 4-10 ЧЕЛОВЕК • СВЕТЛАЯ И ТЕМНАЯ ТЕМА
         </footer>
+
+        {/* Auth Modal */}
+        {showAuthModal && (
+          <AuthModal
+            socket={socket}
+            lang={lang}
+            onClose={() => setShowAuthModal(false)}
+            onAuthSuccess={handleAuthSuccess}
+          />
+        )}
+
+        {/* Shop Modal */}
+        {showShopModal && (
+          <ShopModal
+            socket={socket}
+            lang={lang}
+            user={user}
+            onClose={() => setShowShopModal(false)}
+            onUserUpdated={handleUserUpdated}
+          />
+        )}
+
+        {/* Admin Panel Modal */}
+        {showAdminModal && (
+          <AdminPanelModal
+            socket={socket}
+            lang={lang}
+            onClose={() => setShowAdminModal(false)}
+          />
+        )}
       </div>
     );
   }
@@ -413,7 +555,20 @@ export default function App() {
   if (roomState?.status === 'GAME_OVER') {
     return (
       <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-3 sm:p-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200">
-        <HeaderTerminal roomState={roomState} isMuted={isMuted} setIsMuted={setIsMuted} lang={lang} setLang={handleSetLang} theme={theme} setTheme={setTheme} />
+        <HeaderTerminal
+          roomState={roomState}
+          isMuted={isMuted}
+          setIsMuted={setIsMuted}
+          lang={lang}
+          setLang={handleSetLang}
+          theme={theme}
+          setTheme={setTheme}
+          user={user}
+          onOpenAuth={() => setShowAuthModal(true)}
+          onOpenShop={() => setShowShopModal(true)}
+          onOpenAdmin={() => setShowAdminModal(true)}
+          onLogout={handleLogout}
+        />
         <main className="flex-1 max-w-6xl mx-auto w-full py-4 sm:py-6">
           <GameOverView
             roomState={roomState}
@@ -422,6 +577,13 @@ export default function App() {
             lang={lang}
           />
         </main>
+
+        {showShopModal && (
+          <ShopModal socket={socket} lang={lang} user={user} onClose={() => setShowShopModal(false)} onUserUpdated={handleUserUpdated} />
+        )}
+        {showAdminModal && (
+          <AdminPanelModal socket={socket} lang={lang} onClose={() => setShowAdminModal(false)} />
+        )}
       </div>
     );
   }
@@ -430,7 +592,20 @@ export default function App() {
   if (roomState?.status === 'LOBBY') {
     return (
       <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-3 sm:p-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200">
-        <HeaderTerminal roomState={roomState} isMuted={isMuted} setIsMuted={setIsMuted} lang={lang} setLang={handleSetLang} theme={theme} setTheme={setTheme} />
+        <HeaderTerminal
+          roomState={roomState}
+          isMuted={isMuted}
+          setIsMuted={setIsMuted}
+          lang={lang}
+          setLang={handleSetLang}
+          theme={theme}
+          setTheme={setTheme}
+          user={user}
+          onOpenAuth={() => setShowAuthModal(true)}
+          onOpenShop={() => setShowShopModal(true)}
+          onOpenAdmin={() => setShowAdminModal(true)}
+          onLogout={handleLogout}
+        />
         <main className="flex-1 max-w-6xl mx-auto w-full py-4 sm:py-6">
           <LobbyView
             roomState={roomState}
@@ -441,6 +616,13 @@ export default function App() {
             lang={lang}
           />
         </main>
+
+        {showShopModal && (
+          <ShopModal socket={socket} lang={lang} user={user} onClose={() => setShowShopModal(false)} onUserUpdated={handleUserUpdated} />
+        )}
+        {showAdminModal && (
+          <AdminPanelModal socket={socket} lang={lang} onClose={() => setShowAdminModal(false)} />
+        )}
       </div>
     );
   }
@@ -455,7 +637,12 @@ export default function App() {
         lang={lang} 
         setLang={handleSetLang} 
         theme={theme} 
-        setTheme={setTheme} 
+        setTheme={setTheme}
+        user={user}
+        onOpenAuth={() => setShowAuthModal(true)}
+        onOpenShop={() => setShowShopModal(true)}
+        onOpenAdmin={() => setShowAdminModal(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main Grid: Tablet & Desktop side-by-side (md:grid-cols-12), Phone stacked with bottom tabs */}
@@ -634,6 +821,36 @@ export default function App() {
           onClose={() => setActiveTrumpCard(null)}
           onApplyTrump={handleApplyTrump}
           lang={lang}
+        />
+      )}
+
+      {/* 6. User Auth Modal */}
+      {showAuthModal && (
+        <AuthModal
+          socket={socket}
+          lang={lang}
+          onClose={() => setShowAuthModal(false)}
+          onAuthSuccess={handleAuthSuccess}
+        />
+      )}
+
+      {/* 7. Shop Modal */}
+      {showShopModal && (
+        <ShopModal
+          socket={socket}
+          lang={lang}
+          user={user}
+          onClose={() => setShowShopModal(false)}
+          onUserUpdated={handleUserUpdated}
+        />
+      )}
+
+      {/* 8. Admin Panel Modal (Samandar / 05052013) */}
+      {showAdminModal && (
+        <AdminPanelModal
+          socket={socket}
+          lang={lang}
+          onClose={() => setShowAdminModal(false)}
         />
       )}
     </div>

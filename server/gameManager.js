@@ -1,7 +1,38 @@
 // Game Manager for "Бункер: 7 Раундов Откровений"
 // Sequential Turn-Based Card Reveals (60s each with auto-pick)
-// 20-Minute Round Discussion & Voting (with auto-exile on timeout)
+// 20-Minute Round Discussion & Voting (with auto-exile on timeout and +5 min Extra Time on ties)
 const { generateDecksForPlayers } = require('./cardGenerator');
+const { userManager, SHOP_ITEMS } = require('./userManager');
+
+const BOT_CHARACTERS = [
+  { avatar: '🤖', name: { ru: 'Киборг X-100', en: 'Cyborg X-100', uz: 'Kiborg X-100' }, borderClass: 'border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.5)]', glowClass: 'ring-2 ring-cyan-300', title: { ru: 'Кибер-Агент', en: 'Cyber-Agent', uz: 'Kiber-Agent' }, titleColor: 'text-cyan-400 font-bold' },
+  { avatar: '🩺', name: { ru: 'Боевой Медик', en: 'Combat Medic', uz: 'Harbiy Shifokor' }, borderClass: 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]', glowClass: 'ring-2 ring-emerald-400/60', title: { ru: 'Спаситель', en: 'Lifesaver', uz: 'Qutqaruvchi' }, titleColor: 'text-emerald-400 font-bold' },
+  { avatar: '☣️', name: { ru: 'Био-Ученый', en: 'Hazmat Scientist', uz: 'Bio Olim' }, borderClass: 'border-lime-500 shadow-[0_0_15px_rgba(132,204,22,0.5)]', glowClass: 'ring-2 ring-lime-400/60', title: { ru: 'Вирусолог', en: 'Virologist', uz: 'Virusolog' }, titleColor: 'text-lime-400 font-bold' },
+  { avatar: '🎖️', name: { ru: 'Командир Альфа', en: 'Alpha Commander', uz: 'Alfa Komandiri' }, borderClass: 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)]', glowClass: 'ring-2 ring-amber-400/60', title: { ru: 'Хозяин Бункера', en: 'Bunker Master', uz: 'Bunker Xo\'jayini' }, titleColor: 'text-amber-400 font-bold' },
+  { avatar: '🧬', name: { ru: 'Мутант Пустошей', en: 'Glowing Mutant', uz: 'Nurlangan Mutant' }, borderClass: 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]', glowClass: 'ring-2 ring-purple-400/60', title: { ru: 'Призрак Зоны', en: 'Zone Phantom', uz: 'Zona Arvohi' }, titleColor: 'text-purple-400 font-bold' },
+  { avatar: '🎯', name: { ru: 'Неоновый Снайпер', en: 'Neon Sniper', uz: 'Neon Mergan' }, borderClass: 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)]', glowClass: 'ring-2 ring-yellow-400', title: { ru: 'Легенда Пустошей', en: 'Wasteland Legend', uz: 'Sahro Afsonasi' }, titleColor: 'text-yellow-400 font-bold' }
+];
+
+function resolvePlayerCharacter(userProfile) {
+  if (userProfile && userProfile.characterDetails) {
+    return {
+      avatar: userProfile.characterDetails.avatar || '🥷',
+      name: userProfile.characterDetails.name || { ru: 'Сталкер', en: 'Stalker', uz: 'Izquvar' },
+      borderClass: userProfile.characterDetails.borderClass || 'border-slate-400 dark:border-zinc-700',
+      glowClass: userProfile.characterDetails.glowClass || '',
+      title: userProfile.characterDetails.title || { ru: 'Выживший', en: 'Survivor', uz: 'Omon Qolgan' },
+      titleColor: userProfile.characterDetails.titleColor || 'text-slate-400'
+    };
+  }
+  return {
+    avatar: '🥷',
+    name: { ru: 'Сталкер', en: 'Stalker', uz: 'Izquvar' },
+    borderClass: 'border-slate-400 dark:border-zinc-700',
+    glowClass: '',
+    title: { ru: 'Выживший', en: 'Survivor', uz: 'Omon Qolgan' },
+    titleColor: 'text-slate-400'
+  };
+}
 
 const DISASTERS = [
   {
@@ -52,10 +83,18 @@ class GameManager {
     }
   }
 
-  createRoom(hostPlayerName, socketId) {
+  setRoomTimer(code, delayMs, callback) {
+    this.clearRoomTimer(code);
+    const handle = setTimeout(callback, delayMs);
+    this.roomTimers.set(code, handle);
+    return handle;
+  }
+
+  createRoom(hostPlayerName, socketId, userProfile = null) {
     const code = this.generateRoomCode();
     const playerId = 'p_' + Math.random().toString(36).substring(2, 9);
     const disaster = DISASTERS[Math.floor(Math.random() * DISASTERS.length)];
+    const char = resolvePlayerCharacter(userProfile);
 
     const room = {
       code,
@@ -69,12 +108,15 @@ class GameManager {
       timerExpiresAt: null,
       timerDuration: null,
       timerType: null,
+      isExtraTime: false,
       activeTurnPlayerId: null,
       currentRevealingPlayerIndex: 0,
       players: [
         {
           id: playerId,
           name: hostPlayerName.trim().substring(0, 20) || 'Командир',
+          username: userProfile ? userProfile.username : null,
+          character: char,
           socketId,
           isHost: true,
           isAlive: true,
@@ -105,7 +147,7 @@ class GameManager {
     return { code, playerId, room: this.getSanitizedRoomState(room, playerId) };
   }
 
-  joinRoom(code, playerName, socketId) {
+  joinRoom(code, playerName, socketId, userProfile = null) {
     const room = this.rooms.get(code);
     if (!room) {
       return { error: 'Комната с таким цифровым кодом не найдена.' };
@@ -120,9 +162,12 @@ class GameManager {
     }
 
     const playerId = 'p_' + Math.random().toString(36).substring(2, 9);
+    const char = resolvePlayerCharacter(userProfile);
     const newPlayer = {
       id: playerId,
       name: playerName.trim().substring(0, 20) || `Игрок_${room.players.length + 1}`,
+      username: userProfile ? userProfile.username : null,
+      character: char,
       socketId,
       isHost: false,
       isAlive: true,
@@ -169,9 +214,11 @@ class GameManager {
     const botName = availableNames[0] || `Бот_${room.players.length + 1}`;
 
     const botId = 'bot_' + Math.random().toString(36).substring(2, 9);
+    const botChar = BOT_CHARACTERS[(room.players.length - 1) % BOT_CHARACTERS.length];
     room.players.push({
       id: botId,
       name: botName,
+      character: botChar,
       socketId: null,
       isHost: false,
       isAlive: true,
@@ -677,6 +724,32 @@ class GameManager {
       }
     });
 
+    // НИЧЬЯ (равенство голосов) - если кандидатов несколько или все голоса равны
+    const isTie = (candidatesToExile.length > 1 && maxVotes > 0) || (totalVotesCast === 0 && !isTimeout);
+
+    if (isTie && !room.isExtraTime) {
+      // Добавляем +5 МИНУТ экстра таймера!
+      room.isExtraTime = true;
+      room.timerType = 'EXTRA_TIME';
+      room.timerExpiresAt = Date.now() + 5 * 60 * 1000;
+      room.status = 'ROUND_DISCUSSION';
+      // Сбрасываем голоса для повторного голосования
+      alivePlayers.forEach(p => { p.votedFor = null; });
+
+      this.addSystemMessage(room, {
+        ru: `⚖️ НИЧЬЯ В ГОЛОСОВАНИИ! Добавлено +5 МИНУТ дополнительного времени для срочных дебатов и переголосования!`,
+        en: `⚖️ TIE IN VOTING! +5 MINUTES of extra time added for debates and revoting!`,
+        uz: `⚖️ OVOZLAR TENG KELDI! Shoshilinch bahslar va qayta ovoz berish uchun +5 DAQIQA qo'shildi!`
+      });
+
+      this.setRoomTimer(room.code, 5 * 60 * 1000, () => {
+        this.resolveVoting(room, true);
+      });
+
+      this.broadcastRoom(room.code);
+      return;
+    }
+
     let exiledPlayer = null;
 
     if (room.vetoActive) {
@@ -701,23 +774,26 @@ class GameManager {
       } else if (candidate) {
         exiledPlayer = candidate;
         exiledPlayer.isAlive = false;
+        
+        const extraNote = room.isExtraTime ? ' [ПО ИТОГАМ ЭКСТРА-ВРЕМЕНИ +5 МИН]' : '';
         this.addSystemMessage(room, {
-          ru: `РЕШЕНИЕМ БОЛЬШИНСТВА (${maxVotes} голосов): ${exiledPlayer.name} ИЗГНАН ИЗ БУНКЕРА! Теперь он Призрак 👻.`,
-          en: `BY MAJORITY VOTE (${maxVotes} votes): ${exiledPlayer.name} HAS BEEN EXILED FROM THE BUNKER! Now a Ghost 👻.`,
-          uz: `KO'PCHILIK OVOZI BILAN (${maxVotes} ovoz): ${exiledPlayer.name} BUNKERDAN HAYDALDI! Endi u Arvoh 👻.`
+          ru: `РЕШЕНИЕМ БОЛЬШИНСТВА (${maxVotes} голосов)${extraNote}: ${exiledPlayer.name} ИЗГНАН ИЗ БУНКЕРА! Теперь он Призрак 👻.`,
+          en: `BY MAJORITY VOTE (${maxVotes} votes)${extraNote}: ${exiledPlayer.name} HAS BEEN EXILED FROM THE BUNKER! Now a Ghost 👻.`,
+          uz: `KO'PCHILIK OVOZI BILAN (${maxVotes} ovoz)${extraNote}: ${exiledPlayer.name} BUNKERDAN HAYDALDI! Endi u Arvoh 👻.`
         });
       }
     } else if (isTimeout) {
-      // Никто не проголосовал за 20 минут: случайно изгоняется 1 выживший
-      const nonImmune = alivePlayers.filter(p => !p.hasImmunityThisRound);
-      const chosen = nonImmune.length > 0 ? nonImmune : alivePlayers;
+      // Никто не проголосовал или таймер истек: случайно изгоняется 1 выживший среди набравших наибольшие голоса или всех
+      const pool = candidatesToExile.length > 0 ? candidatesToExile.map(id => room.players.find(p => p.id === id)).filter(Boolean) : alivePlayers;
+      const nonImmune = pool.filter(p => !p.hasImmunityThisRound);
+      const chosen = nonImmune.length > 0 ? nonImmune : pool;
       exiledPlayer = chosen[Math.floor(Math.random() * chosen.length)];
       if (exiledPlayer) {
         exiledPlayer.isAlive = false;
         this.addSystemMessage(room, {
-          ru: `⏰ Таймер 20 минут истек, а голосов не было! Терминал случайно выбрал на изгнание: ${exiledPlayer.name}! 👻`,
-          en: `⏰ 20-minute timer expired with zero votes! Terminal randomly chose for exile: ${exiledPlayer.name}! 👻`,
-          uz: `⏰ 20 daqiqalik taymer tugadi va ovozlar bo'lmadi! Terminal tasodifan haydashga tanladi: ${exiledPlayer.name}! 👻`
+          ru: `⏰ Таймер истек! По окончанию голосования изгнан: ${exiledPlayer.name}! 👻`,
+          en: `⏰ Timer expired! At the end of voting exiled: ${exiledPlayer.name}! 👻`,
+          uz: `⏰ Taymer tugadi! Ovoz berish yakunida haydaldi: ${exiledPlayer.name}! 👻`
         });
       }
     } else {
@@ -728,13 +804,30 @@ class GameManager {
       });
     }
 
+    const wasExtraTime = Boolean(room.isExtraTime);
+    room.isExtraTime = false;
+    room.timerType = null;
+
+    // Начисляем +50 BunCoins всем оставшимся в живых зарегистрированным игрокам
+    alivePlayers.forEach(p => {
+      if (p.isAlive && p.username) {
+        userManager.addCoins(p.username, 50);
+      }
+    });
+
     // Сбрасываем временные иммунитеты
     alivePlayers.forEach(p => { p.hasImmunityThisRound = false; });
 
     room.votingResults = {
       round: room.currentRound,
       voteCounts,
-      exiledPlayer: exiledPlayer ? { id: exiledPlayer.id, name: exiledPlayer.name } : null
+      isExtraTime: wasExtraTime,
+      exiledPlayer: exiledPlayer ? {
+        id: exiledPlayer.id,
+        name: exiledPlayer.name,
+        character: exiledPlayer.character,
+        votesReceived: maxVotes
+      } : null
     };
 
     room.status = 'ROUND_RESULT';
@@ -776,16 +869,25 @@ class GameManager {
     this.clearRoomTimer(room.code);
     room.status = 'GAME_OVER';
     room.timerExpiresAt = null;
+    room.isExtraTime = false;
     room.players.forEach(p => {
       p.deck.forEach(c => { c.revealed = true; });
     });
 
     const winners = room.players.filter(p => p.isAlive);
     const winnerNames = winners.map(w => w.name).join(' & ');
+
+    // Начисляем награды победителям (+500 BunCoins и победу в статистику)
+    winners.forEach(w => {
+      if (w.username) {
+        userManager.recordGameStats(w.username, true, room.currentRound);
+      }
+    });
+
     this.addSystemMessage(room, {
-      ru: `ИГРА ОКОНЧЕНА! В бункер успешно попали 2 победителя: ${winnerNames}!`,
-      en: `GAME OVER! Exactly 2 winners made it into the bunker: ${winnerNames}!`,
-      uz: `O'YIN YAKUNLANDI! Bunkerga 2 ta g'olib muvaffaqiyatli kirdi: ${winnerNames}!`
+      ru: `🏆 ИГРА ОКОНЧЕНА! В бункер успешно попали 2 победителя: ${winnerNames}! Победителям начислено +500 BunCoins!`,
+      en: `🏆 GAME OVER! Exactly 2 winners made it into the bunker: ${winnerNames}! +500 BunCoins awarded to winners!`,
+      uz: `🏆 O'YIN YAKUNLANDI! Bunkerga 2 ta g'olib muvaffaqiyatli kirdi: ${winnerNames}! G'oliblarga +500 BunCoins berildi!`
     });
     this.broadcastRoom(room.code);
   }
@@ -897,6 +999,7 @@ class GameManager {
       ghostVotes,
       timerExpiresAt: room.timerExpiresAt,
       timerType: room.timerType,
+      isExtraTime: Boolean(room.isExtraTime),
       activeTurnPlayerId: room.activeTurnPlayerId,
       players: room.players.map(p => {
         const isSelf = p.id === forPlayerId;
@@ -904,6 +1007,15 @@ class GameManager {
         return {
           id: p.id,
           name: p.name,
+          username: p.username || null,
+          character: p.character || {
+            avatar: '🥷',
+            name: { ru: 'Сталкер', en: 'Stalker', uz: 'Izquvar' },
+            borderClass: 'border-slate-400 dark:border-zinc-700',
+            glowClass: '',
+            title: { ru: 'Выживший', en: 'Survivor', uz: 'Omon Qolgan' },
+            titleColor: 'text-slate-400'
+          },
           isHost: p.isHost,
           isAlive: p.isAlive,
           isBot: p.isBot,
