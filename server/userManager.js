@@ -2,163 +2,9 @@
 // BunCoins currency, Player Profiles, Shop Items & Customization
 const fs = require('fs');
 const path = require('path');
+const SHOP_ITEMS = require('./shopCatalog');
 
 const USERS_FILE = path.join(__dirname, 'usersDatabase.json');
-
-// Shop Catalog: Characters, Frames & Titles
-const SHOP_ITEMS = [
-  // CHARACTERS / SKINS
-  {
-    id: 'char_stalker',
-    type: 'character',
-    name: { ru: 'Сталкер-Разведчик', en: 'Wasteland Stalker', uz: 'Yovvoyi Izquvar' },
-    avatar: '🥷',
-    price: 0, // Default free
-    desc: { ru: 'Привык к вылазкам на радиоактивную поверхность.', en: 'Used to scouting dangerous radioactive surface.', uz: 'Xavfli radiatsion yerlarda yurishga o\'rgangan.' }
-  },
-  {
-    id: 'char_medic',
-    type: 'character',
-    name: { ru: 'Боевой Медик', en: 'Combat Medic', uz: 'Harbiy Shifokor' },
-    avatar: '🩺',
-    price: 300,
-    desc: { ru: 'Спасет жизни союзников в критический момент.', en: 'Saves allies lives during critical moments.', uz: 'Og\'ir vaziyatlarda safdoshlar hayotini saqlaydi.' }
-  },
-  {
-    id: 'char_cyborg',
-    type: 'character',
-    name: { ru: 'Киборг X-100', en: 'Cyborg X-100', uz: 'Kiborg X-100' },
-    avatar: '🤖',
-    price: 500,
-    desc: { ru: 'Титановый экзоскелет и бионический прицел.', en: 'Titanium chassis and bionic scope.', uz: 'Titan tanasi va bionik ko\'rish qobiliyati.' }
-  },
-  {
-    id: 'char_hazmat',
-    type: 'character',
-    name: { ru: 'Ученый Биолаборатории', en: 'Bio-Hazmat Scientist', uz: 'Biolaboratoriya Olimi' },
-    avatar: '☣️',
-    price: 450,
-    desc: { ru: 'Знает формулы вакцин и синтеза фильтров.', en: 'Knows formulas for vaccines and filters.', uz: 'Vaksina va filtrlar formulasini biladi.' }
-  },
-  {
-    id: 'char_officer',
-    type: 'character',
-    name: { ru: 'Командир Альфа', en: 'Alpha Commander', uz: 'Alfa Komandiri' },
-    avatar: '🎖️',
-    price: 700,
-    desc: { ru: 'Железная дисциплина и тактический гений.', en: 'Iron discipline and tactical genius.', uz: 'Temir intizom va taktik mahorat.' }
-  },
-  {
-    id: 'char_mutant',
-    type: 'character',
-    name: { ru: 'Радиоактивный Мутант', en: 'Glowing Mutant', uz: 'Nurlangan Mutant' },
-    avatar: '🧬',
-    price: 600,
-    desc: { ru: 'Иммунен к любой радиации пустошей.', en: 'Immune to all wasteland radiation.', uz: 'Barcha radiatsiyalarga immunitetga ega.' }
-  },
-  {
-    id: 'char_sniper',
-    type: 'character',
-    name: { ru: 'Неоновый Снайпер', en: 'Neon Sniper', uz: 'Neon Mergan' },
-    avatar: '🎯',
-    price: 800,
-    desc: { ru: 'Бьет без промаха сквозь ночной дым.', en: 'Never misses a shot through thick night fog.', uz: 'Tungi tuman ichida ham nishonga bexato uradi.' }
-  },
-
-  // AVATAR FRAMES
-  {
-    id: 'frame_default',
-    type: 'frame',
-    name: { ru: 'Стандартная сталь', en: 'Standard Steel', uz: 'Standart Po\'lat' },
-    borderClass: 'border-slate-400 dark:border-zinc-700',
-    glowClass: '',
-    price: 0
-  },
-  {
-    id: 'frame_amber',
-    type: 'frame',
-    name: { ru: 'Янтарный Неон', en: 'Amber Neon Glow', uz: 'Qahrabo Neon' },
-    borderClass: 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)]',
-    glowClass: 'ring-2 ring-amber-400/60',
-    price: 200
-  },
-  {
-    id: 'frame_radioactive',
-    type: 'frame',
-    name: { ru: 'Радиационное сияние', en: 'Radioactive Green', uz: 'Radiatsion Yashil' },
-    borderClass: 'border-emerald-500 shadow-[0_0_18px_rgba(16,185,129,0.55)]',
-    glowClass: 'ring-2 ring-emerald-400/60',
-    price: 350
-  },
-  {
-    id: 'frame_plasma',
-    type: 'frame',
-    name: { ru: 'Плазменный фиолетовый', en: 'Plasma Purple', uz: 'Plazma Binafsha' },
-    borderClass: 'border-purple-500 shadow-[0_0_18px_rgba(168,85,247,0.55)]',
-    glowClass: 'ring-2 ring-purple-400/60',
-    price: 450
-  },
-  {
-    id: 'frame_gold',
-    type: 'frame',
-    name: { ru: 'Золотой Киберпанк', en: 'Cyberpunk Gold', uz: 'Oltin Kiberpank' },
-    borderClass: 'border-yellow-400 shadow-[0_0_22px_rgba(250,204,21,0.65)]',
-    glowClass: 'ring-2 ring-yellow-400',
-    price: 600
-  },
-  {
-    id: 'frame_titan',
-    type: 'frame',
-    name: { ru: 'Титан Элита', en: 'Titanium Elite', uz: 'Titan Elita' },
-    borderClass: 'border-cyan-400 shadow-[0_0_25px_rgba(34,211,238,0.7)] animate-pulse',
-    glowClass: 'ring-2 ring-cyan-300',
-    price: 800
-  },
-
-  // TITLES
-  {
-    id: 'title_survivor',
-    type: 'title',
-    name: { ru: 'Выживший', en: 'Survivor', uz: 'Omon Qolgan' },
-    color: 'text-slate-400',
-    price: 0
-  },
-  {
-    id: 'title_master',
-    type: 'title',
-    name: { ru: 'Хозяин Бункера', en: 'Bunker Master', uz: 'Bunker Xo\'jayini' },
-    color: 'text-amber-400 font-bold',
-    price: 300
-  },
-  {
-    id: 'title_ghost',
-    type: 'title',
-    name: { ru: 'Призрак Пустошей', en: 'Wasteland Phantom', uz: 'Sahro Arvohi' },
-    color: 'text-purple-400 font-bold',
-    price: 250
-  },
-  {
-    id: 'title_agent',
-    type: 'title',
-    name: { ru: 'Кибер-Агент', en: 'Cyber-Agent', uz: 'Kiber-Agent' },
-    color: 'text-cyan-400 font-bold',
-    price: 400
-  },
-  {
-    id: 'title_legend',
-    type: 'title',
-    name: { ru: 'Легенда Зоны', en: 'Zone Legend', uz: 'Zona Afsonasi' },
-    color: 'text-red-400 font-bold',
-    price: 600
-  },
-  {
-    id: 'title_immortal',
-    type: 'title',
-    name: { ru: 'Бессмертный', en: 'Immortal', uz: 'O\'lmas' },
-    color: 'text-yellow-400 font-extrabold tracking-wider',
-    price: 1000
-  }
-];
 
 class UserManager {
   constructor() {
@@ -246,14 +92,28 @@ class UserManager {
 
   getUser(username) {
     if (!username) return null;
-    const user = this.users.get(username.toLowerCase());
+    const user = this.users.get(username.trim().toLowerCase());
     return user ? this.sanitizeUser(user) : null;
+  }
+
+  getAllUsers() {
+    const list = [];
+    for (const [key, user] of this.users.entries()) {
+      list.push({
+        username: user.username,
+        bunCoins: user.bunCoins || 0,
+        equipped: user.equipped,
+        stats: user.stats || { gamesPlayed: 0, wins: 0 },
+        createdAt: user.createdAt
+      });
+    }
+    return list.sort((a, b) => (b.bunCoins || 0) - (a.bunCoins || 0));
   }
 
   sanitizeUser(user) {
     const characterItem = SHOP_ITEMS.find(i => i.id === user.equipped.character) || SHOP_ITEMS[0];
-    const frameItem = SHOP_ITEMS.find(i => i.id === user.equipped.frame) || SHOP_ITEMS[7];
-    const titleItem = SHOP_ITEMS.find(i => i.id === user.equipped.title) || SHOP_ITEMS[13];
+    const frameItem = SHOP_ITEMS.find(i => i.id === user.equipped.frame) || SHOP_ITEMS.find(i => i.type === 'frame');
+    const titleItem = SHOP_ITEMS.find(i => i.id === user.equipped.title) || SHOP_ITEMS.find(i => i.type === 'title');
 
     return {
       username: user.username,
@@ -261,26 +121,50 @@ class UserManager {
       inventory: user.inventory || [],
       equipped: user.equipped,
       characterDetails: {
-        avatar: characterItem.avatar,
-        name: characterItem.name,
-        borderClass: frameItem.borderClass || '',
-        glowClass: frameItem.glowClass || '',
-        title: titleItem.name,
-        titleColor: titleItem.color || ''
+        avatar: characterItem ? characterItem.avatar : '🥷',
+        name: characterItem ? characterItem.name : { ru: 'Сталкер', en: 'Stalker', uz: 'Izquvar' },
+        borderClass: frameItem ? (frameItem.borderClass || '') : '',
+        glowClass: frameItem ? (frameItem.glowClass || '') : '',
+        title: titleItem ? titleItem.name : { ru: 'Выживший', en: 'Survivor', uz: 'Omon Qolgan' },
+        titleColor: titleItem ? (titleItem.color || '') : ''
       },
       stats: user.stats || { gamesPlayed: 0, wins: 0 }
     };
   }
 
   addCoins(username, amount) {
-    if (!username) return;
-    const user = this.users.get(username.toLowerCase());
-    if (user) {
-      user.bunCoins = Math.max(0, (user.bunCoins || 0) + amount);
+    if (!username) return 0;
+    const uname = username.trim();
+    const key = uname.toLowerCase();
+    let user = this.users.get(key);
+
+    // Если аккаунт еще не зарегистрирован, создаем его автоматически
+    if (!user) {
+      user = {
+        username: uname,
+        password: 'user123',
+        bunCoins: Math.max(0, 500 + amount),
+        inventory: ['char_stalker', 'frame_default', 'title_survivor'],
+        equipped: {
+          character: 'char_stalker',
+          frame: 'frame_default',
+          title: 'title_survivor'
+        },
+        stats: {
+          gamesPlayed: 0,
+          wins: 0,
+          roundsSurvived: 0
+        },
+        createdAt: new Date().toISOString()
+      };
+      this.users.set(key, user);
       this.saveUsers();
       return user.bunCoins;
     }
-    return 0;
+
+    user.bunCoins = Math.max(0, (user.bunCoins || 0) + amount);
+    this.saveUsers();
+    return user.bunCoins;
   }
 
   recordGameStats(username, won = false, rounds = 1) {
@@ -358,4 +242,3 @@ module.exports = {
   userManager,
   SHOP_ITEMS
 };
-

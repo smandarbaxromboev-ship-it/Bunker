@@ -84,5 +84,27 @@
       "roundsSurvived": 0
     },
     "createdAt": "2026-11-06T06:00:52.153Z"
+  },
+  "samandartestplayer_1793951798278": {
+    "username": "SamandarTestPlayer_1793951798278",
+    "password": "user123",
+    "bunCoins": 3500,
+    "inventory": [
+      "char_stalker",
+      "frame_default",
+      "title_survivor",
+      "char_cyborg"
+    ],
+    "equipped": {
+      "character": "char_stalker",
+      "frame": "frame_default",
+      "title": "title_survivor"
+    },
+    "stats": {
+      "gamesPlayed": 0,
+      "wins": 0,
+      "roundsSurvived": 0
+    },
+    "createdAt": "2026-11-06T07:56:38.279Z"
   }
 }

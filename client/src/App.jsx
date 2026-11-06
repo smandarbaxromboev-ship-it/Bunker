@@ -156,10 +156,27 @@ export default function App() {
       });
     });
 
+    // Мгновенное начисление BunCoins от администратора в реальном времени!
+    socket.on('userProfileUpdated', (data) => {
+      if (!data || !data.user) return;
+      const mySaved = localStorage.getItem('bunker_user');
+      if (mySaved) {
+        try {
+          const parsed = JSON.parse(mySaved);
+          if (parsed.username && parsed.username.toLowerCase() === data.user.username.toLowerCase()) {
+            setUser(data.user);
+            localStorage.setItem('bunker_user', JSON.stringify(data.user));
+            soundManager.playBeep(1200, 0.15);
+          }
+        } catch (e) {}
+      }
+    });
+
     return () => {
       socket.off('connect');
       socket.off('roomStateUpdate');
       socket.off('chatMessage');
+      socket.off('userProfileUpdated');
     };
   }, []);
 

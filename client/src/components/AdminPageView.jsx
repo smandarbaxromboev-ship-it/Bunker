@@ -42,6 +42,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
   // Coin grant state
   const [coinTargetUser, setCoinTargetUser] = useState('');
   const [coinAmount, setCoinAmount] = useState('500');
+  const [registeredUsers, setRegisteredUsers] = useState([]);
 
   const categories = [
     { key: 'PROFESSIONS', label: t.adminTabProfessions || 'Профессии' },
@@ -52,10 +53,22 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
     { key: 'SPECIALS', label: t.adminTabSpecials || 'Козыри' }
   ];
 
-  // If already logged in on mount, load cards
+  const loadRegisteredUsers = (loginVal, passVal) => {
+    socket.emit('adminGetUsers', {
+      login: (loginVal || adminLogin).trim(),
+      password: (passVal || adminPassword).trim()
+    }, (res) => {
+      if (res && res.success && Array.isArray(res.users)) {
+        setRegisteredUsers(res.users);
+      }
+    });
+  };
+
+  // If already logged in on mount, load cards & users
   useEffect(() => {
     if (isAdminLoggedIn && adminLogin && adminPassword) {
       loadCategoryCards(activeCategory, '');
+      loadRegisteredUsers(adminLogin, adminPassword);
     }
   }, [isAdminLoggedIn]);
 
@@ -75,6 +88,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
         sessionStorage.setItem('bunker_admin_token', adminPassword.trim());
         setStats(res.stats || {});
         loadCategoryCards('PROFESSIONS', '');
+        loadRegisteredUsers(adminLogin.trim(), adminPassword.trim());
       } else {
         setAuthError((res && res.error) || 'Доступ запрещен. Неверные учетные данные.');
       }
@@ -207,20 +221,24 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
     });
   };
 
-  const handleGrantCoins = (e) => {
-    e.preventDefault();
-    if (!coinTargetUser.trim()) return;
+  const handleGrantCoins = (e, customTarget = null, customAmount = null) => {
+    if (e) e.preventDefault();
+    const target = (customTarget || coinTargetUser).trim();
+    const amt = parseInt(customAmount || coinAmount, 10) || 500;
+    if (!target) return;
 
     socket.emit('adminAddCoins', {
       login: adminLogin.trim(),
       password: adminPassword.trim(),
-      targetUsername: coinTargetUser.trim(),
-      amount: parseInt(coinAmount, 10) || 500
+      targetUsername: target,
+      amount: amt
     }, (res) => {
       if (res && res.success) {
-        setFeedback(`Успешно начислено ${coinAmount} BunCoins игроку ${coinTargetUser}!`);
-        setCoinTargetUser('');
-        setTimeout(() => setFeedback(''), 4000);
+        setFeedback(`✓ Успешно начислено ${amt} BunCoins игроку "${target}"! Новый баланс: ${res.newBalance} 🪙`);
+        loadRegisteredUsers(adminLogin, adminPassword);
+        setTimeout(() => setFeedback(''), 5000);
+      } else {
+        setFeedback(`Ошибка: ${(res && res.error) || 'Не удалось начислить монеты'}`);
       }
     });
   };
@@ -334,31 +352,81 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
         ) : (
           /* STEP 2: FULL DASHBOARD */
           <div className="flex-1 flex flex-col min-h-0 space-y-4 bg-zinc-900/60 border border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-xl">
-            {/* Top Bar: Coin Grant */}
-            <form onSubmit={handleGrantCoins} className="flex flex-wrap items-center gap-2.5 bg-zinc-950/80 p-3 rounded-2xl border border-zinc-800">
-              <Coins className="w-4 h-4 text-amber-400 shrink-0 ml-1" />
-              <span className="text-xs font-mono text-zinc-400">{t.adminGiveCoins}</span>
-              <input
-                type="text"
-                placeholder="Имя игрока"
-                value={coinTargetUser}
-                onChange={(e) => setCoinTargetUser(e.target.value)}
-                className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-zinc-100 outline-none font-mono focus:border-amber-500 w-36"
-              />
-              <input
-                type="number"
-                placeholder="500"
-                value={coinAmount}
-                onChange={(e) => setCoinAmount(e.target.value)}
-                className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-zinc-100 outline-none font-mono focus:border-amber-500 w-24"
-              />
-              <button
-                type="submit"
-                className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl font-mono text-xs font-bold transition shadow cursor-pointer"
-              >
-                {t.adminGiveCoinsBtn}
-              </button>
-            </form>
+            {/* Top Bar: Coin Grant & Quick Player Manager */}
+            <div className="bg-zinc-950/80 p-3 sm:p-4 rounded-2xl border border-zinc-800 space-y-3">
+              <form onSubmit={(e) => handleGrantCoins(e)} className="flex flex-wrap items-center gap-2.5">
+                <Coins className="w-4 h-4 text-amber-400 shrink-0 ml-1" />
+                <span className="text-xs font-mono font-bold text-zinc-300">{t.adminGiveCoins}</span>
+                <input
+                  type="text"
+                  placeholder="Имя или логин игрока"
+                  value={coinTargetUser}
+                  onChange={(e) => setCoinTargetUser(e.target.value)}
+                  className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-zinc-100 outline-none font-mono focus:border-amber-500 w-48"
+                />
+                <input
+                  type="number"
+                  placeholder="500"
+                  value={coinAmount}
+                  onChange={(e) => setCoinAmount(e.target.value)}
+                  className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-zinc-100 outline-none font-mono focus:border-amber-500 w-24"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl font-mono text-xs font-bold transition shadow cursor-pointer"
+                >
+                  {t.adminGiveCoinsBtn}
+                </button>
+
+                {/* Quick amount presets */}
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <span className="text-[10px] font-mono text-zinc-500 hidden sm:inline">Быстро:</span>
+                  {[500, 1000, 5000].map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setCoinAmount(String(amt))}
+                      className="px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-amber-400 text-[10px] font-mono font-bold transition cursor-pointer"
+                    >
+                      +{amt} 🪙
+                    </button>
+                  ))}
+                </div>
+              </form>
+
+              {/* Registered Players Quick List */}
+              {registeredUsers.length > 0 && (
+                <div className="pt-2 border-t border-zinc-850 flex items-center gap-2 overflow-x-auto no-scrollbar">
+                  <span className="text-[10px] font-mono text-zinc-500 uppercase shrink-0">Игроки:</span>
+                  {registeredUsers.map(u => (
+                    <div 
+                      key={u.username}
+                      className="px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center gap-2 text-xs font-mono shrink-0"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setCoinTargetUser(u.username)}
+                        className="text-zinc-200 hover:text-amber-400 font-bold transition cursor-pointer"
+                        title="Выбрать этого игрока"
+                      >
+                        {u.username}
+                      </button>
+                      <span className="text-amber-400 font-bold text-[11px] bg-amber-500/10 px-1.5 py-0.2 rounded">
+                        🪙 {u.bunCoins}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleGrantCoins(null, u.username, 1000)}
+                        title={`Начислить +1000 BunCoins игроку ${u.username}`}
+                        className="text-[10px] text-zinc-400 hover:text-emerald-400 bg-zinc-800 hover:bg-zinc-750 px-1.5 py-0.5 rounded transition cursor-pointer"
+                      >
+                        +1000
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Category Selector with Counts */}
             <div className="flex flex-wrap gap-2 bg-zinc-950/80 p-2 rounded-2xl border border-zinc-800">

@@ -149,8 +149,34 @@ io.on('connection', (socket) => {
       if (typeof callback === 'function') callback({ error: 'Доступ запрещен' });
       return;
     }
-    const newBal = userManager.addCoins(targetUsername, parseInt(amount, 10) || 0);
-    if (typeof callback === 'function') callback({ success: true, newBalance: newBal });
+    const amt = parseInt(amount, 10) || 0;
+    const newBal = userManager.addCoins(targetUsername, amt);
+    const updatedUser = userManager.getUser(targetUsername);
+
+    // Мгновенная синхронизация со всеми подключенными клиентами в реальном времени!
+    io.emit('userProfileUpdated', {
+      username: targetUsername,
+      user: updatedUser,
+      coinsAdded: amt
+    });
+
+    if (typeof callback === 'function') {
+      callback({ success: true, newBalance: newBal, user: updatedUser });
+    }
+  });
+
+  socket.on('adminGetUsers', ({ login, password }, callback) => {
+    if (!checkAdminAuth(login, password)) {
+      if (typeof callback === 'function') callback({ error: 'Доступ запрещен' });
+      return;
+    }
+    const users = userManager.getAllUsers();
+    if (typeof callback === 'function') callback({ success: true, users });
+  });
+
+  socket.on('getUserProfile', ({ username }, callback) => {
+    const u = userManager.getUser(username);
+    if (typeof callback === 'function') callback(u);
   });
 
   // ===================== ИГРОВОЙ ПРОЦЕСС =====================
