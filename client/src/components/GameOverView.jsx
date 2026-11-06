@@ -9,7 +9,7 @@ export default function GameOverView({ roomState, myPlayerId, onRestart, onLeave
   const t = translations[lang] || translations.ru;
   const isHost = roomState?.hostId === myPlayerId;
   const players = roomState?.players || [];
-  const winners = players.filter(p => p.isAlive).slice(0, 2); // Строго 2 победителя!
+  const winners = players.filter(p => p.isAlive);
   const exiled = players.filter(p => !p.isAlive);
 
   useEffect(() => {
@@ -42,11 +42,11 @@ export default function GameOverView({ roomState, myPlayerId, onRestart, onLeave
         <div className="flex items-center justify-center gap-3 mb-6">
           <Trophy className="w-10 h-10 text-amber-400 animate-bounce" />
           <h2 className="font-display font-black text-2xl sm:text-4xl text-emerald-300 uppercase tracking-widest">
-            {winners.map(w => w.name).join('  &  ')}
+            {winners.map(w => w.name).join('  •  ')}
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto my-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl mx-auto my-6">
           {winners.map((p, idx) => (
             <div
               key={p.id}

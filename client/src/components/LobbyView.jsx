@@ -20,6 +20,10 @@ export default function LobbyView({
   const minPlayers = 3;
   const canStart = players.length >= minPlayers;
   const bots = players.filter(p => p.isBot);
+  const currentSpots = roomState?.bunkerCapacity || (players.length >= 12 ? 5 : players.length === 11 ? 4 : players.length === 10 ? 3 : 2);
+  const formattedRule = typeof t.importantRuleSpots === 'function'
+    ? t.importantRuleSpots(currentSpots)
+    : (t.importantRule || '').replace(/\{spots\}/g, currentSpots);
 
   const copyCode = () => {
     if (roomState?.code) {
@@ -107,10 +111,10 @@ export default function LobbyView({
           </div>
         </div>
 
-        {/* 2 Places rule badge */}
+        {/* Dynamic Places rule badge */}
         <div className="mt-5 p-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 flex items-center gap-2.5 text-xs text-amber-800 dark:text-amber-300 font-mono">
           <Trophy className="w-4 h-4 text-amber-500 shrink-0" />
-          <span>{t.importantRule}</span>
+          <span>{formattedRule}</span>
         </div>
       </div>
 
@@ -120,7 +124,7 @@ export default function LobbyView({
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-amber-500" />
             <h2 className="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">
-              {t.playersInLobby} ({players.length} / 10)
+              {t.playersInLobby} ({players.length} / 12)
             </h2>
           </div>
           <span className={`text-xs px-3 py-1 rounded-full font-mono font-bold ${
@@ -188,8 +192,8 @@ export default function LobbyView({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-            {/* Add Bot Button */}
-            {isHost && players.length < 10 && (
+            {/* Add Bot Button (Up to 12 players) */}
+            {isHost && players.length < 12 && (
               <button
                 onClick={() => {
                   soundManager.playBeep(650, 0.06);

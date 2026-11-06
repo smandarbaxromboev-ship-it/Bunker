@@ -460,7 +460,7 @@ export default function App() {
           <div className="text-center space-y-2 sm:space-y-3 mb-6 sm:mb-10">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider">
               <Radio className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-              ОНЛАЙН-ИГРА • 4-10 ИГРОКОВ • 2 МЕСТА
+              ОНЛАЙН-ИГРА • 3-12 ИГРОКОВ • 2-5 ПРИЗОВЫХ МЕСТ
             </div>
 
             <h1 className="text-3xl sm:text-5xl font-display font-black tracking-wide text-slate-900 dark:text-white">
@@ -589,7 +589,7 @@ export default function App() {
         </div>
 
         <footer className="text-center py-3 text-[10px] sm:text-[11px] text-slate-400 dark:text-zinc-600 font-mono">
-          БУНКЕР: 7 РАУНДОВ • МУЛЬТИПЛЕЕР 4-10 ЧЕЛОВЕК • СВЕТЛАЯ И ТЕМНАЯ ТЕМА
+          БУНКЕР: 7 РАУНДОВ • МУЛЬТИПЛЕЕР 3-12 ЧЕЛОВЕК • 2-5 МЕСТ В БУНКЕРЕ
         </footer>
 
         {/* Auth Modal */}

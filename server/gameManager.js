@@ -13,6 +13,18 @@ const BOT_CHARACTERS = [
   { avatar: '🎯', name: { ru: 'Неоновый Снайпер', en: 'Neon Sniper', uz: 'Neon Mergan' }, borderClass: 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)]', glowClass: 'ring-2 ring-yellow-400', title: { ru: 'Легенда Пустошей', en: 'Wasteland Legend', uz: 'Sahro Afsonasi' }, titleColor: 'text-yellow-400 font-bold' }
 ];
 
+// Динамический расчет призовых мест:
+// 3..9 игроков -> 2 места
+// 10 игроков -> 3 места
+// 11 игроков -> 4 места
+// 12 игроков -> 5 мест
+function calculateBunkerCapacity(playerCount) {
+  if (playerCount >= 12) return 5;
+  if (playerCount === 11) return 4;
+  if (playerCount === 10) return 3;
+  return 2;
+}
+
 function resolvePlayerCharacter(userProfile) {
   if (userProfile && userProfile.characterDetails) {
     return {
@@ -38,25 +50,25 @@ const DISASTERS = [
   {
     title: { ru: "Ядерный взрыв", en: "Nuclear Fallout", uz: "Yadroviy portlash" },
     desc: { 
-      ru: "Высокая радиация на поверхности. В живых останутся только те двое, кто займет места в бункере.",
-      en: "Extreme radiation above. Only the two survivors inside the bunker will make it.",
-      uz: "Tashqarida o'ta yuqori radiatsiya. Faqat bunkerga kirgan 2 kishi tirik qoladi."
+      ru: "Высокая радиация на поверхности. В живых останутся только те, кто займет места в бункере.",
+      en: "Extreme radiation above. Only survivors who secure bunker spots will make it.",
+      uz: "Tashqarida o'ta yuqori radiatsiya. Faqat bunkerga kirganlar tirik qoladi."
     }
   },
   {
     title: { ru: "Смертельный вирус", en: "Deadly Virus Outbreak", uz: "O'limli virus epidemiyasi" },
     desc: { 
-      ru: "Планета заражена мутагеном. В бункере стерильный воздух и ровно 2 спальных места.",
-      en: "Air is contaminated with mutagen. The bunker has clean air for exactly 2 people.",
-      uz: "Havo zaharli virus bilan to'lgan. Bunkerda faqat 2 kishi uchun joy bor."
+      ru: "Планета заражена мутагеном. В бункере стерильный воздух и ограниченное количество спальных мест.",
+      en: "Air is contaminated with mutagen. The bunker has clean air and strictly limited spots.",
+      uz: "Havo zaharli virus bilan to'lgan. Bunkerda faqat cheklangan joylar bor."
     }
   },
   {
     title: { ru: "Ледниковый период", en: "Ice Age -70°C", uz: "Muzlik davri -70°C" },
     desc: { 
-      ru: "Температура снаружи упала до -70°C. Теплогенератор бункера рассчитан ровно на 2 выживших.",
-      en: "Temperature outside dropped to -70°C. Shelter heater can support exactly 2 people.",
-      uz: "Tashqarida havo harorati -70°C ga tushdi. Isitgich faqat 2 kishini isita oladi."
+      ru: "Температура снаружи упала до -70°C. Теплогенератор бункера рассчитан на ограниченное число мест.",
+      en: "Temperature outside dropped to -70°C. Shelter heater can support only the designated winners.",
+      uz: "Tashqarida havo harorati -70°C ga tushdi. Isitgich faqat belgilangan joylarni isita oladi."
     }
   }
 ];
@@ -103,7 +115,7 @@ class GameManager {
       currentRound: 1,
       maxRounds: 7,
       disaster,
-      bunkerCapacity: 2, // Строго 2 выигрышных места!
+      bunkerCapacity: calculateBunkerCapacity(1),
       createdAt: Date.now(),
       timerExpiresAt: null,
       timerDuration: null,
@@ -132,9 +144,9 @@ class GameManager {
           senderId: 'SYSTEM',
           senderName: { ru: 'ТЕРМИНАЛ', en: 'TERMINAL', uz: 'TERMINAL' },
           text: {
-            ru: `Комната #${code} готова. Ожидание игроков (мест в бункере ровно 2!).`,
-            en: `Room #${code} is ready. Waiting for players (exactly 2 bunker spots!).`,
-            uz: `#${code} xona tayyor. O'yinchilar kutilmoqda (bunkerda roppa-rosa 2 ta joy!).`
+            ru: `Комната #${code} готова. Ожидание игроков (от 3 до 12 человек).`,
+            en: `Room #${code} is ready. Waiting for players (from 3 to 12 players).`,
+            uz: `#${code} xona tayyor. O'yinchilar kutilmoqda (3 dan 12 tagacha o'yinchi).`
           },
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           isSystem: true
@@ -157,8 +169,8 @@ class GameManager {
       return { error: 'Игра в этом бункере уже началась!' };
     }
 
-    if (room.players.length >= 10) {
-      return { error: 'Бункер переполнен (максимум 10 человек).' };
+    if (room.players.length >= 12) {
+      return { error: 'Бункер переполнен (максимум 12 человек).' };
     }
 
     const playerId = 'p_' + Math.random().toString(36).substring(2, 9);
@@ -178,10 +190,12 @@ class GameManager {
     };
 
     room.players.push(newPlayer);
+    room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
+
     this.addSystemMessage(room, {
-      ru: `Игрок ${newPlayer.name} подключился к комнате.`,
-      en: `Player ${newPlayer.name} connected to the room.`,
-      uz: `${newPlayer.name} xonaga qo'shildi.`
+      ru: `Игрок ${newPlayer.name} подключился к комнате (Игроков: ${room.players.length}/12, Призовых мест: ${room.bunkerCapacity}).`,
+      en: `Player ${newPlayer.name} connected to the room (Players: ${room.players.length}/12, Bunker spots: ${room.bunkerCapacity}).`,
+      uz: `${newPlayer.name} xonaga qo'shildi (O'yinchilar: ${room.players.length}/12, Bunkerda joylar: ${room.bunkerCapacity}).`
     });
     this.broadcastRoom(code);
 
@@ -203,12 +217,14 @@ class GameManager {
     const room = this.rooms.get(code);
     if (!room || room.status !== 'LOBBY') return;
     if (room.hostId !== requesterId) return;
-    if (room.players.length >= 10) return;
+    if (room.players.length >= 12) return;
 
     const botNames = [
       'Алексей', 'Дмитрий', 'Марина', 'Сардор',
       'Елена', 'Тимур', 'Анна', 'Рустам',
-      'Ольга', 'Жасур'
+      'Ольга', 'Жасур', 'Виктор', 'Алишер',
+      'София', 'Максим', 'Камила', 'Фаррух',
+      'Артур', 'Дильноза', 'Игорь', 'Шахзод'
     ];
     const availableNames = botNames.filter(name => !room.players.some(p => p.name === name));
     const botName = availableNames[0] || `Бот_${room.players.length + 1}`;
@@ -228,10 +244,12 @@ class GameManager {
       votedFor: null
     });
 
+    room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
+
     this.addSystemMessage(room, {
-      ru: `Бот ${botName} вошел в лобби.`,
-      en: `Bot ${botName} joined the lobby.`,
-      uz: `${botName} boti lobbiga kirdi.`
+      ru: `Бот ${botName} вошел в лобби (Игроков: ${room.players.length}/12, Призовых мест: ${room.bunkerCapacity}).`,
+      en: `Bot ${botName} joined the lobby (Players: ${room.players.length}/12, Bunker spots: ${room.bunkerCapacity}).`,
+      uz: `${botName} boti lobbiga kirdi (O'yinchilar: ${room.players.length}/12, Bunkerda joylar: ${room.bunkerCapacity}).`
     });
     this.broadcastRoom(code);
   }
@@ -244,10 +262,11 @@ class GameManager {
     const idx = room.players.findIndex(p => p.id === botId && p.isBot);
     if (idx !== -1) {
       const removed = room.players.splice(idx, 1)[0];
+      room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
       this.addSystemMessage(room, {
-        ru: `Бот ${removed.name} удален из комнаты.`,
-        en: `Bot ${removed.name} removed from the room.`,
-        uz: `${removed.name} boti xonadan o'chirildi.`
+        ru: `Бот ${removed.name} удален из комнаты (Игроков: ${room.players.length}/12, Призовых мест: ${room.bunkerCapacity}).`,
+        en: `Bot ${removed.name} removed from the room (Players: ${room.players.length}/12, Bunker spots: ${room.bunkerCapacity}).`,
+        uz: `${removed.name} boti xonadan o'chirildi (O'yinchilar: ${room.players.length}/12, Bunkerda joylar: ${room.bunkerCapacity}).`
       });
       this.broadcastRoom(code);
     }
@@ -260,9 +279,12 @@ class GameManager {
     if (room.players.length < 3) {
       return { error: 'Для старта нужно минимум 3 игрока. Добавьте ботов кнопкой!' };
     }
+    if (room.players.length > 12) {
+      return { error: 'В бункере максимум 12 игроков.' };
+    }
 
     room.currentRound = 1;
-    room.bunkerCapacity = 2; // Строго 2 выигрышных места!
+    room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
 
     // Генерируем колоды БЕЗ ДУБЛИКАТОВ для всех игроков
     const decks = generateDecksForPlayers(room.players.length);
@@ -277,10 +299,12 @@ class GameManager {
       player.votedFor = null;
     });
 
+    const cap = room.bunkerCapacity;
+    const count = room.players.length;
     this.addSystemMessage(room, {
-      ru: `ИГРА НАЧАЛАСЬ! Раунд 1 из 7. В бункере спасутся ровно 2 человека.`,
-      en: `GAME STARTED! Round 1 of 7. Exactly 2 people will survive in the bunker.`,
-      uz: `O'YIN BOSHLANDI! 7 raunddan 1-raund. Bunkerda roppa-rosa 2 kishi saqlanib qoladi.`
+      ru: `ИГРА НАЧАЛАСЬ! Раунд 1 из 7. Всего участников: ${count}. Призовых мест в бункере: ${cap}!`,
+      en: `GAME STARTED! Round 1 of 7. Total players: ${count}. Winning bunker spots: ${cap}!`,
+      uz: `O'YIN BOSHLANDI! 7 raunddan 1-raund. Jami ishtirokchilar: ${count}. Bunkerda g'oliblik joylari: ${cap} ta!`
     });
     this.startRevealPhase(room);
     return { success: true };
@@ -833,9 +857,10 @@ class GameManager {
     room.status = 'ROUND_RESULT';
     room.timerExpiresAt = null;
 
-    // Проверяем: осталось ли РОВНО 2 человека?
+    // Проверяем: осталось ли выживших <= bunkerCapacity человек?
     const remainingAlive = room.players.filter(p => p.isAlive);
-    if (remainingAlive.length <= 2) {
+    const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
+    if (remainingAlive.length <= capacity) {
       setTimeout(() => {
         this.endGame(room);
       }, 3500);
@@ -849,9 +874,10 @@ class GameManager {
     if (!room || room.status !== 'ROUND_RESULT') return;
 
     const alivePlayers = room.players.filter(p => p.isAlive);
+    const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
 
-    // Если осталось ровно 2 человека или раунд 7 завершен -> КОНЕЦ ИГРЫ
-    if (alivePlayers.length <= 2 || room.currentRound >= 7) {
+    // Если осталось <= capacity человек или раунд 7 завершен -> КОНЕЦ ИГРЫ
+    if (alivePlayers.length <= capacity || room.currentRound >= 7) {
       this.endGame(room);
       return;
     }
@@ -876,6 +902,7 @@ class GameManager {
 
     const winners = room.players.filter(p => p.isAlive);
     const winnerNames = winners.map(w => w.name).join(' & ');
+    const count = winners.length;
 
     // Начисляем награды победителям (+500 BunCoins и победу в статистику)
     winners.forEach(w => {
@@ -885,9 +912,9 @@ class GameManager {
     });
 
     this.addSystemMessage(room, {
-      ru: `🏆 ИГРА ОКОНЧЕНА! В бункер успешно попали 2 победителя: ${winnerNames}! Победителям начислено +500 BunCoins!`,
-      en: `🏆 GAME OVER! Exactly 2 winners made it into the bunker: ${winnerNames}! +500 BunCoins awarded to winners!`,
-      uz: `🏆 O'YIN YAKUNLANDI! Bunkerga 2 ta g'olib muvaffaqiyatli kirdi: ${winnerNames}! G'oliblarga +500 BunCoins berildi!`
+      ru: `🏆 ИГРА ОКОНЧЕНА! В бункер успешно попали ${count} победител(ей/я): ${winnerNames}! Победителям начислено +500 BunCoins!`,
+      en: `🏆 GAME OVER! Exactly ${count} winners made it into the bunker: ${winnerNames}! +500 BunCoins awarded to winners!`,
+      uz: `🏆 O'YIN YAKUNLANDI! Bunkerga ${count} ta g'olib muvaffaqiyatli kirdi: ${winnerNames}! G'oliblarga +500 BunCoins berildi!`
     });
     this.broadcastRoom(room.code);
   }
@@ -902,6 +929,7 @@ class GameManager {
     room.currentRound = 1;
     room.timerExpiresAt = null;
     room.activeTurnPlayerId = null;
+    room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
     room.players.forEach(p => {
       p.isAlive = true;
       p.deck = [];
@@ -1006,7 +1034,7 @@ class GameManager {
       currentRound: room.currentRound,
       maxRounds: room.maxRounds,
       disaster: room.disaster,
-      bunkerCapacity: 2, // Строго 2 места!
+      bunkerCapacity: room.bunkerCapacity || calculateBunkerCapacity(room.players.length),
       votingResults: room.votingResults,
       ghostVotes,
       timerExpiresAt: room.timerExpiresAt,
@@ -1083,6 +1111,7 @@ class GameManager {
         status: room.status,
         currentRound: room.currentRound,
         maxRounds: room.maxRounds,
+        bunkerCapacity: room.bunkerCapacity || calculateBunkerCapacity(room.players.length),
         disaster: room.disaster ? {
           title: room.disaster.title,
           desc: room.disaster.desc

@@ -17,8 +17,9 @@ export default function RoundResultModal({
   const results = roomState?.votingResults;
   const exiled = results?.exiledPlayer;
   const isExtraTimeElimination = Boolean(results?.isExtraTime);
+  const capacity = roomState?.bunkerCapacity || 2;
   const remainingAlive = (roomState?.players || []).filter(p => p.isAlive).length;
-  const willEndNow = remainingAlive <= 2 || roomState?.currentRound >= 7;
+  const willEndNow = remainingAlive <= capacity || roomState?.currentRound >= 7;
 
   const myPlayer = (roomState?.players || []).find(p => p.id === myPlayerId);
   const isAlive = myPlayer ? myPlayer.isAlive : true;
@@ -145,7 +146,7 @@ export default function RoundResultModal({
           <div className="text-xs text-amber-400 font-mono bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-800 mb-3 flex items-center justify-between">
             <span className="text-zinc-400">{t.remainingAliveInBunker}</span>
             <span className="font-bold text-sm text-emerald-400">
-              {remainingAlive} / 2
+              {remainingAlive} / {capacity}
             </span>
           </div>
         </div>

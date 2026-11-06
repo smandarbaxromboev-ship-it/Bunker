@@ -4,7 +4,7 @@
 export const translations = {
   ru: {
     title: "БУНКЕР: 7 РАУНДОВ",
-    subtitle: "Игра на выживание. Мест в бункере ровно 2!",
+    subtitle: "Игра на выживание. 3-12 игроков, от 2 до 5 мест в бункере!",
     createRoom: "СОЗДАТЬ КОМНАТУ",
     createRoomDesc: "Станьте создателем комнаты. Сервер сгенерирует 5-значный код.",
     joinRoom: "ВОЙТИ В КОМНАТУ",
@@ -27,7 +27,8 @@ export const translations = {
     spotsCount: "2",
     waitingHost: "Ожидание запуска игры создателем...",
     shareCodeHint: "Передайте этот 5-значный код друзьям, чтобы они присоединились со своих смартфонов.",
-    importantRule: "ВАЖНО: В этом бункере ровно 2 выигрышных места! До финала дойдут только 2 победителя.",
+    importantRule: "ВАЖНО: В этом бункере ровно {spots} выигрышных мест! До финала дойдут только {spots} победителя.",
+    importantRuleSpots: (spots) => `ВАЖНО: В этом бункере ровно ${spots} ${spots >= 5 ? 'выигрышных мест' : 'выигрышных места'}! До финала дойдут только ${spots} ${spots >= 5 ? 'победителей' : 'победителя'}.`,
     readyToStart: "ГОТОВЫ К СТАРТУ",
     needMorePlayers: "НУЖНО ЕЩЕ",
     roleHost: "Создатель",
@@ -154,7 +155,7 @@ export const translations = {
     
     // Rules
     rulesTitle: "ПРАВИЛА ИГРЫ:",
-    rule1: "1. Ровно 2 выигрышных места в бункере.",
+    rule1: "1. От 2 до 5 мест (10 игроков — 3 места, 11 игроков — 4 места, 12 игроков — 5 мест).",
     rule2: "2. Каждый раунд вы сами выбираете 1 карту, чтобы убедить остальных.",
     rule3: "3. Голосуйте против самых бесполезных или подозрительных.",
     rule4: "4. Если вас изгнали — вы становитесь Призраком и видите все тайные голоса!",
@@ -217,7 +218,7 @@ export const translations = {
 
   en: {
     title: "BUNKER: 7 ROUNDS",
-    subtitle: "Survival card bluff game. Exactly 2 bunker spots!",
+    subtitle: "Survival card bluff game. 3-12 players, 2-5 winning bunker spots!",
     createRoom: "CREATE ROOM",
     createRoomDesc: "Become the host. Server generates a 5-digit room code.",
     joinRoom: "JOIN A GAME",
@@ -240,7 +241,8 @@ export const translations = {
     spotsCount: "2",
     waitingHost: "Waiting for host to start...",
     shareCodeHint: "Share this 5-digit code with friends so they can join from their smartphones.",
-    importantRule: "IMPORTANT: Exactly 2 winning spots in this bunker! Only 2 survivors will reach the finale.",
+    importantRule: "IMPORTANT: Exactly {spots} winning spots in this bunker! Only {spots} survivors will reach the finale.",
+    importantRuleSpots: (spots) => `IMPORTANT: Exactly ${spots} winning spots in this bunker! Only ${spots} survivors will reach the finale.`,
     readyToStart: "READY TO START",
     needMorePlayers: "NEED MORE",
     roleHost: "Host",
@@ -367,7 +369,7 @@ export const translations = {
     
     // Rules
     rulesTitle: "GAME RULES:",
-    rule1: "1. Exactly 2 bunker survival spots.",
+    rule1: "1. 2 to 5 winning spots (10 players = 3 spots, 11 players = 4 spots, 12 players = 5 spots).",
     rule2: "2. Every round you choose 1 card to reveal to prove your value.",
     rule3: "3. Secretly vote out the least useful or most dangerous person.",
     rule4: "4. If eliminated, you become a Ghost and spy on all secret votes!",
@@ -430,7 +432,7 @@ export const translations = {
 
   uz: {
     title: "BUNKER: 7 RAUND",
-    subtitle: "Omon qolish o'yini. Bunkerda roppa-rosa 2 ta joy bor!",
+    subtitle: "Omon qolish o'yini. 3-12 o'yinchi, 2 dan 5 tagacha g'oliblik joyi!",
     createRoom: "XONA YARATISH",
     createRoomDesc: "Boshlovchi bo'ling. Tizim 5 xonali kod yaratadi.",
     joinRoom: "XONAGA KIRISH",
@@ -453,7 +455,8 @@ export const translations = {
     spotsCount: "2",
     waitingHost: "Boshlovchi o'yinni boshlashini kuting...",
     shareCodeHint: "Ushbu 5 xonali kodni do'stlaringizga yuboring, ular o'z smartfonlaridan qo'shilishlari mumkin.",
-    importantRule: "MUHIM: Ushbu bunkerda roppa-rosa 2 ta g'oliblik joyi bor! Finalgacha faqat 2 kishi yetib boradi.",
+    importantRule: "MUHIM: Ushbu bunkerda roppa-rosa {spots} ta g'oliblik joyi bor! Finalgacha faqat {spots} kishi yetib boradi.",
+    importantRuleSpots: (spots) => `MUHIM: Ushbu bunkerda roppa-rosa ${spots} ta g'oliblik joyi bor! Finalgacha faqat ${spots} kishi yetib boradi.`,
     readyToStart: "BOSHLASHGA TAYYOR",
     needMorePlayers: "YANA KERAK",
     roleHost: "Boshlovchi",
@@ -580,7 +583,7 @@ export const translations = {
     
     // Rules
     rulesTitle: "O'YIN QOIDALARI:",
-    rule1: "1. Bunkerda faqat 2 ta g'olib joyi bor.",
+    rule1: "1. 2 dan 5 tagacha g'oliblik joyi (10 o'yinchi — 3 joy, 11 o'yinchi — 4 joy, 12 o'yinchi — 5 joy).",
     rule2: "2. Har raundda foydali ekaningizni isbotlash uchun 1 ta kartani ochasiz.",
     rule3: "3. Keraksiz yoki xavfli odamga qarshi yashirin ovoz bering.",
     rule4: "4. Agar haydalsangiz — Arvoh bo'lasiz va barcha yashirin ovozlarni ko'rasiz!",

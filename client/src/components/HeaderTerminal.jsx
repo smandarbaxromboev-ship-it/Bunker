@@ -85,7 +85,7 @@ export default function HeaderTerminal({
             </div>
             <div className="text-[10px] text-slate-500 dark:text-zinc-400 flex items-center gap-1 font-mono truncate">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-              <span className="truncate">{t.bunkerCapacity} <strong className="text-emerald-600 dark:text-emerald-400 font-bold">2</strong></span>
+              <span className="truncate">{t.bunkerCapacity} <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{roomState?.bunkerCapacity || 2}</strong></span>
             </div>
           </div>
         </div>
@@ -104,7 +104,7 @@ export default function HeaderTerminal({
               <div className="text-center">
                 <div className="text-[9px] uppercase text-slate-400 dark:text-zinc-500 font-bold font-mono">{t.aliveSpots}</div>
                 <div className="text-xs sm:text-sm font-bold font-display text-emerald-600 dark:text-emerald-400">
-                  {aliveCount}<span className="text-slate-400 dark:text-zinc-600">/</span>2
+                  {aliveCount}<span className="text-slate-400 dark:text-zinc-600">/</span>{roomState?.bunkerCapacity || 2}
                 </div>
               </div>
             </div>
