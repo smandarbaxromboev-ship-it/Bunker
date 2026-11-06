@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import { 
   ShieldAlert, Users, LogIn, PlusCircle, Radio, 
   Terminal, AlertOctagon, HelpCircle, Trophy, Ghost,
-  MessageSquare, Sparkles, CheckSquare, Sun, Moon
+  MessageSquare, Sparkles, CheckSquare, Sun, Moon, Vote
 } from 'lucide-react';
 import { soundManager } from './utils/audio';
 import { translations, getLocalized } from './utils/translations';
@@ -62,6 +62,17 @@ export default function App() {
   // Modals
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShopModal, setShowShopModal] = useState(false);
+  const [showVotingModal, setShowVotingModal] = useState(true);
+  const [showResultModal, setShowResultModal] = useState(true);
+
+  // Auto-open voting and result modals on round phase change
+  useEffect(() => {
+    if (roomState?.status === 'ROUND_VOTING') {
+      setShowVotingModal(true);
+    } else if (roomState?.status === 'ROUND_RESULT') {
+      setShowResultModal(true);
+    }
+  }, [roomState?.status]);
 
   // URL Popstate tracking for /admin and /
   useEffect(() => {
@@ -279,9 +290,9 @@ export default function App() {
     socket.emit('restartGame', { roomCode: roomState.code, requesterId: myPlayerId });
   };
 
-  const handleSendMessage = (text) => {
+  const handleSendMessage = (text, sticker = null) => {
     if (!roomState?.code) return;
-    socket.emit('sendMessage', { roomCode: roomState.code, senderId: myPlayerId, text });
+    socket.emit('sendMessage', { roomCode: roomState.code, senderId: myPlayerId, text, sticker });
   };
 
   const handleApplyTrump = (payload, callback) => {
@@ -298,7 +309,7 @@ export default function App() {
   const myPlayer = roomState?.players?.find((p) => p.id === myPlayerId);
   const isAlive = myPlayer ? myPlayer.isAlive : true;
   const isHost = roomState?.hostId === myPlayerId;
-  const isChatLocked = roomState?.status === 'ROUND_VOTING' || roomState?.status === 'ROUND_RESULT';
+  const isChatLocked = false; // Чат теперь доступен всегда, даже во время и после голосования!
 
   // DEDICATED /admin ROUTE
   if (currentPath === '/admin') {
@@ -656,6 +667,7 @@ export default function App() {
         onOpenShop={() => setShowShopModal(true)}
         onLeaveRoom={handleLeaveRoom}
         onLogout={handleLogout}
+        isAlive={isAlive}
       />
 
       {/* Main Grid: Tablet & Desktop side-by-side (md:grid-cols-12), Phone stacked with bottom tabs */}
@@ -796,24 +808,54 @@ export default function App() {
         />
       )}
 
-      {/* 2. Secret Voting Modal */}
-      {roomState?.status === 'ROUND_VOTING' && (
+      {/* 2. Secret Voting Modal (Minimizable so players can chat and vote whenever they want) */}
+      {roomState?.status === 'ROUND_VOTING' && showVotingModal && (
         <VotingModal
           roomState={roomState}
           myPlayerId={myPlayerId}
           onCastVote={handleCastVote}
+          onClose={() => setShowVotingModal(false)}
+          onLeaveRoom={handleLeaveRoom}
           lang={lang}
         />
       )}
 
-      {/* 3. Round Result / Exile Modal */}
-      {roomState?.status === 'ROUND_RESULT' && (
+      {/* Floating Button when Voting is Active but minimized */}
+      {roomState?.status === 'ROUND_VOTING' && !showVotingModal && (
+        <div className="fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 z-40 animate-bounce">
+          <button
+            onClick={() => setShowVotingModal(true)}
+            className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-display font-extrabold text-sm shadow-[0_0_25px_rgba(239,68,68,0.5)] border-2 border-red-400 flex items-center gap-2 cursor-pointer"
+          >
+            <Vote className="w-4 h-4 fill-current" />
+            <span>{t.btnOpenVoting || "🗳️ Открыть голосование"}</span>
+          </button>
+        </div>
+      )}
+
+      {/* 3. Round Result / Exile Modal (Minimizable to talk in chat) */}
+      {roomState?.status === 'ROUND_RESULT' && showResultModal && (
         <RoundResultModal
           roomState={roomState}
           myPlayerId={myPlayerId}
           onNextRound={handleNextRound}
+          onClose={() => setShowResultModal(false)}
+          onLeaveRoom={handleLeaveRoom}
           lang={lang}
         />
+      )}
+
+      {/* Floating Button when Result is Active but minimized */}
+      {roomState?.status === 'ROUND_RESULT' && !showResultModal && (
+        <div className="fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 z-40 animate-pulse">
+          <button
+            onClick={() => setShowResultModal(true)}
+            className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-display font-extrabold text-sm shadow-[0_0_25px_rgba(245,158,11,0.5)] border-2 border-amber-400 flex items-center gap-2 cursor-pointer"
+          >
+            <span>⚠️</span>
+            <span>{lang === 'uz' ? "Raund natijalari (ko'rsatish)" : lang === 'en' ? "Round Results (Show)" : "Итоги раунда (Показать)"}</span>
+          </button>
+        </div>
       )}
 
       {/* 4. Full Card Detail Inspector Modal (Tap any card to view full text) */}

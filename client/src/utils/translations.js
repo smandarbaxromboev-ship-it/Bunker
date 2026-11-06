@@ -139,9 +139,18 @@ export const translations = {
     
     // Chat
     chatTitle: "ЧАТ БУНКЕРА",
-    chatPlaceholder: "Напишите сообщение...",
-    chatLocked: "Чат закрыт на время голосования",
-    chatExiled: "Вы изгнаны — чат отключен",
+    chatPlaceholder: "Напишите аргумент или сообщение...",
+    chatLocked: "Голосование активно",
+    chatExiled: "Призрачный чат активен",
+    ghostChatBanner: "👻 Призрачный чат: видят только выбывшие игроки. Живые вас не слышат!",
+    ghostChatPlaceholder: "👻 Чат призраков (видят только выбывшие)...",
+    ghostVisionCardBadge: "ПРИЗРАЧНОЕ ЗРЕНИЕ",
+    ghostVisionHint: "👻 В призрачном режиме вам открыты все карты живых игроков!",
+    ghostLockedNotice: "Выбывшие игроки остаются наблюдать до финала бункера",
+    btnMinimizeVoting: "Свернуть окно",
+    btnOpenVoting: "🗳️ Голосование",
+    btnStickers: "Стикеры",
+    stickersTitle: "Стикеры бункера",
     
     // Rules
     rulesTitle: "ПРАВИЛА ИГРЫ:",
@@ -344,8 +353,17 @@ export const translations = {
     // Chat
     chatTitle: "BUNKER CHAT",
     chatPlaceholder: "Type your argument...",
-    chatLocked: "Chat is muted during voting",
-    chatExiled: "You are exiled — radio is disabled",
+    chatLocked: "Voting in progress",
+    chatExiled: "Ghost chat active",
+    ghostChatBanner: "👻 Ghost Chat: visible only to eliminated players. Living players cannot hear you!",
+    ghostChatPlaceholder: "👻 Ghost chat (visible only to dead)...",
+    ghostVisionCardBadge: "GHOST VISION",
+    ghostVisionHint: "👻 In ghost mode you see all secret cards of living players!",
+    ghostLockedNotice: "Eliminated players must spectate until the bunker finale",
+    btnMinimizeVoting: "Minimize window",
+    btnOpenVoting: "🗳️ Vote",
+    btnStickers: "Stickers",
+    stickersTitle: "Bunker Stickers",
     
     // Rules
     rulesTitle: "GAME RULES:",
@@ -548,8 +566,17 @@ export const translations = {
     // Chat
     chatTitle: "BUNKER CHATI",
     chatPlaceholder: "Xabaringizni yozing...",
-    chatLocked: "Ovoz berish vaqtida chat bloklangan",
-    chatExiled: "Siz haydalgansiz — chat o'chirilgan",
+    chatLocked: "Ovoz berish faol",
+    chatExiled: "Ruhlar chati faol",
+    ghostChatBanner: "👻 Ruhlar chati: faqat o'yindan chiqqanlar ko'radi. Tiriklar eshitmaydi!",
+    ghostChatPlaceholder: "👻 Ruhlar chati (faqat chiqqanlar uchun)...",
+    ghostVisionCardBadge: "RUH NIGOHI",
+    ghostVisionHint: "👻 Ruh rejimida tirik o'yinchilarning barcha maxfiy kartalari sizga ochiq!",
+    ghostLockedNotice: "O'yindan chiqqanlar finalgacha kuzatuvchi bo'lib qoladi",
+    btnMinimizeVoting: "Oynani yashirish",
+    btnOpenVoting: "🗳️ Ovoz berish",
+    btnStickers: "Stikerlar",
+    stickersTitle: "Bunker Stikerlari",
     
     // Rules
     rulesTitle: "O'YIN QOIDALARI:",

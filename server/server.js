@@ -248,9 +248,9 @@ io.on('connection', (socket) => {
     gameManager.restartToLobby(roomCode, requesterId);
   });
 
-  // Отправка текстового сообщения в чат
-  socket.on('sendMessage', ({ roomCode, senderId, text }) => {
-    gameManager.addChatMessage(roomCode, senderId, text);
+  // Отправка текстового сообщения или стикера в чат
+  socket.on('sendMessage', ({ roomCode, senderId, text, sticker }) => {
+    gameManager.addChatMessage(roomCode, senderId, text, sticker);
   });
 
   socket.on('disconnect', () => {

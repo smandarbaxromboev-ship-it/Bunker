@@ -925,28 +925,40 @@ class GameManager {
     this.broadcastRoom(code);
   }
 
-  addChatMessage(code, senderId, text) {
+  addChatMessage(code, senderId, text, sticker = null) {
     const room = this.rooms.get(code);
     if (!room) return;
 
     const sender = room.players.find(p => p.id === senderId);
     if (!sender) return;
 
-    if (!sender.isAlive) return; // Изгнанные не могут писать в чат живых
-    if (room.status === 'ROUND_VOTING' || room.status === 'ROUND_RESULT') return;
+    // Чат доступен ВСЕГДА (даже во время и после голосования)!
+    // Если игрок выбыл, сообщение отправляется в закрытый "Призрачный чат" (видят только мертвые)
+    const isGhostMessage = !sender.isAlive;
 
     const msg = {
       id: 'msg_' + Math.random().toString(36).substring(2, 9),
       senderId: sender.id,
       senderName: sender.name,
-      text: text.trim().substring(0, 300),
+      senderAvatar: sender.character?.avatar || (sender.isBot ? '🤖' : '🥷'),
+      text: (text || '').trim().substring(0, 300),
+      sticker: sticker || null,
+      isGhost: isGhostMessage,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isSystem: false
     };
 
     room.messages.push(msg);
-    if (room.messages.length > 100) room.messages.shift();
-    this.io.to(code).emit('chatMessage', msg);
+    if (room.messages.length > 150) room.messages.shift();
+
+    // Призрачные сообщения доставляются ТОЛЬКО выбывшим игрокам! Живые их не видят!
+    room.players.forEach(p => {
+      if (p.socketId) {
+        if (!isGhostMessage || !p.isAlive) {
+          this.io.to(p.socketId).emit('chatMessage', msg);
+        }
+      }
+    });
   }
 
   addSystemMessage(room, textObj) {
@@ -1024,8 +1036,12 @@ class GameManager {
           hasVoted: p.votedFor !== null,
           votedFor: isSelf ? p.votedFor : null,
           deck: p.deck.map(card => {
-            if (isSelf || card.revealed || isGameOver) {
-              return card;
+            // В призрачном режиме (isSpectatorOrGhost) выбывшие игроки видят абсолютно ВСЕ карты всех живых!
+            if (isSelf || card.revealed || isGameOver || isSpectatorOrGhost) {
+              return {
+                ...card,
+                ghostVision: !card.revealed && isSpectatorOrGhost
+              };
             }
             return {
               id: card.id,
@@ -1039,7 +1055,8 @@ class GameManager {
           })
         };
       }),
-      messages: room.messages
+      // Фильтрация сообщений: призрачные сообщения видят только призраки/наблюдатели
+      messages: room.messages.filter(m => !m.isGhost || isSpectatorOrGhost)
     };
   }
 

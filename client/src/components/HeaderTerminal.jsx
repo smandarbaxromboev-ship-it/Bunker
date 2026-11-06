@@ -20,7 +20,8 @@ export default function HeaderTerminal({
   onOpenAuth,
   onOpenShop,
   onLeaveRoom,
-  onLogout
+  onLogout,
+  isAlive = true
 }) {
   const [showDisaster, setShowDisaster] = useState(false);
   const t = translations[lang] || translations.ru;
@@ -44,7 +45,7 @@ export default function HeaderTerminal({
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
         {/* Left: Brand & Room code & Back button */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {onLeaveRoom && (
+          {onLeaveRoom && isAlive && (
             <button
               onClick={() => {
                 soundManager.playBeep(600, 0.05);
@@ -58,6 +59,16 @@ export default function HeaderTerminal({
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">{t.btnBack}</span>
             </button>
+          )}
+
+          {onLeaveRoom && !isAlive && (
+            <div
+              title={t.ghostLockedNotice || "Выбывшие игроки остаются наблюдать в призрачном режиме до финала"}
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-purple-950/60 border border-purple-800/80 text-purple-300 text-xs font-mono font-bold flex items-center gap-1 shadow-sm shrink-0 cursor-not-allowed select-none"
+            >
+              <span className="text-sm">👻</span>
+              <span className="hidden sm:inline text-[11px]">{t.ghostLockedNotice ? 'Призрак (заблокировано)' : 'Призрак'}</span>
+            </div>
           )}
 
           <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-center justify-center shrink-0">

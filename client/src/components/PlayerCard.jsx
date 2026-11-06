@@ -132,7 +132,8 @@ export default function PlayerCard({
       <div className="p-2 sm:p-3 space-y-1.5 flex-1">
         {deck.map((card, i) => {
           const IconComp = ICON_MAP[card.type] || FileText;
-          const isRevealed = card.revealed;
+          const isRevealed = card.revealed || card.ghostVision;
+          const isGhostView = Boolean(card.ghostVision);
           const isExpanded = expandedCardId === card.id;
 
           const cardName = getLocalized(card.name, lang);
@@ -147,6 +148,8 @@ export default function PlayerCard({
               className={`p-2 sm:p-2.5 rounded-2xl border text-xs transition-all cursor-pointer select-none ${
                 !isRevealed
                   ? 'bg-slate-50 dark:bg-zinc-950/40 border-slate-200 dark:border-zinc-800 text-slate-400 dark:text-zinc-500 hover:border-slate-300 dark:hover:border-zinc-700'
+                  : isGhostView
+                  ? 'bg-purple-950/20 dark:bg-purple-950/30 border-purple-800/50 text-purple-200 hover:border-purple-600 shadow-sm'
                   : isExpanded
                   ? 'bg-amber-50 dark:bg-zinc-950 border-amber-400 dark:border-amber-500/80 shadow-md ring-1 ring-amber-400'
                   : 'bg-slate-50/70 dark:bg-zinc-950/90 border-slate-200 dark:border-zinc-750 text-slate-800 dark:text-zinc-200 hover:border-amber-300 dark:hover:border-zinc-600 shadow-sm'
@@ -157,12 +160,16 @@ export default function PlayerCard({
                   <div className={`p-1.5 rounded-xl shrink-0 ${
                     !isRevealed 
                       ? 'bg-slate-200 dark:bg-zinc-900 text-slate-400 dark:text-zinc-600' 
+                      : isGhostView
+                      ? 'bg-purple-900/30 text-purple-400 border border-purple-700/40'
                       : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                   }`}>
                     <IconComp className="w-3.5 h-3.5" />
                   </div>
                   
-                  <span className="font-bold text-slate-500 dark:text-zinc-400 text-[11px] shrink-0 font-mono">
+                  <span className={`font-bold text-[11px] shrink-0 font-mono ${
+                    isGhostView ? 'text-purple-400' : 'text-slate-500 dark:text-zinc-400'
+                  }`}>
                     {cardName}:
                   </span>
 
@@ -170,6 +177,8 @@ export default function PlayerCard({
                   <span className={`text-xs font-medium ${
                     !isRevealed 
                       ? 'text-slate-400 dark:text-zinc-600 italic font-mono truncate' 
+                      : isGhostView
+                      ? 'text-purple-200 font-semibold truncate'
                       : isExpanded
                       ? 'text-amber-700 dark:text-amber-300 font-bold break-words'
                       : 'text-amber-600 dark:text-amber-300 truncate'
@@ -181,6 +190,11 @@ export default function PlayerCard({
                 <div className="flex items-center gap-1 shrink-0">
                   {!isRevealed ? (
                     <Lock className="w-3 h-3 text-slate-400 dark:text-zinc-600" />
+                  ) : isGhostView ? (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-900/50 text-purple-300 border border-purple-700/60 font-mono font-bold flex items-center gap-0.5">
+                      <span>👻</span>
+                      <span className="hidden sm:inline">{t.ghostVisionCardBadge || 'ПРИЗРАК'}</span>
+                    </span>
                   ) : (
                     <>
                       <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 font-mono font-bold">
