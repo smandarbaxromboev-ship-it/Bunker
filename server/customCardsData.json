@@ -2,6 +2,22 @@
   "cards": {
     "PROFESSIONS": [
       {
+        "ru": "Тестовая профессия 999",
+        "en": "Test profession 999",
+        "uz": "Test kasbi 999",
+        "d_ru": "Описание тестовой профессии",
+        "d_en": "Description of test profession",
+        "d_uz": "Test kasbi tavsifi"
+      },
+      {
+        "ru": "Тестовая профессия 999",
+        "en": "Test profession 999",
+        "uz": "Test kasbi 999",
+        "d_ru": "Описание тестовой профессии",
+        "d_en": "Description of test profession",
+        "d_uz": "Test kasbi tavsifi"
+      },
+      {
         "ru": "Хирург",
         "en": "Surgeon",
         "uz": "Xirurg",
@@ -2784,22 +2800,6 @@
         "d_ru": "Вынослив и дерется в воде и на суше",
         "d_en": "Marine specialist",
         "d_uz": "Dengiz piyodasi mutaxassisi"
-      },
-      {
-        "ru": "Главный Офицер береговой охраны",
-        "en": "Chief Coast Guard Officer",
-        "uz": "Bosh Sohil xavfsizligi ofitseri",
-        "d_ru": "Управляет катерами и шлюпками",
-        "d_en": "Coast Guard Officer specialist",
-        "d_uz": "Sohil xavfsizligi ofitseri mutaxassisi"
-      },
-      {
-        "ru": "Главный Специалист РЭБ (глушилки)",
-        "en": "Chief Electronic Warfare Tech",
-        "uz": "Bosh REB mutaxassisi",
-        "d_ru": "Глушит чужую связь и локаторы",
-        "d_en": "Electronic Warfare Tech specialist",
-        "d_uz": "REB mutaxassisi mutaxassisi"
       }
     ],
     "HEALTH": [

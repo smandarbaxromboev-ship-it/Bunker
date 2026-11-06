@@ -23,7 +23,11 @@ import AuthModal from './components/AuthModal';
 import ShopModal from './components/ShopModal';
 import AdminPageView from './components/AdminPageView';
 
-const socket = io("https://bunker-ymqm.onrender.com");
+const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  ? undefined 
+  : "https://bunker-ymqm.onrender.com";
+
+const socket = io(BACKEND_URL);
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);

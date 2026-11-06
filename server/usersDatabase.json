@@ -42,5 +42,47 @@
       "roundsSurvived": 0
     },
     "createdAt": "2026-11-06T05:24:57.019Z"
+  },
+  "testadminuser_1793944800106": {
+    "username": "TestAdminUser_1793944800106",
+    "password": "password123",
+    "bunCoins": 500,
+    "inventory": [
+      "char_stalker",
+      "frame_default",
+      "title_survivor"
+    ],
+    "equipped": {
+      "character": "char_stalker",
+      "frame": "frame_default",
+      "title": "title_survivor"
+    },
+    "stats": {
+      "gamesPlayed": 0,
+      "wins": 0,
+      "roundsSurvived": 0
+    },
+    "createdAt": "2026-11-06T06:00:00.107Z"
+  },
+  "testadminuser_1793944852153": {
+    "username": "TestAdminUser_1793944852153",
+    "password": "password123",
+    "bunCoins": 750,
+    "inventory": [
+      "char_stalker",
+      "frame_default",
+      "title_survivor"
+    ],
+    "equipped": {
+      "character": "char_stalker",
+      "frame": "frame_default",
+      "title": "title_survivor"
+    },
+    "stats": {
+      "gamesPlayed": 0,
+      "wins": 0,
+      "roundsSurvived": 0
+    },
+    "createdAt": "2026-11-06T06:00:52.153Z"
   }
 }
