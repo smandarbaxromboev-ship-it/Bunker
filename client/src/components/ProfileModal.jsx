@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, Link as LinkIcon, Sparkles, X, Check, Trophy, Shield, Coins, Trash2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { User, Link as LinkIcon, Sparkles, X, Check, Trophy, Shield, Coins, Trash2, Upload } from 'lucide-react';
 import CharacterAvatar from './CharacterAvatar';
 import { soundManager } from '../utils/audio';
 import { translations } from '../utils/translations';
@@ -10,6 +10,48 @@ export default function ProfileModal({ user, socket, lang = 'ru', onClose, onPro
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const fileInputRef = useRef(null);
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg(lang === 'uz' ? 'Faqat rasm fayllari qabul qilinadi!' : lang === 'en' ? 'Only image files are allowed!' : 'Пожалуйста, выберите файл изображения!');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 300;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setAvatarUrl(dataUrl);
+        soundManager.playBeep(900, 0.05);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSavePhoto = (e) => {
     e.preventDefault();
@@ -154,11 +196,33 @@ export default function ProfileModal({ user, socket, lang = 'ru', onClose, onPro
                 </button>
               )}
             </label>
+
+            {/* Upload Buttons Row */}
+            <div className="flex gap-2 items-center mb-2">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                accept="image/*" 
+                onChange={handleFileUpload} 
+                className="hidden" 
+              />
+              
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 py-2 px-3 rounded-xl bg-zinc-950 hover:bg-zinc-800 border border-zinc-700 text-xs font-mono font-medium text-amber-300 hover:text-amber-200 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Upload className="w-3.5 h-3.5 text-amber-400" />
+                <span className="truncate">{t.authUploadPhoto || '📁 Загрузить с устройства'}</span>
+              </button>
+            </div>
+
+            {/* Direct Link Input */}
             <div className="relative">
               <LinkIcon className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
               <input
                 type="url"
-                value={avatarUrl}
+                value={avatarUrl.startsWith('data:') ? '' : avatarUrl}
                 onChange={(e) => setAvatarUrl(e.target.value)}
                 placeholder="https://example.com/avatar.jpg"
                 className="w-full bg-zinc-950 border border-zinc-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl pl-9 pr-3 py-2 text-xs text-zinc-100 placeholder-zinc-600 outline-none transition font-mono"

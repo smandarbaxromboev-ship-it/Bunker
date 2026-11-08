@@ -250,8 +250,12 @@ export const translations = {
     authRegisterSubtitle: "Создайте профиль для участия в игре",
     authLoginSubtitle: "Вход в систему выживания",
     authStarterBonus: "Бонус новичку:",
-    authPhotoUrlLabel: "Ссылка на фото / аватарку:",
+    authPhotoUrlLabel: "Фото профиля (файл или ссылка):",
     authOptional: "(по желанию)",
+    authUploadPhoto: "📁 Загрузить файл с устройства",
+    authClearPhoto: "Очистить",
+    authPhotoHint: "Загрузите любую фотку со смартфона/ПК, вставьте ссылку или оставьте пустым.",
+    mandatoryAccountNotice: "Для участия в игре требуется аккаунт. Регистрация бесплатна!",
 
     // Rules Modal Complete
     rulesMandatoryBadge: "ОБЯЗАТЕЛЬНЫЙ ИНСТРУКТАЖ",
@@ -533,8 +537,12 @@ export const translations = {
     authRegisterSubtitle: "Create a survivor account to join games",
     authLoginSubtitle: "Login to the bunker survival terminal",
     authStarterBonus: "Starter bonus:",
-    authPhotoUrlLabel: "Photo / Avatar URL:",
+    authPhotoUrlLabel: "Profile photo (file or link):",
     authOptional: "(optional)",
+    authUploadPhoto: "📁 Upload photo from device",
+    authClearPhoto: "Clear",
+    authPhotoHint: "Upload any photo from your phone/PC, paste a link, or leave empty.",
+    mandatoryAccountNotice: "An account is required to participate. Registration is free!",
 
     // Rules Modal Complete
     rulesMandatoryBadge: "MANDATORY BRIEFING",
@@ -816,8 +824,12 @@ export const translations = {
     authRegisterSubtitle: "O'yinda qatnashish uchun profil yarating",
     authLoginSubtitle: "Omon qolish tizimiga kirish",
     authStarterBonus: "Yangi ishtirokchi bonusi:",
-    authPhotoUrlLabel: "Rasm / avatar havolasi:",
+    authPhotoUrlLabel: "Profil rasmi (fayl yoki havola):",
     authOptional: "(ixtiyoriy)",
+    authUploadPhoto: "📁 Qurilmadan rasm yuklash",
+    authClearPhoto: "Tozalash",
+    authPhotoHint: "Telefon yoki kompyuterdan ixtiyoriy rasm yuklang, havola qo'ying yoki bo'sh qoldiring.",
+    mandatoryAccountNotice: "O'yinda qatnashish uchun hisob talab qilinadi. Ro'yxatdan o'tish bepul!",
 
     // Rules Modal Complete
     rulesMandatoryBadge: "MAJBURIY KO'RSATMA",

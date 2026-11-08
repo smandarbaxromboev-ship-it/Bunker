@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { translations } from '../utils/translations';
-import { Shield, Lock, User, Sparkles, X, AlertCircle, Image as ImageIcon, Link as LinkIcon, CheckCircle2 } from 'lucide-react';
+import { Shield, Lock, User, Sparkles, X, AlertCircle, Upload, Link as LinkIcon, CheckCircle2, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { soundManager } from '../utils/audio';
 
 export default function AuthModal({ socket, lang, onClose, onAuthSuccess }) {
   const t = translations[lang] || translations.ru;
@@ -10,6 +11,49 @@ export default function AuthModal({ socket, lang, onClose, onAuthSuccess }) {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError(lang === 'uz' ? 'Faqat rasm fayllari qabul qilinadi!' : lang === 'en' ? 'Only image files are allowed!' : 'Пожалуйста, выберите файл изображения!');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Resize to max 300x300 for optimal fast websocket transfer
+        const canvas = document.createElement('canvas');
+        const maxDim = 300;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setAvatarUrl(dataUrl);
+        soundManager.playBeep(900, 0.05);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -31,6 +75,7 @@ export default function AuthModal({ socket, lang, onClose, onAuthSuccess }) {
       if (res && res.error) {
         setError(res.error);
       } else if (res && res.success && res.user) {
+        soundManager.playBeep(880, 0.1);
         onAuthSuccess(res.user, tab === 'register');
         onClose();
       } else {
@@ -41,7 +86,7 @@ export default function AuthModal({ socket, lang, onClose, onAuthSuccess }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-md bg-zinc-900 border-2 border-amber-500/60 rounded-3xl shadow-2xl p-6 text-zinc-100 font-sans overflow-hidden">
+      <div className="relative w-full max-w-md bg-zinc-900 border-2 border-amber-500/60 rounded-3xl shadow-2xl p-5 sm:p-6 text-zinc-100 font-sans overflow-hidden">
         {/* Amber cyber ambient glow */}
         <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -70,7 +115,7 @@ export default function AuthModal({ socket, lang, onClose, onAuthSuccess }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex bg-zinc-950/80 p-1 rounded-2xl mb-5 border border-zinc-800">
+        <div className="flex bg-zinc-950/80 p-1 rounded-2xl mb-4 border border-zinc-800">
           <button
             type="button"
             onClick={() => { setTab('login'); setError(''); }}
@@ -154,26 +199,46 @@ export default function AuthModal({ socket, lang, onClose, onAuthSuccess }) {
             </div>
           </div>
 
-          {/* Photo / Avatar URL (optional) */}
+          {/* Photo / Avatar (File upload or direct URL) */}
           {tab === 'register' && (
-            <div className="pt-1">
-              <label className="block text-xs font-mono text-zinc-400 mb-1 flex items-center justify-between">
-                <span>{t.authPhotoUrlLabel || 'Ссылка на фото / аватарку:'}</span>
+            <div className="pt-1 space-y-2">
+              <label className="block text-xs font-mono text-zinc-400 flex items-center justify-between">
+                <span>{t.authPhotoUrlLabel || 'Фото профиля (файл или ссылка):'}</span>
                 <span className="text-[10px] text-amber-400 font-normal">{t.authOptional || '(по желанию)'}</span>
               </label>
+
+              {/* Upload Buttons Row */}
               <div className="flex gap-2 items-center">
-                <div className="relative flex-1">
-                  <LinkIcon className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
-                  <input
-                    type="url"
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    placeholder="https://example.com/photo.jpg"
-                    className="w-full bg-zinc-950 border border-zinc-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl pl-9 pr-3 py-2 text-xs text-zinc-100 placeholder-zinc-600 outline-none transition font-mono"
-                  />
-                </div>
-                {/* Live Preview of custom photo */}
-                <div className="w-9 h-9 rounded-xl bg-zinc-950 border-2 border-amber-500/50 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  accept="image/*" 
+                  onChange={handleFileUpload} 
+                  className="hidden" 
+                />
+                
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-1 py-2 px-3 rounded-xl bg-zinc-950 hover:bg-zinc-800 border border-zinc-700 text-xs font-mono font-medium text-amber-300 hover:text-amber-200 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Upload className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="truncate">{t.authUploadPhoto || '📁 Загрузить с устройства'}</span>
+                </button>
+
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatarUrl('')}
+                    title={t.authClearPhoto || 'Очистить'}
+                    className="p-2 rounded-xl bg-red-950/60 hover:bg-red-900 border border-red-800 text-red-400 transition cursor-pointer shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {/* Live Preview Avatar */}
+                <div className="w-9 h-9 rounded-xl bg-zinc-950 border-2 border-amber-500/60 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
                   {avatarUrl ? (
                     <img 
                       src={avatarUrl} 
@@ -186,8 +251,21 @@ export default function AuthModal({ socket, lang, onClose, onAuthSuccess }) {
                   )}
                 </div>
               </div>
-              <p className="text-[10px] text-zinc-500 mt-1 font-mono">
-                Вставьте любую ссылку на фото из интернета, соцсетей или оставьте пустым.
+
+              {/* URL Input Fallback */}
+              <div className="relative">
+                <LinkIcon className="absolute left-3 top-2.5 w-3.5 h-3.5 text-zinc-500" />
+                <input
+                  type="url"
+                  value={avatarUrl.startsWith('data:') ? '' : avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  placeholder="https://example.com/avatar.jpg"
+                  className="w-full bg-zinc-950 border border-zinc-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl pl-8 pr-3 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 outline-none transition font-mono"
+                />
+              </div>
+
+              <p className="text-[10px] text-zinc-500 font-mono">
+                {t.authPhotoHint || 'Загрузите любую фотку со смартфона/ПК, вставьте ссылку или оставьте пустым.'}
               </p>
             </div>
           )}
@@ -202,14 +280,13 @@ export default function AuthModal({ socket, lang, onClose, onAuthSuccess }) {
         </form>
 
         {/* Notice: mandatory registration */}
-        <div className="mt-4 pt-3.5 border-t border-zinc-800 text-center">
-          <p className="text-[11px] font-mono text-zinc-500 flex items-center justify-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-amber-500" />
-            <span>Для участия в игре требуется аккаунт. Регистрация бесплатна!</span>
+        <div className="mt-4 pt-3 border-t border-zinc-800 text-center">
+          <p className="text-[11px] font-mono text-zinc-400 flex items-center justify-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span>{t.mandatoryAccountNotice || 'Для участия в игре требуется аккаунт. Регистрация бесплатна!'}</span>
           </p>
         </div>
       </div>
     </div>
   );
 }
-
