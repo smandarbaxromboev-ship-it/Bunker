@@ -56,7 +56,7 @@ export default function VotingModal({
             {!isAlive && (
               <span className="text-[11px] font-mono text-purple-400 flex items-center gap-1">
                 <span>👻</span>
-                <span>{t.ghostLockedNotice ? 'Призрак (наблюдение)' : 'Призрак'}</span>
+                <span>{t.ghostObservationBadge || (lang === 'uz' ? 'Arvoh (kuzatuvchi)' : lang === 'en' ? 'Ghost (spectating)' : 'Призрак (наблюдение)')}</span>
               </span>
             )}
           </div>
@@ -159,7 +159,7 @@ export default function VotingModal({
                           {target.name}
                         </div>
                         <div className="text-[11px] text-zinc-400 font-mono">
-                          Открыто карт: {revealedCount} из 7
+                          {typeof t.cardsRevealedCount === 'function' ? t.cardsRevealedCount(revealedCount) : `Открыто карт: ${revealedCount} из 7`}
                         </div>
                       </div>
                     </div>

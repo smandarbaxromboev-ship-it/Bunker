@@ -29,6 +29,7 @@ function resolvePlayerCharacter(userProfile) {
   if (userProfile && userProfile.characterDetails) {
     return {
       avatar: userProfile.characterDetails.avatar || '🥷',
+      avatarUrl: userProfile.characterDetails.avatarUrl || userProfile.avatarUrl || null,
       name: userProfile.characterDetails.name || { ru: 'Сталкер', en: 'Stalker', uz: 'Izquvar' },
       borderClass: userProfile.characterDetails.borderClass || 'border-slate-400 dark:border-zinc-700',
       glowClass: userProfile.characterDetails.glowClass || '',
@@ -38,6 +39,7 @@ function resolvePlayerCharacter(userProfile) {
   }
   return {
     avatar: '🥷',
+    avatarUrl: null,
     name: { ru: 'Сталкер', en: 'Stalker', uz: 'Izquvar' },
     borderClass: 'border-slate-400 dark:border-zinc-700',
     glowClass: '',
@@ -213,21 +215,37 @@ class GameManager {
     return { code, playerId, room: this.getSanitizedRoomState(room, playerId) };
   }
 
-  addBot(code, requesterId) {
+  addBot(code, requesterId, lang = 'ru') {
     const room = this.rooms.get(code);
     if (!room || room.status !== 'LOBBY') return;
     if (room.hostId !== requesterId) return;
     if (room.players.length >= 12) return;
 
-    const botNames = [
-      'Алексей', 'Дмитрий', 'Марина', 'Сардор',
-      'Елена', 'Тимур', 'Анна', 'Рустам',
-      'Ольга', 'Жасур', 'Виктор', 'Алишер',
-      'София', 'Максим', 'Камила', 'Фаррух',
-      'Артур', 'Дильноза', 'Игорь', 'Шахзод'
-    ];
+    const botNamesByLang = {
+      en: [
+        'Alex', 'David', 'Sarah', 'Sam',
+        'Elena', 'Michael', 'Anna', 'James',
+        'Olivia', 'Victor', 'Sophia', 'Max',
+        'Emily', 'Arthur', 'Lucas', 'Mia'
+      ],
+      uz: [
+        'Sardor', 'Jasur', 'Dilnoza', 'Alisher',
+        'Shahzod', 'Farrux', 'Kamila', 'Aziz',
+        'Nilufar', 'Bobur', 'Zilola', 'Ulug\'bek',
+        'Madina', 'Jamshid', 'Mohira', 'Shoxrux'
+      ],
+      ru: [
+        'Алексей', 'Дмитрий', 'Марина', 'Сардор',
+        'Елена', 'Тимур', 'Анна', 'Рустам',
+        'Ольга', 'Жасур', 'Виктор', 'Алишер',
+        'София', 'Максим', 'Камила', 'Фаррух',
+        'Артур', 'Дильноза', 'Игорь', 'Шахзод'
+      ]
+    };
+    const botNames = botNamesByLang[lang] || botNamesByLang.ru;
     const availableNames = botNames.filter(name => !room.players.some(p => p.name === name));
-    const botName = availableNames[0] || `Бот_${room.players.length + 1}`;
+    const prefix = lang === 'uz' ? 'Bot_' : lang === 'en' ? 'Bot_' : 'Бот_';
+    const botName = availableNames[0] || `${prefix}${room.players.length + 1}`;
 
     const botId = 'bot_' + Math.random().toString(36).substring(2, 9);
     const botChar = BOT_CHARACTERS[(room.players.length - 1) % BOT_CHARACTERS.length];

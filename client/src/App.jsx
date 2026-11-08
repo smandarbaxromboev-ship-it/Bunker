@@ -22,6 +22,10 @@ import TrumpActionModal from './components/TrumpActionModal';
 import AuthModal from './components/AuthModal';
 import ShopModal from './components/ShopModal';
 import AdminPageView from './components/AdminPageView';
+import BunkerLogo from './components/BunkerLogo';
+import AtmosphereEffects from './components/AtmosphereEffects';
+import RulesModal from './components/RulesModal';
+import ProfileModal from './components/ProfileModal';
 
 const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
   ? undefined 
@@ -62,8 +66,19 @@ export default function App() {
   // Modals
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShopModal, setShowShopModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [isRulesMandatory, setIsRulesMandatory] = useState(false);
   const [showVotingModal, setShowVotingModal] = useState(true);
   const [showResultModal, setShowResultModal] = useState(true);
+  const [atmosphereEnabled, setAtmosphereEnabled] = useState(() => {
+    return localStorage.getItem('bunker_atmosphere') !== 'false';
+  });
+
+  const handleToggleAtmosphere = (val) => {
+    setAtmosphereEnabled(val);
+    localStorage.setItem('bunker_atmosphere', String(val));
+  };
 
   // Auto-open voting and result modals on round phase change
   useEffect(() => {
@@ -212,11 +227,28 @@ export default function App() {
     }
   }, []);
 
-  const handleAuthSuccess = (authedUser) => {
+  const handleAuthSuccess = (authedUser, isNewRegistration = false) => {
     setUser(authedUser);
     localStorage.setItem('bunker_user', JSON.stringify(authedUser));
     setPlayerName(authedUser.username);
     localStorage.setItem('bunker_player_name', authedUser.username);
+
+    // If new registration or rules not accepted yet, show mandatory RulesModal
+    if (isNewRegistration || !authedUser.rulesAccepted) {
+      setIsRulesMandatory(true);
+      setShowRulesModal(true);
+    }
+  };
+
+  const handleRulesUnderstood = () => {
+    if (user?.username) {
+      const updatedUser = { ...user, rulesAccepted: true };
+      setUser(updatedUser);
+      localStorage.setItem('bunker_user', JSON.stringify(updatedUser));
+      socket.emit('updateProfile', { username: user.username, rulesAccepted: true });
+    }
+    setIsRulesMandatory(false);
+    setShowRulesModal(false);
   };
 
   const handleLogout = () => {
@@ -239,7 +271,15 @@ export default function App() {
   const handleCreateRoom = (e) => {
     e.preventDefault();
     setErrorMessage('');
-    const name = playerName.trim() || 'Командир';
+
+    if (!user) {
+      setErrorMessage(lang === 'uz' ? '⚠️ Bunker yaratish uchun tizimga kiring yoki ro\'yxatdan o\'ting!' : lang === 'en' ? '⚠️ Registration or login required to create a bunker!' : '⚠️ Для создания бункера необходимо зарегистрироваться или войти в аккаунт!');
+      setShowAuthModal(true);
+      return;
+    }
+
+    const defaultCommander = lang === 'uz' ? 'Komandir' : lang === 'en' ? 'Commander' : 'Командир';
+    const name = (user.username || playerName).trim() || defaultCommander;
     localStorage.setItem('bunker_player_name', name);
     soundManager.playBeep(800, 0.08);
 
@@ -259,11 +299,19 @@ export default function App() {
   const handleJoinRoom = (e) => {
     e.preventDefault();
     setErrorMessage('');
-    const name = playerName.trim() || 'Выживший';
+
+    if (!user) {
+      setErrorMessage(lang === 'uz' ? '⚠️ Bunkerga ulanish uchun tizimga kiring yoki ro\'yxatdan o\'ting!' : lang === 'en' ? '⚠️ Registration or login required to join a bunker!' : '⚠️ Для подключения к бункеру необходимо зарегистрироваться или войти в аккаунт!');
+      setShowAuthModal(true);
+      return;
+    }
+
+    const defaultSurvivor = lang === 'uz' ? 'Omon qolgan' : lang === 'en' ? 'Survivor' : 'Выживший';
+    const name = (user.username || playerName).trim() || defaultSurvivor;
     const code = joinCode.trim();
 
     if (!code) {
-      setErrorMessage('Введите цифровой код комнаты.');
+      setErrorMessage(lang === 'uz' ? 'Xona kodini kiriting.' : lang === 'en' ? 'Enter room code.' : 'Введите цифровой код комнаты.');
       return;
     }
 
@@ -294,7 +342,7 @@ export default function App() {
 
   const handleAddBot = () => {
     if (!roomState?.code) return;
-    socket.emit('addBot', { roomCode: roomState.code, requesterId: myPlayerId });
+    socket.emit('addBot', { roomCode: roomState.code, requesterId: myPlayerId, lang });
   };
 
   const handleRemoveBot = (botId) => {
@@ -362,28 +410,44 @@ export default function App() {
   // MAIN WELCOME / JOIN SCREEN
   if (!inRoom) {
     return (
-      <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 flex flex-col justify-between p-3 sm:p-6 text-slate-800 dark:text-zinc-100 transition-colors duration-200">
-        <div className="max-w-4xl mx-auto w-full pt-2 sm:pt-6">
-          {/* Top Bar with User Profile, Shop, Theme Toggle & Language Selector */}
+      <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 flex flex-col justify-between p-3 sm:p-6 text-slate-800 dark:text-zinc-100 transition-colors duration-200 relative overflow-hidden">
+        {/* Apocalyptic Ambient Animations */}
+        <AtmosphereEffects enabled={atmosphereEnabled} />
+
+        <div className="max-w-4xl mx-auto w-full pt-2 sm:pt-6 relative z-10">
+          {/* Top Bar with User Profile, Rules, Atmosphere, Shop, Theme Toggle & Language Selector */}
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4 sm:mb-6">
             {/* Left: User Auth / BunCoins Pill */}
             <div>
               {user ? (
                 <div className="flex items-center space-x-2 bg-white dark:bg-zinc-900 border border-amber-500/40 rounded-2xl p-1.5 px-3 shadow-sm">
-                  <span className="text-xl">{user.characterDetails?.avatar || '🥷'}</span>
-                  <div className="text-left font-mono">
-                    <div className="text-xs font-bold text-slate-800 dark:text-zinc-100 flex items-center space-x-1">
-                      <span>{user.username}</span>
-                      <span className="bg-amber-500/20 text-amber-500 px-1.5 py-0.2 rounded text-[10px] font-bold">
-                        🪙 {user.bunCoins}
-                      </span>
-                    </div>
-                    {user.characterDetails?.title && (
-                      <div className="text-[10px] text-zinc-400">
-                        {getLocalized(user.characterDetails.title, lang)}
-                      </div>
+                  <button
+                    onClick={() => setShowProfileModal(true)}
+                    className="flex items-center space-x-2 cursor-pointer hover:opacity-85 transition text-left"
+                    title="Нажмите, чтобы настроить фото и профиль"
+                  >
+                    {user.characterDetails?.avatarUrl ? (
+                      <img 
+                        src={user.characterDetails.avatarUrl} 
+                        alt="Avatar" 
+                        className="w-7 h-7 rounded-xl object-cover border border-amber-500/50" 
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <span className="text-xl">{user.characterDetails?.avatar || '🥷'}</span>
                     )}
-                  </div>
+                    <div className="font-mono">
+                      <div className="text-xs font-bold text-slate-800 dark:text-zinc-100 flex items-center space-x-1">
+                        <span>{user.username}</span>
+                        <span className="bg-amber-500/20 text-amber-500 px-1.5 py-0.2 rounded text-[10px] font-bold">
+                          🪙 {user.bunCoins}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-zinc-400">
+                        {user.characterDetails?.title ? getLocalized(user.characterDetails.title, lang) : 'Фото профиля'}
+                      </div>
+                    </div>
+                  </button>
                   <button
                     onClick={handleLogout}
                     title={t.authLogout}
@@ -395,7 +459,7 @@ export default function App() {
               ) : (
                 <button
                   onClick={() => setShowAuthModal(true)}
-                  className="px-3 py-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-mono font-bold text-xs uppercase shadow transition flex items-center space-x-1.5 cursor-pointer"
+                  className="px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-mono font-bold text-xs uppercase shadow transition flex items-center space-x-1.5 cursor-pointer animate-pulse"
                 >
                   <span>🔐</span>
                   <span>{t.btnAuth}</span>
@@ -406,8 +470,36 @@ export default function App() {
               )}
             </div>
 
-            {/* Right: Shop, Theme & Language */}
-            <div className="flex items-center gap-2">
+            {/* Right: Rules, Atmosphere, Shop, Theme & Language */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              {/* Rules Button */}
+              <button
+                onClick={() => {
+                  setIsRulesMandatory(false);
+                  setShowRulesModal(true);
+                }}
+                title="Правила и условия игры"
+                className="px-3 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer"
+              >
+                <span>📜</span>
+                <span className="hidden sm:inline">Правила</span>
+              </button>
+
+              {/* Atmosphere Toggle */}
+              <button
+                onClick={() => handleToggleAtmosphere(!atmosphereEnabled)}
+                title={atmosphereEnabled ? "Отключить эффекты радиации и зомби" : "Включить эффекты радиации и зомби"}
+                className={`px-2.5 py-1.5 rounded-2xl border text-xs font-mono font-bold transition shadow-sm flex items-center space-x-1 cursor-pointer ${
+                  atmosphereEnabled
+                    ? 'bg-amber-500/20 text-amber-500 border-amber-500/50'
+                    : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-400 dark:text-zinc-500'
+                }`}
+              >
+                <span>☢️</span>
+                <span className="hidden md:inline text-[10px]">Эффекты</span>
+              </button>
+
+              {/* Shop Button */}
               <button
                 onClick={() => setShowShopModal(true)}
                 title={t.shopBtn}
@@ -456,16 +548,28 @@ export default function App() {
             </div>
           </div>
 
-          {/* Hero Header */}
-          <div className="text-center space-y-2 sm:space-y-3 mb-6 sm:mb-10">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider">
-              <Radio className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-              ОНЛАЙН-ИГРА • 3-12 ИГРОКОВ • 2-5 ПРИЗОВЫХ МЕСТ
+          {/* Hero Header with Animated BunkerLogo */}
+          <div className="text-center space-y-3 mb-6 sm:mb-10">
+            <BunkerLogo size="hero" className="mx-auto" />
+
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider">
+                <Radio className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                ОНЛАЙН-ИГРА • 3-12 ИГРОКОВ • 2-5 ПРИЗОВЫХ МЕСТ
+              </div>
+
+              <button
+                onClick={() => {
+                  setIsRulesMandatory(false);
+                  setShowRulesModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-amber-400 border border-zinc-700 font-mono text-[11px] sm:text-xs font-bold transition shadow cursor-pointer"
+              >
+                <span>📜</span>
+                <span>Как играть? (Правила)</span>
+              </button>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl font-display font-black tracking-wide text-slate-900 dark:text-white">
-              {t.title}
-            </h1>
             <p className="text-xs sm:text-base text-slate-500 dark:text-zinc-400 max-w-lg mx-auto font-mono">
               {t.subtitle}
             </p>
@@ -577,9 +681,20 @@ export default function App() {
 
           {/* Rules Summary */}
           <div className="mt-6 sm:mt-8 p-4 sm:p-5 rounded-2xl bg-white/70 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 max-w-3xl mx-auto text-xs text-slate-600 dark:text-zinc-400 font-mono space-y-1.5 shadow-sm">
-            <div className="text-slate-900 dark:text-zinc-200 font-bold flex items-center gap-2 uppercase">
-              <HelpCircle className="w-4 h-4 text-amber-500" />
-              {t.rulesTitle}
+            <div className="text-slate-900 dark:text-zinc-200 font-bold flex items-center justify-between uppercase">
+              <span className="flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-amber-500" />
+                {t.rulesTitle}
+              </span>
+              <button
+                onClick={() => {
+                  setIsRulesMandatory(false);
+                  setShowRulesModal(true);
+                }}
+                className="text-amber-500 hover:underline text-xs lowercase cursor-pointer"
+              >
+                полные правила &rarr;
+              </button>
             </div>
             <p>{t.rule1}</p>
             <p>{t.rule2}</p>
@@ -588,7 +703,7 @@ export default function App() {
           </div>
         </div>
 
-        <footer className="text-center py-3 text-[10px] sm:text-[11px] text-slate-400 dark:text-zinc-600 font-mono">
+        <footer className="text-center py-3 text-[10px] sm:text-[11px] text-slate-400 dark:text-zinc-600 font-mono relative z-10">
           БУНКЕР: 7 РАУНДОВ • МУЛЬТИПЛЕЕР 3-12 ЧЕЛОВЕК • 2-5 МЕСТ В БУНКЕРЕ
         </footer>
 
@@ -612,6 +727,26 @@ export default function App() {
             onUserUpdated={handleUserUpdated}
           />
         )}
+
+        {/* Profile / Photo Modal */}
+        {showProfileModal && (
+          <ProfileModal
+            user={user}
+            socket={socket}
+            lang={lang}
+            onClose={() => setShowProfileModal(false)}
+            onProfileUpdated={handleUserUpdated}
+          />
+        )}
+
+        {/* Rules & Conditions Modal */}
+        <RulesModal
+          isOpen={showRulesModal}
+          isMandatory={isRulesMandatory}
+          onUnderstand={handleRulesUnderstood}
+          onClose={() => setShowRulesModal(false)}
+          lang={lang}
+        />
       </div>
     );
   }
@@ -619,7 +754,9 @@ export default function App() {
   // GAME OVER VIEW
   if (roomState?.status === 'GAME_OVER') {
     return (
-      <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-3 sm:p-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200">
+      <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-3 sm:p-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200 relative overflow-hidden">
+        <AtmosphereEffects enabled={atmosphereEnabled} />
+
         <HeaderTerminal
           roomState={roomState}
           isMuted={isMuted}
@@ -631,10 +768,14 @@ export default function App() {
           user={user}
           onOpenAuth={() => setShowAuthModal(true)}
           onOpenShop={() => setShowShopModal(true)}
+          onOpenProfile={() => setShowProfileModal(true)}
+          onOpenRules={() => { setIsRulesMandatory(false); setShowRulesModal(true); }}
+          atmosphereEnabled={atmosphereEnabled}
+          setAtmosphereEnabled={handleToggleAtmosphere}
           onLeaveRoom={handleLeaveRoom}
           onLogout={handleLogout}
         />
-        <main className="flex-1 max-w-6xl mx-auto w-full py-4 sm:py-6">
+        <main className="flex-1 max-w-6xl mx-auto w-full py-4 sm:py-6 relative z-10">
           <GameOverView
             roomState={roomState}
             myPlayerId={myPlayerId}
@@ -647,6 +788,18 @@ export default function App() {
         {showShopModal && (
           <ShopModal socket={socket} lang={lang} user={user} onClose={() => setShowShopModal(false)} onUserUpdated={handleUserUpdated} />
         )}
+
+        {showProfileModal && (
+          <ProfileModal user={user} socket={socket} lang={lang} onClose={() => setShowProfileModal(false)} onProfileUpdated={handleUserUpdated} />
+        )}
+
+        <RulesModal
+          isOpen={showRulesModal}
+          isMandatory={isRulesMandatory}
+          onUnderstand={handleRulesUnderstood}
+          onClose={() => setShowRulesModal(false)}
+          lang={lang}
+        />
       </div>
     );
   }
@@ -654,7 +807,9 @@ export default function App() {
   // LOBBY VIEW
   if (roomState?.status === 'LOBBY') {
     return (
-      <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-3 sm:p-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200">
+      <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-3 sm:p-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200 relative overflow-hidden">
+        <AtmosphereEffects enabled={atmosphereEnabled} />
+
         <HeaderTerminal
           roomState={roomState}
           isMuted={isMuted}
@@ -666,10 +821,14 @@ export default function App() {
           user={user}
           onOpenAuth={() => setShowAuthModal(true)}
           onOpenShop={() => setShowShopModal(true)}
+          onOpenProfile={() => setShowProfileModal(true)}
+          onOpenRules={() => { setIsRulesMandatory(false); setShowRulesModal(true); }}
+          atmosphereEnabled={atmosphereEnabled}
+          setAtmosphereEnabled={handleToggleAtmosphere}
           onLeaveRoom={handleLeaveRoom}
           onLogout={handleLogout}
         />
-        <main className="flex-1 max-w-6xl mx-auto w-full py-4 sm:py-6">
+        <main className="flex-1 max-w-6xl mx-auto w-full py-4 sm:py-6 relative z-10">
           <LobbyView
             roomState={roomState}
             myPlayerId={myPlayerId}
@@ -684,13 +843,27 @@ export default function App() {
         {showShopModal && (
           <ShopModal socket={socket} lang={lang} user={user} onClose={() => setShowShopModal(false)} onUserUpdated={handleUserUpdated} />
         )}
+
+        {showProfileModal && (
+          <ProfileModal user={user} socket={socket} lang={lang} onClose={() => setShowProfileModal(false)} onProfileUpdated={handleUserUpdated} />
+        )}
+
+        <RulesModal
+          isOpen={showRulesModal}
+          isMandatory={isRulesMandatory}
+          onUnderstand={handleRulesUnderstood}
+          onClose={() => setShowRulesModal(false)}
+          lang={lang}
+        />
       </div>
     );
   }
 
   // ACTIVE GAME PLAY (Full Tablet & Mobile Responsiveness)
   return (
-    <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 flex flex-col text-slate-800 dark:text-zinc-100 pb-20 md:pb-6 transition-colors duration-200">
+    <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 flex flex-col text-slate-800 dark:text-zinc-100 pb-20 md:pb-6 transition-colors duration-200 relative overflow-hidden">
+      <AtmosphereEffects enabled={atmosphereEnabled} />
+
       <HeaderTerminal 
         roomState={roomState} 
         isMuted={isMuted} 
@@ -702,13 +875,17 @@ export default function App() {
         user={user}
         onOpenAuth={() => setShowAuthModal(true)}
         onOpenShop={() => setShowShopModal(true)}
+        onOpenProfile={() => setShowProfileModal(true)}
+        onOpenRules={() => { setIsRulesMandatory(false); setShowRulesModal(true); }}
+        atmosphereEnabled={atmosphereEnabled}
+        setAtmosphereEnabled={handleToggleAtmosphere}
         onLeaveRoom={handleLeaveRoom}
         onLogout={handleLogout}
         isAlive={isAlive}
       />
 
       {/* Main Grid: Tablet & Desktop side-by-side (md:grid-cols-12), Phone stacked with bottom tabs */}
-      <main className="flex-1 max-w-7xl mx-auto w-full p-2.5 sm:p-4 md:p-6 grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-5">
+      <main className="flex-1 max-w-7xl mx-auto w-full p-2.5 sm:p-4 md:p-6 grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-5 relative z-10">
         
         {/* Left Side: Players Grid */}
         <div className={`md:col-span-7 lg:col-span-8 space-y-3 sm:space-y-4 ${
@@ -723,7 +900,7 @@ export default function App() {
           <div className="p-3 sm:p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-between shadow-sm">
             <div>
               <div className="text-[10px] sm:text-[11px] font-mono text-amber-600 dark:text-amber-500 uppercase font-bold">
-                {t.round} {roomState?.currentRound} / {roomState?.maxRounds} • {t.bunkerCapacity} 2
+                {t.round} {roomState?.currentRound} / {roomState?.maxRounds} • {t.bunkerCapacity} {roomState?.bunkerCapacity || 2}
               </div>
               <div className="text-sm sm:text-base md:text-lg font-display font-bold text-slate-900 dark:text-white mt-0.5">
                 {roomState?.status === 'ROUND_REVEAL' && (
@@ -936,6 +1113,26 @@ export default function App() {
           onUserUpdated={handleUserUpdated}
         />
       )}
+
+      {/* 8. Profile / Photo Modal */}
+      {showProfileModal && (
+        <ProfileModal
+          user={user}
+          socket={socket}
+          lang={lang}
+          onClose={() => setShowProfileModal(false)}
+          onProfileUpdated={handleUserUpdated}
+        />
+      )}
+
+      {/* 9. Rules & Conditions Modal */}
+      <RulesModal
+        isOpen={showRulesModal}
+        isMandatory={isRulesMandatory}
+        onUnderstand={handleRulesUnderstood}
+        onClose={() => setShowRulesModal(false)}
+        lang={lang}
+      />
     </div>
   );
 }

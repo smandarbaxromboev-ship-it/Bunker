@@ -41,7 +41,23 @@ export default function CharacterAvatar({
             : `${char.borderClass || 'border-amber-500/50'} ${char.glowClass || ''} bg-zinc-900/90 dark:bg-black/80 shadow-md`
         }`}
       >
-        <span className="select-none filter drop-shadow">
+        {char.avatarUrl ? (
+          <img
+            src={char.avatarUrl}
+            alt={char.name?.ru || 'Avatar'}
+            className="w-full h-full object-cover rounded-xl select-none"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              if (e.currentTarget.nextSibling) {
+                e.currentTarget.nextSibling.style.display = 'block';
+              }
+            }}
+          />
+        ) : null}
+        <span 
+          className="select-none filter drop-shadow" 
+          style={{ display: char.avatarUrl ? 'none' : 'block' }}
+        >
           {char.avatar || '🥷'}
         </span>
 

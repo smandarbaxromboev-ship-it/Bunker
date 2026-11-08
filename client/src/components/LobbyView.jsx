@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Users, Copy, Check, Play, Bot, AlertOctagon, Trophy, Trash2, UserMinus, ArrowLeft, AlertCircle } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 import { translations, getLocalized } from '../utils/translations';
+import CharacterAvatar from './CharacterAvatar';
 
 export default function LobbyView({ 
   roomState, 
@@ -68,7 +69,7 @@ export default function LobbyView({
         </button>
 
         <span className="text-xs font-mono text-zinc-500">
-          Бункер #{roomState?.code}
+          {t.bunkerRoomLabel || (lang === 'ru' ? 'Бункер' : 'Bunker')} #{roomState?.code}
         </span>
       </div>
 
@@ -103,7 +104,7 @@ export default function LobbyView({
             </span>
             <button
               onClick={copyCode}
-              title={lang === 'ru' ? "Скопировать цифровой код" : lang === 'uz' ? "Xona kodini nusxalash" : "Copy room code"}
+              title={t.copyCodeTooltip || (lang === 'ru' ? "Скопировать цифровой код" : lang === 'uz' ? "Xona kodini nusxalash" : "Copy room code")}
               className="p-2 rounded-xl bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-amber-500 transition ml-2 cursor-pointer"
             >
               {copied ? <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-5 h-5" />}
@@ -145,8 +146,8 @@ export default function LobbyView({
               }`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="text-xl shrink-0 p-1 rounded-xl bg-zinc-950/40 border border-zinc-700/60">
-                  {p.character?.avatar || (p.isBot ? '🤖' : '🥷')}
+                <div className="shrink-0">
+                  <CharacterAvatar character={p.character} isAlive={p.isAlive} size="sm" lang={lang} />
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-bold truncate text-slate-900 dark:text-white">
@@ -173,7 +174,7 @@ export default function LobbyView({
                     soundManager.playBeep(500, 0.06);
                     onRemoveBot(p.id);
                   }}
-                  title={lang === 'ru' ? "Удалить этого бота" : lang === 'uz' ? "Botni o'chirish" : "Remove this bot"}
+                  title={t.removeBotTooltip || (lang === 'ru' ? "Удалить этого бота" : lang === 'uz' ? "Botni o'chirish" : "Remove this bot")}
                   className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-950/60 dark:hover:bg-red-900 text-red-600 dark:text-red-400 transition cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -228,7 +229,7 @@ export default function LobbyView({
               >
                 <Play className="w-4 h-4 fill-current" />
                 <span>{t.btnStart}</span>
-                {!canStart && <span className="text-[10px] font-mono opacity-80">(минимум 3)</span>}
+                {!canStart && <span className="text-[10px] font-mono opacity-80">{t.min3Players || (lang === 'uz' ? '(kamida 3)' : lang === 'en' ? '(min 3)' : '(минимум 3)')}</span>}
               </button>
             ) : (
               <div className="text-xs text-amber-600 dark:text-amber-400 font-mono bg-amber-50 dark:bg-zinc-950 px-4 py-2 rounded-xl border border-amber-200 dark:border-zinc-800 animate-pulse">

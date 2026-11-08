@@ -61,7 +61,7 @@ export default function RoundResultModal({
             {!isAlive && (
               <span className="text-[11px] font-mono text-purple-400 flex items-center gap-1">
                 <span>👻</span>
-                <span>{t.ghostLockedNotice ? 'Призрак (наблюдение)' : 'Призрак'}</span>
+                <span>{t.ghostObservationBadge || (lang === 'uz' ? 'Arvoh (kuzatuvchi)' : lang === 'en' ? 'Ghost (spectating)' : 'Призрак (наблюдение)')}</span>
               </span>
             )}
           </div>
@@ -94,7 +94,7 @@ export default function RoundResultModal({
           {isExtraTimeElimination && (
             <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded border border-amber-500/40 flex items-center space-x-1">
               <Clock className="w-3 h-3" />
-              <span>+5М ОВЕРТАЙМ</span>
+              <span>{t.overtime5m || '+5М ОВЕРТАЙМ'}</span>
             </span>
           )}
         </div>

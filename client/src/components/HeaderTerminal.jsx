@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { 
   Radio, Volume2, VolumeX, Flame,
   ChevronDown, ChevronUp, Sun, Moon,
-  ShoppingBag, User, Coins, LogOut, ArrowLeft
+  ShoppingBag, User, Coins, LogOut, ArrowLeft,
+  BookOpen, Sparkles
 } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 import { translations, getLocalized } from '../utils/translations';
 import CountdownTimer from './CountdownTimer';
+import BunkerLogo from './BunkerLogo';
 
 export default function HeaderTerminal({ 
   roomState, 
@@ -19,6 +21,10 @@ export default function HeaderTerminal({
   user,
   onOpenAuth,
   onOpenShop,
+  onOpenProfile,
+  onOpenRules,
+  atmosphereEnabled = true,
+  setAtmosphereEnabled,
   onLeaveRoom,
   onLogout,
   isAlive = true
@@ -67,18 +73,13 @@ export default function HeaderTerminal({
               className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-purple-950/60 border border-purple-800/80 text-purple-300 text-xs font-mono font-bold flex items-center gap-1 shadow-sm shrink-0 cursor-not-allowed select-none"
             >
               <span className="text-sm">👻</span>
-              <span className="hidden sm:inline text-[11px]">{t.ghostLockedNotice ? 'Призрак (заблокировано)' : 'Призрак'}</span>
+              <span className="hidden sm:inline text-[11px]">{t.ghostLockedBadge || (lang === 'uz' ? 'Arvoh (bloklangan)' : lang === 'en' ? 'Ghost (locked)' : 'Призрак (заблокировано)')}</span>
             </div>
           )}
 
-          <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-center justify-center shrink-0">
-            <Radio className="w-4 h-4 animate-pulse" />
-          </div>
-          <div className="min-w-0">
+          <BunkerLogo size="sm" />
+          <div className="min-w-0 hidden md:block">
             <div className="flex items-center gap-1.5">
-              <span className="font-display font-bold text-slate-900 dark:text-white text-xs sm:text-base truncate">
-                {t.title}
-              </span>
               <span className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-900 text-amber-600 dark:text-amber-400 font-mono font-bold border border-slate-300 dark:border-zinc-700 shrink-0">
                 #{roomState?.code || '-----'}
               </span>
@@ -118,23 +119,72 @@ export default function HeaderTerminal({
           </div>
         )}
 
-        {/* Right: BunCoins, Shop, Theme, Lang, Sound */}
+        {/* Right: Rules, Atmosphere, Profile, Shop, Theme, Lang, Sound */}
         <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+          {/* Rules Guide Button */}
+          {onOpenRules && (
+            <button
+              onClick={() => {
+                soundManager.playBeep(700, 0.05);
+                onOpenRules();
+              }}
+              title="Правила и условия игры"
+              className="p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-amber-600 dark:text-amber-400 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Правила</span>
+            </button>
+          )}
+
+          {/* Atmosphere Toggle Button */}
+          {setAtmosphereEnabled && (
+            <button
+              onClick={() => {
+                soundManager.playBeep(750, 0.05);
+                setAtmosphereEnabled(!atmosphereEnabled);
+              }}
+              title={atmosphereEnabled ? "Отключить эффекты радиации и зомби" : "Включить эффекты радиации и зомби"}
+              className={`p-1.5 sm:px-2 sm:py-1 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1 cursor-pointer border ${
+                atmosphereEnabled 
+                  ? 'bg-amber-500/20 text-amber-500 dark:text-amber-400 border-amber-500/50 shadow-sm animate-pulse' 
+                  : 'bg-slate-100 dark:bg-zinc-900 text-slate-400 dark:text-zinc-500 border-slate-200 dark:border-zinc-800'
+              }`}
+            >
+              <span>☢️</span>
+              <span className="hidden lg:inline text-[10px]">Атмосфера</span>
+            </button>
+          )}
+
           {/* BunCoins Balance & Profile / Auth */}
           {user ? (
             <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/40 rounded-xl px-2 py-1">
               <button
-                onClick={onOpenShop}
-                className="flex items-center space-x-1 text-xs font-mono font-bold text-amber-600 dark:text-amber-400 hover:text-amber-300 transition cursor-pointer"
-                title={t.shopTitle}
+                onClick={onOpenProfile || onOpenShop}
+                className="flex items-center space-x-1.5 text-xs font-mono font-bold text-amber-600 dark:text-amber-400 hover:text-amber-300 transition cursor-pointer"
+                title="Нажмите, чтобы настроить фото профиля"
               >
-                <span>{user.characterDetails?.avatar || '🥷'}</span>
+                {user.characterDetails?.avatarUrl ? (
+                  <img 
+                    src={user.characterDetails.avatarUrl} 
+                    alt="Avatar" 
+                    className="w-5 h-5 rounded-md object-cover border border-amber-500/50" 
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <span>{user.characterDetails?.avatar || '🥷'}</span>
+                )}
                 <span className="hidden md:inline truncate max-w-[80px]">{user.username}</span>
-                <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[11px] flex items-center space-x-0.5">
-                  <Coins className="w-3 h-3 text-amber-500 inline" />
-                  <span>{user.bunCoins}</span>
-                </span>
               </button>
+              
+              <button
+                onClick={onOpenShop}
+                className="bg-amber-500/20 px-1.5 py-0.5 rounded text-[11px] flex items-center space-x-0.5 text-amber-500 font-mono font-bold cursor-pointer hover:bg-amber-500/30 transition ml-0.5"
+                title="Магазин предметов"
+              >
+                <Coins className="w-3 h-3 text-amber-500 inline" />
+                <span>{user.bunCoins}</span>
+              </button>
+
               <button
                 onClick={onLogout}
                 title={t.authLogout}

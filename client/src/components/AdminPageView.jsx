@@ -35,6 +35,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
   // Add / Edit Card Modal state
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [editingCategory, setEditingCategory] = useState('PROFESSIONS');
   const [cardRu, setCardRu] = useState('');
   const [cardEn, setCardEn] = useState('');
   const [cardUz, setCardUz] = useState('');
@@ -54,6 +55,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
   const [loadingRooms, setLoadingRooms] = useState(false);
 
   const categories = [
+    { key: 'ALL', label: t.allCategories || '🌟 Все категории' },
     { key: 'PROFESSIONS', label: t.adminTabProfessions || 'Профессии' },
     { key: 'HEALTH', label: t.adminTabHealth || 'Здоровье' },
     { key: 'HOBBIES', label: t.adminTabHobbies || 'Хобби' },
@@ -159,6 +161,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
 
   const openNewCardModal = () => {
     setEditingIndex(null);
+    setEditingCategory(activeCategory === 'ALL' ? 'PROFESSIONS' : activeCategory);
     setCardRu('');
     setCardEn('');
     setCardUz('');
@@ -171,6 +174,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
 
   const openEditCardModal = (card) => {
     setEditingIndex(card._idx);
+    setEditingCategory(card._category || (activeCategory === 'ALL' ? 'PROFESSIONS' : activeCategory));
     setCardRu(card.ru || '');
     setCardEn(card.en || '');
     setCardUz(card.uz || '');
@@ -195,11 +199,13 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
       ability
     };
 
+    const targetCat = editingCategory || (activeCategory === 'ALL' ? 'PROFESSIONS' : activeCategory);
+
     if (editingIndex === null) {
       socket.emit('adminAddCard', {
         login: adminLogin.trim(),
         password: adminPassword.trim(),
-        category: activeCategory,
+        category: targetCat,
         cardData: payload
       }, (res) => {
         if (res && res.success) {
@@ -213,7 +219,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
       socket.emit('adminUpdateCard', {
         login: adminLogin.trim(),
         password: adminPassword.trim(),
-        category: activeCategory,
+        category: targetCat,
         index: editingIndex,
         cardData: payload
       }, (res) => {
@@ -227,13 +233,14 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
     }
   };
 
-  const handleDeleteCard = (cardIdx) => {
+  const handleDeleteCard = (cardIdx, cardCat) => {
     if (!window.confirm('Вы точно хотите удалить эту карту из базы бункера?')) return;
+    const targetCat = cardCat || (activeCategory === 'ALL' ? 'PROFESSIONS' : activeCategory);
 
     socket.emit('adminDeleteCard', {
       login: adminLogin.trim(),
       password: adminPassword.trim(),
-      category: activeCategory,
+      category: targetCat,
       index: cardIdx
     }, (res) => {
       if (res && res.success) {
@@ -760,7 +767,9 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                 {/* Category Selector with Counts */}
                 <div className="flex flex-wrap gap-2 bg-zinc-950/80 p-2 rounded-2xl border border-zinc-800">
                   {categories.map((cat) => {
-                    const count = stats[cat.key] || 0;
+                    const count = cat.key === 'ALL'
+                      ? Object.values(stats).reduce((a, b) => a + (Number(b) || 0), 0)
+                      : (stats[cat.key] || 0);
                     const isActive = activeCategory === cat.key;
                     return (
                       <button
@@ -789,20 +798,37 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                     <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
-                      placeholder={t.adminSearchPlaceholder || 'Поиск по картам...'}
+                      placeholder="Поиск по названию карты, описанию или козырю (RU/EN/UZ)..."
                       value={search}
                       onChange={handleSearchChange}
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-zinc-500 outline-none focus:border-red-500 font-mono transition"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-20 py-2.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-red-500 font-mono transition"
                     />
+                    {search && (
+                      <button
+                        onClick={() => {
+                          setSearch('');
+                          loadCategoryCards(activeCategory, '');
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-zinc-400 hover:text-white px-1.5 py-0.5 rounded bg-zinc-800 cursor-pointer"
+                      >
+                        ✕ Сброс
+                      </button>
+                    )}
                   </div>
 
-                  <button
-                    onClick={openNewCardModal}
-                    className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow flex items-center justify-center space-x-1.5 cursor-pointer shrink-0"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>{t.adminBtnAddCard}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-xl shrink-0">
+                      Найдено: <strong className="text-red-400 font-bold">{cards.length}</strong>
+                    </span>
+
+                    <button
+                      onClick={openNewCardModal}
+                      className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow flex items-center justify-center space-x-1.5 cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>{t.adminBtnAddCard}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Cards List Table */}
@@ -818,12 +844,17 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                   ) : (
                     cards.map((c) => (
                       <div
-                        key={c._idx}
+                        key={`${c._category || activeCategory}_${c._idx}`}
                         className="p-3 bg-zinc-950/60 border border-zinc-800 rounded-xl hover:border-zinc-700 transition flex items-start justify-between gap-3"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="font-mono text-xs font-bold text-zinc-100 flex items-center space-x-2">
                             <span className="text-red-500 font-mono">#{c._idx + 1}</span>
+                            {c._category && (
+                              <span className="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-zinc-800 text-amber-400 border border-zinc-700">
+                                {c._category}
+                              </span>
+                            )}
                             <span className="truncate">{c.ru}</span>
                           </div>
                           {c.d_ru && (
@@ -846,7 +877,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDeleteCard(c._idx)}
+                            onClick={() => handleDeleteCard(c._idx, c._category)}
                             className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-lg transition cursor-pointer"
                             title="Удалить"
                           >

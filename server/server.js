@@ -39,13 +39,26 @@ io.on('connection', (socket) => {
   console.log(`[SOCKET] Подключен клиент: ${socket.id}`);
 
   // ===================== АВТОРИЗАЦИЯ И ПРОФИЛЬ =====================
-  socket.on('register', ({ username, password }, callback) => {
+  socket.on('register', ({ username, password, avatarUrl }, callback) => {
     try {
-      const res = userManager.register(username, password);
+      const res = userManager.register(username, password, avatarUrl);
       if (typeof callback === 'function') callback(res);
     } catch (e) {
       console.error('Ошибка register:', e);
       if (typeof callback === 'function') callback({ error: 'Ошибка регистрации' });
+    }
+  });
+
+  socket.on('updateProfile', ({ username, avatarUrl, rulesAccepted }, callback) => {
+    try {
+      const res = userManager.updateProfile(username, { avatarUrl, rulesAccepted });
+      if (res && res.success) {
+        io.emit('userProfileUpdated', { username, user: res.user });
+      }
+      if (typeof callback === 'function') callback(res);
+    } catch (e) {
+      console.error('Ошибка updateProfile:', e);
+      if (typeof callback === 'function') callback({ error: 'Ошибка обновления профиля' });
     }
   });
 
@@ -262,8 +275,8 @@ io.on('connection', (socket) => {
   });
 
   // Добавление бота для тестирования/доукомплектования
-  socket.on('addBot', ({ roomCode, requesterId }) => {
-    gameManager.addBot(roomCode, requesterId);
+  socket.on('addBot', ({ roomCode, requesterId, lang }) => {
+    gameManager.addBot(roomCode, requesterId, lang);
   });
 
   // Удаление бота из лобби

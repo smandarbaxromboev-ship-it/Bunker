@@ -144,7 +144,7 @@ export default function PlayerCard({
             <div
               key={card.id || i}
               onClick={() => handleCardClick(card)}
-              title="Нажмите, чтобы прочитать полностью"
+              title={t.clickToReadFull || (lang === 'uz' ? "To'liq o'qish uchun bosing" : lang === 'en' ? "Click to read full details" : "Нажмите, чтобы прочитать полностью")}
               className={`p-2 sm:p-2.5 rounded-2xl border text-xs transition-all cursor-pointer select-none ${
                 !isRevealed
                   ? 'bg-slate-50 dark:bg-zinc-950/40 border-slate-200 dark:border-zinc-800 text-slate-400 dark:text-zinc-500 hover:border-slate-300 dark:hover:border-zinc-700'

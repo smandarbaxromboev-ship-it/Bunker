@@ -38,9 +38,10 @@ class UserManager {
     }
   }
 
-  register(username, password) {
+  register(username, password, avatarUrl = '') {
     const uname = (username || '').trim();
     const pwd = (password || '').trim();
+    const photo = (avatarUrl || '').trim();
 
     if (!uname || uname.length < 2) {
       return { error: 'Имя пользователя должно содержать минимум 2 символа.' };
@@ -57,6 +58,7 @@ class UserManager {
     const newUser = {
       username: uname,
       password: pwd,
+      avatarUrl: photo || null,
       bunCoins: 500, // Starting gift!
       inventory: ['char_stalker', 'frame_default', 'title_survivor'],
       equipped: {
@@ -69,13 +71,30 @@ class UserManager {
         wins: 0,
         roundsSurvived: 0
       },
+      rulesAccepted: false,
       createdAt: new Date().toISOString()
     };
 
     this.users.set(key, newUser);
     this.saveUsers();
 
-    return { success: true, user: this.sanitizeUser(newUser) };
+    return { success: true, user: this.sanitizeUser(newUser), isNewRegistration: true };
+  }
+
+  updateProfile(username, updates = {}) {
+    if (!username) return { error: 'Имя пользователя не указано' };
+    const key = username.trim().toLowerCase();
+    const user = this.users.get(key);
+    if (!user) return { error: 'Пользователь не найден' };
+
+    if (updates.avatarUrl !== undefined) {
+      user.avatarUrl = updates.avatarUrl ? updates.avatarUrl.trim() : null;
+    }
+    if (updates.rulesAccepted !== undefined) {
+      user.rulesAccepted = Boolean(updates.rulesAccepted);
+    }
+    this.saveUsers();
+    return { success: true, user: this.sanitizeUser(user) };
   }
 
   login(username, password) {
@@ -105,6 +124,8 @@ class UserManager {
     for (const [key, user] of this.users.entries()) {
       list.push({
         username: user.username,
+        avatarUrl: user.avatarUrl || null,
+        rulesAccepted: Boolean(user.rulesAccepted),
         bunCoins: user.bunCoins || 0,
         isBlocked: Boolean(user.isBlocked),
         inventoryCount: (user.inventory || []).length,
@@ -154,11 +175,14 @@ class UserManager {
 
     return {
       username: user.username,
+      avatarUrl: user.avatarUrl || null,
+      rulesAccepted: Boolean(user.rulesAccepted),
       bunCoins: user.bunCoins,
       inventory: user.inventory || [],
       equipped: user.equipped,
       characterDetails: {
         avatar: characterItem ? characterItem.avatar : '🥷',
+        avatarUrl: user.avatarUrl || null,
         name: characterItem ? characterItem.name : { ru: 'Сталкер', en: 'Stalker', uz: 'Izquvar' },
         borderClass: frameItem ? (frameItem.borderClass || '') : '',
         glowClass: frameItem ? (frameItem.glowClass || '') : '',

@@ -28,26 +28,26 @@ const QUICK_PHRASES = {
 };
 
 const BUNKER_STICKERS = [
-  { id: 'rad', emoji: '☢️', label: 'РАДИАЦИЯ!' },
-  { id: 'survive', emoji: '🛡️', label: 'Я ВЫЖИВУ!' },
-  { id: 'liar', emoji: '🤥', label: 'НЕ ВЕРЮ!' },
-  { id: 'dead', emoji: '💀', label: 'МНЕ КОНЕЦ' },
-  { id: 'vote', emoji: '🗳️', label: 'ГОЛОСУЕМ!' },
-  { id: 'hand', emoji: '🤝', label: 'СПАСИБО' },
-  { id: 'win', emoji: '🏆', label: 'БУНКЕР НАШ' },
-  { id: 'rat', emoji: '🐀', label: 'КТО КРЫСА?' },
-  { id: 'food', emoji: '🥫', label: 'ЕСТЬ ЕДА?' },
-  { id: 'medic', emoji: '💉', label: 'Я МЕДИК' },
-  { id: 'bluff', emoji: '🎭', label: 'ЭТО БЛЕФ' },
-  { id: 'fake', emoji: '🚫', label: 'ОН ВРЕТ!' },
-  { id: 'ghost_hi', emoji: '👻', label: 'ИЗ АДА' },
-  { id: 'ghost_eye', emoji: '👁️', label: 'СЛЕЖУ' },
-  { id: 'popcorn', emoji: '🍿', label: 'ДРАМА' },
-  { id: 'brain', emoji: '🧠', label: 'ГЕНИЙ' },
-  { id: 'fire', emoji: '🔥', label: 'ПОЖАР' },
-  { id: 'bomb', emoji: '💣', label: 'БОМБА' },
-  { id: 'bread', emoji: '🍞', label: 'ХЛЕБ' },
-  { id: 'shh', emoji: '🤫', label: 'ТИШИНА' }
+  { id: 'rad', emoji: '☢️', label: { ru: 'РАДИАЦИЯ!', en: 'RADIATION!', uz: 'RADIATSIYA!' } },
+  { id: 'survive', emoji: '🛡️', label: { ru: 'Я ВЫЖИВУ!', en: 'I WILL SURVIVE!', uz: 'TIRIK QOLAMAN!' } },
+  { id: 'liar', emoji: '🤥', label: { ru: 'НЕ ВЕРЮ!', en: 'DON\'T BELIEVE!', uz: 'ISHONMAYMAN!' } },
+  { id: 'dead', emoji: '💀', label: { ru: 'МНЕ КОНЕЦ', en: 'I AM FINISHED', uz: 'TAMOM BO\'LDIM' } },
+  { id: 'vote', emoji: '🗳️', label: { ru: 'ГОЛОСУЕМ!', en: 'VOTE NOW!', uz: 'OVOZ BERAMIZ!' } },
+  { id: 'hand', emoji: '🤝', label: { ru: 'СПАСИБО', en: 'THANK YOU', uz: 'RAHMAT' } },
+  { id: 'win', emoji: '🏆', label: { ru: 'БУНКЕР НАШ', en: 'BUNKER IS OURS', uz: 'BUNKER BIZNIKI' } },
+  { id: 'rat', emoji: '🐀', label: { ru: 'КТО КРЫСА?', en: 'WHO IS RAT?', uz: 'KIM SOTQIN?' } },
+  { id: 'food', emoji: '🥫', label: { ru: 'ЕСТЬ ЕДА?', en: 'ANY FOOD?', uz: 'OVQAT BORMI?' } },
+  { id: 'medic', emoji: '💉', label: { ru: 'Я МЕДИК', en: 'I AM MEDIC', uz: 'MEN SHIFOKORMAN' } },
+  { id: 'bluff', emoji: '🎭', label: { ru: 'ЭТО БЛЕФ', en: 'IT\'S A BLUFF', uz: 'BU BLÖF' } },
+  { id: 'fake', emoji: '🚫', label: { ru: 'ОН ВРЕТ!', en: 'THEY LIE!', uz: 'U ALDAYAPTI!' } },
+  { id: 'ghost_hi', emoji: '👻', label: { ru: 'ИЗ АДА', en: 'FROM BEYOND', uz: 'NARIGI DUNYODAN' } },
+  { id: 'ghost_eye', emoji: '👁️', label: { ru: 'СЛЕЖУ', en: 'WATCHING YOU', uz: 'KUZATYAPMAN' } },
+  { id: 'popcorn', emoji: '🍿', label: { ru: 'ДРАМА', en: 'DRAMA', uz: 'TOMOSHA' } },
+  { id: 'brain', emoji: '🧠', label: { ru: 'ГЕНИЙ', en: 'GENIUS', uz: 'DOHIY' } },
+  { id: 'fire', emoji: '🔥', label: { ru: 'ПОЖАР', en: 'FIRE', uz: 'YONG\'IN' } },
+  { id: 'bomb', emoji: '💣', label: { ru: 'БОМБА', en: 'BOMB', uz: 'BOMBA' } },
+  { id: 'bread', emoji: '🍞', label: { ru: 'ХЛЕБ', en: 'BREAD', uz: 'NON' } },
+  { id: 'shh', emoji: '🤫', label: { ru: 'ТИШИНА', en: 'SILENCE', uz: 'JIMLIK' } }
 ];
 
 export default function ChatPanel({ 
@@ -87,7 +87,8 @@ export default function ChatPanel({
 
   const handleSendSticker = (sticker) => {
     soundManager.playBeep(1100, 0.05);
-    onSendMessage(sticker.label, sticker);
+    const labelText = getLocalized(sticker.label, lang) || sticker.label;
+    onSendMessage(labelText, { ...sticker, label: labelText });
     setShowStickerPicker(false);
   };
 
@@ -103,7 +104,7 @@ export default function ChatPanel({
           {!isAlive && (
             <span className="px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800 text-[10px] font-mono font-bold flex items-center gap-1">
               <span>👻</span>
-              <span>ПРИЗРАКИ</span>
+              <span>{t.ghostsChatBadge || 'ПРИЗРАКИ'}</span>
             </span>
           )}
         </div>
@@ -166,7 +167,7 @@ export default function ChatPanel({
                 {isGhostMsg && (
                   <span className="px-1.5 py-0.2 rounded bg-purple-900/60 text-purple-300 font-bold border border-purple-700/60 text-[9px] flex items-center gap-0.5">
                     <span>👻</span>
-                    <span>ПРИЗРАК</span>
+                    <span>{t.ghostMsgBadge || 'ПРИЗРАК'}</span>
                   </span>
                 )}
                 <span className={isMe ? (isGhostMsg ? 'text-purple-400 font-bold' : 'text-amber-400 font-bold') : (isGhostMsg ? 'text-purple-300 font-semibold' : 'text-zinc-300 font-medium')}>
@@ -192,7 +193,7 @@ export default function ChatPanel({
                     {msg.sticker.emoji || '☢️'}
                   </span>
                   <div className="font-display font-extrabold text-xs sm:text-sm uppercase tracking-wide">
-                    {msg.sticker.label || msg.text}
+                    {getLocalized(msg.sticker.label, lang) || msg.sticker.label || msg.text}
                   </div>
                 </div>
               ) : (
@@ -244,7 +245,7 @@ export default function ChatPanel({
                   {st.emoji}
                 </span>
                 <span className="text-[9px] font-mono text-zinc-400 group-hover:text-amber-300 truncate w-full text-center mt-0.5 font-bold">
-                  {st.label.replace(/[^A-Za-zА-Яа-яЁё0-9!? ]/g, '')}
+                  {(getLocalized(st.label, lang) || st.label).replace(/[^A-Za-zА-Яа-яЁё0-9!? ']/g, '')}
                 </span>
               </button>
             ))}

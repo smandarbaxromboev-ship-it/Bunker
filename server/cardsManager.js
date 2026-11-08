@@ -49,17 +49,41 @@ class CardsManager {
   }
 
   getCards(category, search = '') {
-    const cat = (category || 'PROFESSIONS').toUpperCase();
+    const cat = (category || 'ALL').toUpperCase();
+    const q = (search || '').trim().toLowerCase();
+
+    if (cat === 'ALL') {
+      let allList = [];
+      for (const c of this.categories) {
+        const catCards = (this.cards[c] || []).map((card, idx) => ({ ...card, _idx: idx, _category: c }));
+        allList = allList.concat(catCards);
+      }
+      if (q) {
+        allList = allList.filter(c =>
+          (c.ru && c.ru.toLowerCase().includes(q)) ||
+          (c.en && c.en.toLowerCase().includes(q)) ||
+          (c.uz && c.uz.toLowerCase().includes(q)) ||
+          (c.d_ru && c.d_ru.toLowerCase().includes(q)) ||
+          (c.d_en && c.d_en.toLowerCase().includes(q)) ||
+          (c.d_uz && c.d_uz.toLowerCase().includes(q)) ||
+          (c.ability && c.ability.toLowerCase().includes(q))
+        );
+      }
+      return allList;
+    }
+
     if (!this.cards[cat]) return [];
     
-    let list = this.cards[cat].map((card, idx) => ({ ...card, _idx: idx }));
-    if (search && search.trim()) {
-      const q = search.trim().toLowerCase();
+    let list = this.cards[cat].map((card, idx) => ({ ...card, _idx: idx, _category: cat }));
+    if (q) {
       list = list.filter(c => 
         (c.ru && c.ru.toLowerCase().includes(q)) ||
         (c.en && c.en.toLowerCase().includes(q)) ||
         (c.uz && c.uz.toLowerCase().includes(q)) ||
-        (c.d_ru && c.d_ru.toLowerCase().includes(q))
+        (c.d_ru && c.d_ru.toLowerCase().includes(q)) ||
+        (c.d_en && c.d_en.toLowerCase().includes(q)) ||
+        (c.d_uz && c.d_uz.toLowerCase().includes(q)) ||
+        (c.ability && c.ability.toLowerCase().includes(q))
       );
     }
     return list;
