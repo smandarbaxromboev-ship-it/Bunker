@@ -1,24 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ShieldAlert, Radio, Activity } from 'lucide-react';
 import { translations } from '../utils/translations';
 
 export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
   const canvasRef = useRef(null);
-  const [radiationSv, setRadiationSv] = useState(4.85);
+  const [radiationSv, setRadiationSv] = useState(5.42);
   const t = translations[lang] || translations.ru;
 
-  // Live Geiger counter fluctuation
+  // Fluctuating Geiger counter reading
   useEffect(() => {
     if (!enabled) return;
     const interval = setInterval(() => {
       setRadiationSv((prev) => {
-        const delta = (Math.random() - 0.48) * 0.42;
-        return Number(Math.max(3.4, Math.min(9.95, prev + delta)).toFixed(2));
+        const delta = (Math.random() - 0.48) * 0.45;
+        return Number(Math.max(3.6, Math.min(9.99, prev + delta)).toFixed(2));
       });
-    }, 1400);
+    }, 1200);
     return () => clearInterval(interval);
   }, [enabled]);
 
-  // 60FPS Procedural Apocalyptic Canvas Engine
+  // 60FPS Procedural Apocalyptic Canvas Engine (NO EMOJIS / NO STICKERS)
   useEffect(() => {
     if (!enabled) return;
 
@@ -30,132 +31,152 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
     let W = (canvas.width = window.innerWidth);
     let H = (canvas.height = window.innerHeight);
 
-    // 1. Ruined City Skyline Buildings (Generated on resize)
+    // 1. Ruined City Skyline & Nuclear Cooling Towers
     let buildings = [];
-    const generateSkyline = () => {
+    let coolingTowers = [];
+
+    const generateLandscape = () => {
       buildings = [];
-      let bx = 0;
+      coolingTowers = [
+        { x: W * 0.12, w: 72, h: 125 },
+        { x: W * 0.82, w: 80, h: 135 }
+      ];
+
+      let bx = -20;
       while (bx < W + 100) {
-        const bw = 45 + Math.random() * 65;
-        const bh = 45 + Math.random() * 95;
+        const bw = 48 + Math.random() * 68;
+        const bh = 55 + Math.random() * 115;
         const windows = [];
         const cols = Math.floor(bw / 14);
         const rows = Math.floor(bh / 18);
         for (let r = 1; r < rows; r++) {
           for (let c = 1; c < cols; c++) {
-            if (Math.random() > 0.65) {
+            if (Math.random() > 0.62) {
               windows.push({
                 wx: bx + c * 13,
                 wy: H - bh + r * 16,
-                lit: Math.random() > 0.5,
                 flickerSpeed: 0.02 + Math.random() * 0.06,
                 phase: Math.random() * Math.PI * 2,
-                color: Math.random() > 0.4 ? '#f59e0b' : '#84cc16'
+                color: Math.random() > 0.35 ? '#f59e0b' : '#84cc16'
               });
             }
           }
         }
-        // Jagged ruined roof points
         const roofPoints = [];
-        const steps = 4;
+        const steps = 5;
         for (let s = 0; s <= steps; s++) {
           roofPoints.push({
             rx: bx + (bw / steps) * s,
-            ry: H - bh + (s === 0 || s === steps ? 0 : (Math.random() - 0.5) * 18)
+            ry: H - bh + (s === 0 || s === steps ? 0 : (Math.random() - 0.5) * 22)
           });
         }
         buildings.push({ x: bx, w: bw, h: bh, windows, roofPoints });
-        bx += bw - 4;
+        bx += bw - 6;
       }
     };
 
     const resize = () => {
       W = canvas.width = window.innerWidth;
       H = canvas.height = window.innerHeight;
-      generateSkyline();
+      generateLandscape();
     };
-    generateSkyline();
+    generateLandscape();
     window.addEventListener('resize', resize);
 
-    // 2. Skeletal Articulated Zombies with Inverse-Kinematics-like Joint Animation
-    const zombieCount = Math.max(5, Math.min(9, Math.floor(W / 210)));
+    // 2. Skeletal Articulated Zombies with Full Inverse-Kinematics Joint Animation
+    const zombieCount = Math.max(6, Math.min(11, Math.floor(W / 180)));
     const zombies = [];
     const palettes = [
-      { glow: '#84cc16', skin: '#365314', bone: '#65a30d', eye: '#ef4444' }, // Toxic Lime Mutant
-      { glow: '#f59e0b', skin: '#451a03', bone: '#d97706', eye: '#fef08a' }, // Amber Scorched Ghoul
-      { glow: '#10b981', skin: '#064e3b', bone: '#10b981', eye: '#f87171' }, // Bio-Emerald Walker
-      { glow: '#ef4444', skin: '#450a0a', bone: '#dc2626', eye: '#ffffff' }  // Crimson Alpha Stalker
+      { glow: '#84cc16', fill: '#1a2e05', rim: '#a3e635', eye: '#ef4444' }, // Toxic Radioactive Mutant
+      { glow: '#f59e0b', fill: '#271202', rim: '#fbbf24', eye: '#fef08a' }, // Scorched Wasteland Ghoul
+      { glow: '#10b981', fill: '#022c22', rim: '#34d399', eye: '#f87171' }, // Bio-Virology Walker
+      { glow: '#ef4444', fill: '#2a0404', rim: '#f87171', eye: '#ffffff' }  // Red Alpha Stalker
     ];
 
     for (let i = 0; i < zombieCount; i++) {
       const dir = i % 2 === 0 ? 1 : -1;
-      const scale = 0.72 + Math.random() * 0.42;
+      const scale = 0.85 + Math.random() * 0.45;
       const pal = palettes[i % palettes.length];
       zombies.push({
-        x: Math.random() * W,
+        x: (W / zombieCount) * i + Math.random() * 80,
         dir,
         scale,
-        speed: (0.42 + Math.random() * 0.48) * dir,
+        speed: (0.48 + Math.random() * 0.52) * dir,
         phase: Math.random() * Math.PI * 2,
-        phaseSpeed: 0.048 + Math.random() * 0.025,
-        hunch: 0.28 + Math.random() * 0.22, // forward torso lean
-        armReach: 0.3 + Math.random() * 0.4,
-        variant: i % 3, // 0: walker, 1: runner/stalker, 2: heavy brute
+        phaseSpeed: 0.052 + Math.random() * 0.028,
+        hunch: 0.3 + Math.random() * 0.24,
+        variant: i % 3, // 0: walker, 1: hunched stalker, 2: armored brute
         pal
       });
     }
 
-    // 3. Articulated Flying Mutated Ravens / Bats (Bezier Wing Physics)
+    // 3. Articulated Winged Ravens / Mutated Creatures (Bezier Wing Physics)
     const flyers = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       const dir = i % 2 === 0 ? 1 : -1;
       flyers.push({
         x: Math.random() * W,
-        y: 50 + Math.random() * (H * 0.35),
-        baseY: 50 + Math.random() * (H * 0.35),
-        vx: (1.2 + Math.random() * 1.1) * dir,
+        y: 45 + Math.random() * (H * 0.38),
+        baseY: 45 + Math.random() * (H * 0.38),
+        vx: (1.35 + Math.random() * 1.2) * dir,
         wingPhase: Math.random() * Math.PI * 2,
-        wingSpeed: 0.14 + Math.random() * 0.06,
-        size: 14 + Math.random() * 10,
+        wingSpeed: 0.15 + Math.random() * 0.06,
+        size: 16 + Math.random() * 11,
         glow: i % 2 === 0 ? '#ef4444' : '#84cc16'
       });
     }
 
-    // 4. Radioactive Spores & Rising Fallout Ash
+    // 4. Floating Vector Trefoil Radiation & Biohazard Crests (Canvas Drawn, NOT Emojis)
+    const vectorSymbols = [];
+    for (let i = 0; i < 7; i++) {
+      vectorSymbols.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: 16 + Math.random() * 14,
+        vy: -0.35 - Math.random() * 0.45,
+        vx: (Math.random() - 0.5) * 0.3,
+        angle: Math.random() * Math.PI * 2,
+        vAngle: (Math.random() - 0.5) * 0.02,
+        color: i % 2 === 0 ? '#84cc16' : '#f59e0b',
+        alpha: 0.18 + Math.random() * 0.22
+      });
+    }
+
+    // 5. Radioactive Spores & Rising Fallout Ash
     const particles = [];
-    for (let i = 0; i < 65; i++) {
+    for (let i = 0; i < 70; i++) {
       const cType = Math.random();
       particles.push({
         x: Math.random() * W,
         y: Math.random() * H,
-        r: 1 + Math.random() * 2.8,
-        vx: (Math.random() - 0.5) * 0.6,
-        vy: -0.35 - Math.random() * 0.9,
-        alpha: 0.25 + Math.random() * 0.6,
+        r: 1.1 + Math.random() * 2.6,
+        vx: (Math.random() - 0.5) * 0.65,
+        vy: -0.4 - Math.random() * 0.95,
+        alpha: 0.3 + Math.random() * 0.6,
         pulse: Math.random() * Math.PI * 2,
         color: cType > 0.55 ? '#84cc16' : cType > 0.2 ? '#f59e0b' : '#ef4444'
       });
     }
 
-    // 5. Slanted Acid Rain Streaks
+    // 6. Slanted Acid Rain Streaks
     const rain = [];
-    for (let i = 0; i < 38; i++) {
+    for (let i = 0; i < 45; i++) {
       rain.push({
         x: Math.random() * W,
         y: Math.random() * H,
-        len: 14 + Math.random() * 22,
-        vx: 1.1,
-        vy: 6.5 + Math.random() * 4.5,
-        alpha: 0.12 + Math.random() * 0.22
+        len: 16 + Math.random() * 24,
+        vx: 1.25,
+        vy: 7 + Math.random() * 5,
+        alpha: 0.14 + Math.random() * 0.22
       });
     }
 
-    // 6. Dynamic Lightning Bolt Generator
+    // 7. Dynamic Lightning Bolt Generator
     let lightning = {
       alpha: 0,
       segments: [],
       color: '#84cc16',
-      nextStrike: Date.now() + 3500
+      nextStrike: Date.now() + 2200
     };
 
     const triggerLightning = () => {
@@ -163,17 +184,16 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
       let currX = startX;
       let currY = 0;
       const segs = [];
-      while (currY < H * 0.75) {
-        const nextX = currX + (Math.random() - 0.5) * 85;
-        const nextY = currY + 25 + Math.random() * 45;
+      while (currY < H * 0.78) {
+        const nextX = currX + (Math.random() - 0.5) * 90;
+        const nextY = currY + 24 + Math.random() * 44;
         segs.push({ x1: currX, y1: currY, x2: nextX, y2: nextY });
-        // Occasional branch
-        if (Math.random() > 0.65) {
+        if (Math.random() > 0.6) {
           segs.push({
             x1: currX,
             y1: currY,
-            x2: currX + (Math.random() - 0.5) * 110,
-            y2: currY + 40 + Math.random() * 50,
+            x2: currX + (Math.random() - 0.5) * 120,
+            y2: currY + 35 + Math.random() * 55,
             branch: true
           });
         }
@@ -181,62 +201,104 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
         currY = nextY;
       }
       lightning.segments = segs;
-      lightning.alpha = 0.85;
+      lightning.alpha = 0.9;
       lightning.color = Math.random() > 0.4 ? '#84cc16' : '#f59e0b';
-      lightning.nextStrike = Date.now() + 5000 + Math.random() * 7000;
+      lightning.nextStrike = Date.now() + 4500 + Math.random() * 6000;
     };
 
     let tick = 0;
 
-    // Helper: Draw a limb segment with joint thickness & glow
-    const drawLimb = (x1, y1, x2, y2, width, strokeColor, glowColor) => {
+    // Helper: Draw a vector Radiation Trefoil Symbol on Canvas
+    const drawRadiationSymbol = (x, y, radius, rotation, color, alpha) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = color;
+
+      // Outer dashed ring
+      ctx.beginPath();
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1.5;
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 3 Radiation Blades
+      for (let i = 0; i < 3; i++) {
+        const startAngle = (i * 2 * Math.PI) / 3 - Math.PI / 6;
+        const endAngle = startAngle + Math.PI / 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.78, startAngle, endAngle, false);
+        ctx.arc(0, 0, radius * 0.28, endAngle, startAngle, true);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Center core
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    };
+
+    // Helper: Draw tapered anatomical limb segment
+    const drawAnatomicalLimb = (x1, y1, x2, y2, w1, w2, fillCol, rimCol, glowCol) => {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const angle = Math.atan2(dy, dx);
+      const nx = -Math.sin(angle);
+      const ny = Math.cos(angle);
+
       ctx.save();
       ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.strokeStyle = strokeColor;
-      ctx.lineWidth = width;
-      ctx.lineCap = 'round';
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = glowColor;
+      ctx.moveTo(x1 + nx * (w1 * 0.5), y1 + ny * (w1 * 0.5));
+      ctx.lineTo(x2 + nx * (w2 * 0.5), y2 + ny * (w2 * 0.5));
+      ctx.lineTo(x2 - nx * (w2 * 0.5), y2 - ny * (w2 * 0.5));
+      ctx.lineTo(x1 - nx * (w1 * 0.5), y1 - ny * (w1 * 0.5));
+      ctx.closePath();
+
+      ctx.fillStyle = fillCol;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = glowCol;
+      ctx.fill();
+
+      ctx.lineWidth = 1.35;
+      ctx.strokeStyle = rimCol;
       ctx.stroke();
       ctx.restore();
     };
 
-    // Helper: Draw a full articulated Zombie with walking kinematics
+    // Helper: Draw a full articulated Zombie with walking kinematics & anatomy
     const drawArticulatedZombie = (z) => {
       const tPhase = z.phase;
       const s = z.scale;
       const d = z.dir; // 1 = right, -1 = left
-      const groundY = H - 6;
+      const groundY = H - 4;
 
-      // Vertical bobbing (2 steps per cycle)
-      const bob = Math.abs(Math.sin(tPhase)) * 5 * s;
-
-      // Hip position
+      const bob = Math.abs(Math.sin(tPhase)) * 5.5 * s;
       const hipX = z.x;
-      const hipY = groundY - 38 * s + bob;
+      const hipY = groundY - 40 * s + bob;
 
-      // Spine / Shoulder position (leaning forward in direction of walk)
-      const leanAngle = z.hunch + Math.sin(tPhase * 2) * 0.06;
-      const torsoLen = (z.variant === 2 ? 32 : 28) * s;
+      const leanAngle = z.hunch + Math.sin(tPhase * 2) * 0.07;
+      const torsoLen = (z.variant === 2 ? 34 : 29) * s;
       const shoulderX = hipX + Math.sin(leanAngle) * torsoLen * d;
       const shoulderY = hipY - Math.cos(leanAngle) * torsoLen;
 
-      // Head position (nodding forward/back)
-      const headNod = Math.sin(tPhase * 2 + 0.5) * 3 * s;
-      const headX = shoulderX + (6 * s + headNod * 0.4) * d;
-      const headY = shoulderY - 10 * s + Math.abs(headNod) * 0.3;
+      const headNod = Math.sin(tPhase * 2 + 0.5) * 3.5 * s;
+      const headX = shoulderX + (6.5 * s + headNod * 0.4) * d;
+      const headY = shoulderY - 11 * s + Math.abs(headNod) * 0.3;
 
-      // Leg kinematics (Left & Right)
       const drawZombieLeg = (phaseOffset, isBackLeg) => {
         const p = tPhase + phaseOffset;
-        const thighAngle = Math.sin(p) * 0.55;
-        // Knee bends backward relative to walk direction when lifting leg
-        const kneeBend = Math.max(0, -Math.cos(p)) * 0.65 + 0.1;
+        const thighAngle = Math.sin(p) * 0.56;
+        const kneeBend = Math.max(0, -Math.cos(p)) * 0.68 + 0.12;
 
-        const thighLen = 20 * s;
-        const shinLen = 20 * s;
+        const thighLen = 21 * s;
+        const shinLen = 21 * s;
 
         const kneeX = hipX + Math.sin(thighAngle) * thighLen * d;
         const kneeY = hipY + Math.cos(thighAngle) * thighLen;
@@ -245,25 +307,22 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
         const footX = kneeX + Math.sin(totalShinAngle) * shinLen * d;
         const footY = Math.min(groundY, kneeY + Math.cos(totalShinAngle) * shinLen);
 
-        const col = isBackLeg ? '#18181b' : z.pal.skin;
-        const outline = isBackLeg ? z.pal.bone : z.pal.glow;
-        const w = (z.variant === 2 ? 6.5 : 4.8) * s;
+        const fill = isBackLeg ? '#09090b' : z.pal.fill;
+        const rim = isBackLeg ? z.pal.glow : z.pal.rim;
+        const w = (z.variant === 2 ? 8 : 6) * s;
 
-        drawLimb(hipX, hipY, kneeX, kneeY, w, col, outline);
-        drawLimb(kneeX, kneeY, footX, footY, w * 0.82, col, outline);
-        // Foot
-        drawLimb(footX, footY, footX + 6 * s * d, footY, w * 0.7, col, outline);
+        drawAnatomicalLimb(hipX, hipY, kneeX, kneeY, w, w * 0.78, fill, rim, z.pal.glow);
+        drawAnatomicalLimb(kneeX, kneeY, footX, footY, w * 0.75, w * 0.55, fill, rim, z.pal.glow);
+        drawAnatomicalLimb(footX, footY, footX + 7 * s * d, footY, w * 0.55, w * 0.4, fill, rim, z.pal.glow);
       };
 
-      // Arm kinematics (Zombie outstretched reaching arms)
       const drawZombieArm = (phaseOffset, isBackArm) => {
         const p = tPhase + phaseOffset;
-        // Outstretched forward (~60-85 deg) with eerie sway
-        const upperAngle = 1.05 + Math.sin(p) * 0.25;
-        const elbowAngle = upperAngle + 0.35 + Math.cos(p) * 0.2;
+        const upperAngle = 1.08 + Math.sin(p) * 0.26;
+        const elbowAngle = upperAngle + 0.36 + Math.cos(p) * 0.22;
 
-        const upperLen = 16 * s;
-        const lowerLen = 15 * s;
+        const upperLen = 17 * s;
+        const lowerLen = 16 * s;
 
         const elbowX = shoulderX + Math.sin(upperAngle) * upperLen * d;
         const elbowY = shoulderY + Math.cos(upperAngle) * upperLen * 0.35;
@@ -271,22 +330,24 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
         const handX = elbowX + Math.sin(elbowAngle) * lowerLen * d;
         const handY = elbowY + Math.cos(elbowAngle) * lowerLen * 0.25;
 
-        const col = isBackArm ? '#18181b' : z.pal.skin;
-        const outline = isBackArm ? z.pal.bone : z.pal.glow;
-        const w = (z.variant === 2 ? 5.2 : 3.8) * s;
+        const fill = isBackArm ? '#09090b' : z.pal.fill;
+        const rim = isBackArm ? z.pal.glow : z.pal.rim;
+        const w = (z.variant === 2 ? 6.5 : 4.8) * s;
 
-        drawLimb(shoulderX, shoulderY + 3 * s, elbowX, elbowY, w, col, outline);
-        drawLimb(elbowX, elbowY, handX, handY, w * 0.8, col, outline);
+        drawAnatomicalLimb(shoulderX, shoulderY + 3 * s, elbowX, elbowY, w, w * 0.75, fill, rim, z.pal.glow);
+        drawAnatomicalLimb(elbowX, elbowY, handX, handY, w * 0.72, w * 0.5, fill, rim, z.pal.glow);
 
-        // Claw fingers
+        // Articulated claws
         ctx.save();
-        ctx.strokeStyle = outline;
-        ctx.lineWidth = 1.4 * s;
+        ctx.strokeStyle = rim;
+        ctx.lineWidth = 1.5 * s;
         ctx.beginPath();
         ctx.moveTo(handX, handY);
-        ctx.lineTo(handX + 4 * s * d, handY + 3 * s);
+        ctx.lineTo(handX + 5 * s * d, handY + 3.5 * s);
         ctx.moveTo(handX, handY);
-        ctx.lineTo(handX + 5 * s * d, handY - 1 * s);
+        ctx.lineTo(handX + 6 * s * d, handY - 1 * s);
+        ctx.moveTo(handX, handY);
+        ctx.lineTo(handX + 4 * s * d, handY + 1.5 * s);
         ctx.stroke();
         ctx.restore();
       };
@@ -295,54 +356,66 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
       drawZombieLeg(Math.PI, true);
       drawZombieArm(Math.PI, true);
 
-      // 2. Torso & Ribcage
-      const torsoWidth = (z.variant === 2 ? 11 : 7.5) * s;
-      drawLimb(hipX, hipY, shoulderX, shoulderY, torsoWidth, z.pal.skin, z.pal.glow);
+      // 2. Torso & Glowing Ribcage
+      const torsoW = (z.variant === 2 ? 13 : 9.5) * s;
+      drawAnatomicalLimb(hipX, hipY, shoulderX, shoulderY, torsoW * 0.75, torsoW, z.pal.fill, z.pal.rim, z.pal.glow);
 
-      // Glowing Radioactive Ribs on Torso
+      // Glowing Radioactive Ribs & Spine Core
       ctx.save();
       ctx.strokeStyle = z.pal.glow;
-      ctx.globalAlpha = 0.65;
-      ctx.lineWidth = 1.4 * s;
-      for (let r = 0.25; r <= 0.75; r += 0.25) {
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = z.pal.glow;
+      ctx.lineWidth = 1.6 * s;
+      for (let r = 0.22; r <= 0.78; r += 0.18) {
         const rx = hipX + (shoulderX - hipX) * r;
         const ry = hipY + (shoulderY - hipY) * r;
         ctx.beginPath();
-        ctx.moveTo(rx - 3 * s, ry);
-        ctx.lineTo(rx + 4 * s * d, ry + 1.5 * s);
+        ctx.moveTo(rx - 3.5 * s, ry);
+        ctx.lineTo(rx + 4.5 * s * d, ry + 1.5 * s);
         ctx.stroke();
       }
       ctx.restore();
 
-      // 3. Head / Skull with Jaw & Glowing Eye
+      // 3. Head / Skull with Jaw & Glowing Laser Eye
       ctx.save();
       ctx.beginPath();
-      ctx.arc(headX, headY, (z.variant === 2 ? 8.5 : 7) * s, 0, Math.PI * 2);
-      ctx.fillStyle = z.pal.skin;
-      ctx.shadowBlur = 14;
+      const headR = (z.variant === 2 ? 9 : 7.5) * s;
+      ctx.arc(headX, headY, headR, 0, Math.PI * 2);
+      ctx.fillStyle = z.pal.fill;
+      ctx.shadowBlur = 15;
       ctx.shadowColor = z.pal.glow;
       ctx.fill();
-      ctx.lineWidth = 1.5 * s;
-      ctx.strokeStyle = z.pal.glow;
+      ctx.lineWidth = 1.6 * s;
+      ctx.strokeStyle = z.pal.rim;
+      ctx.stroke();
+
+      // Open Zombie Jaw
+      const jawOpen = (Math.sin(tPhase * 1.5) + 1) * 1.8 * s;
+      ctx.beginPath();
+      ctx.moveTo(headX + 2 * s * d, headY + 3 * s);
+      ctx.lineTo(headX + 6.5 * s * d, headY + (5 * s + jawOpen));
+      ctx.lineTo(headX, headY + 6 * s);
+      ctx.strokeStyle = z.pal.rim;
+      ctx.lineWidth = 1.4 * s;
       ctx.stroke();
 
       // Glowing Mutant Eye + Light Trail
-      const eyeX = headX + 3.5 * s * d;
-      const eyeY = headY - 1 * s;
+      const eyeX = headX + 3.8 * s * d;
+      const eyeY = headY - 1.2 * s;
       ctx.beginPath();
-      ctx.arc(eyeX, eyeY, 2 * s, 0, Math.PI * 2);
+      ctx.arc(eyeX, eyeY, 2.2 * s, 0, Math.PI * 2);
       ctx.fillStyle = z.pal.eye;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 14;
       ctx.shadowColor = z.pal.eye;
       ctx.fill();
 
-      // Eye laser/glow trail
+      // Eye glow trail
       ctx.beginPath();
       ctx.moveTo(eyeX, eyeY);
-      ctx.lineTo(eyeX - 10 * s * d, eyeY - 2 * s);
+      ctx.lineTo(eyeX - 13 * s * d, eyeY - 2 * s);
       ctx.strokeStyle = z.pal.eye;
-      ctx.globalAlpha = 0.45;
-      ctx.lineWidth = 1.8 * s;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 2 * s;
       ctx.stroke();
       ctx.restore();
 
@@ -351,37 +424,80 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
       drawZombieArm(0, false);
     };
 
-    // Helper: Draw Articulated Winged Raven/Mutant Bat
+    // Helper: Draw Articulated Winged Raven/Mutant Creature
     const drawWingedCreature = (f) => {
       const flap = Math.sin(f.wingPhase);
-      const wingY = flap * f.size * 0.75;
-      const wingMidY = Math.cos(f.wingPhase - 0.5) * f.size * 0.35;
+      const wingY = flap * f.size * 0.8;
+      const wingMidY = Math.cos(f.wingPhase - 0.5) * f.size * 0.38;
 
       ctx.save();
       ctx.translate(f.x, f.y);
-      ctx.strokeStyle = '#18181b';
       ctx.fillStyle = '#09090b';
-      ctx.lineWidth = 2.2;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.shadowColor = f.glow;
 
-      // Left & Right Articulated Wings
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.quadraticCurveTo(-f.size * 0.5, wingMidY - 4, -f.size, wingY);
-      ctx.quadraticCurveTo(-f.size * 0.4, wingMidY + 3, 0, 2);
+      ctx.quadraticCurveTo(-f.size * 0.5, wingMidY - 5, -f.size, wingY);
+      ctx.quadraticCurveTo(-f.size * 0.4, wingMidY + 3, 0, 2.5);
       ctx.quadraticCurveTo(f.size * 0.4, wingMidY + 3, f.size, wingY);
-      ctx.quadraticCurveTo(f.size * 0.5, wingMidY - 4, 0, 0);
+      ctx.quadraticCurveTo(f.size * 0.5, wingMidY - 5, 0, 0);
       ctx.fill();
       ctx.strokeStyle = f.glow;
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.35;
       ctx.stroke();
 
-      // Glowing red eyes on creature
       ctx.beginPath();
-      ctx.arc(f.vx > 0 ? 2 : -2, -1, 1.5, 0, Math.PI * 2);
+      ctx.arc(f.vx > 0 ? 2.5 : -2.5, -1, 1.6, 0, Math.PI * 2);
       ctx.fillStyle = '#ef4444';
       ctx.fill();
+      ctx.restore();
+    };
+
+    // Helper: Draw Nuclear Cooling Tower with Toxic Plume
+    const drawCoolingTower = (t, tickVal) => {
+      const topW = t.w * 0.58;
+      const botW = t.w;
+      const topY = H - t.h;
+
+      ctx.save();
+      // Rising green toxic steam plume from tower mouth
+      for (let p = 0; p < 3; p++) {
+        const py = topY - 12 - ((tickVal * 0.4 + p * 22) % 60);
+        const px = t.x + Math.sin(tickVal * 0.03 + p) * 14;
+        const pr = 14 + ((topY - py) * 0.45);
+        const pAlpha = Math.max(0, 0.22 - (topY - py) / 280);
+        const grad = ctx.createRadialGradient(px, py, 2, px, py, pr);
+        grad.addColorStop(0, `rgba(132, 204, 22, ${pAlpha})`);
+        grad.addColorStop(1, 'rgba(132, 204, 22, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(px, py, pr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Hyperboloid Cooling Tower silhouette
+      ctx.beginPath();
+      ctx.moveTo(t.x - botW / 2, H);
+      ctx.quadraticCurveTo(t.x - topW * 0.42, H - t.h * 0.55, t.x - topW / 2, topY);
+      ctx.lineTo(t.x + topW / 2, topY);
+      ctx.quadraticCurveTo(t.x + topW * 0.42, H - t.h * 0.55, t.x + botW / 2, H);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(9, 9, 11, 0.85)';
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.28)';
+      ctx.lineWidth = 1.2;
+      ctx.fill();
+      ctx.stroke();
+
+      // Glowing hazard rim at top of tower
+      ctx.beginPath();
+      ctx.moveTo(t.x - topW / 2, topY);
+      ctx.lineTo(t.x + topW / 2, topY);
+      ctx.strokeStyle = '#84cc16';
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = '#84cc16';
+      ctx.lineWidth = 2;
+      ctx.stroke();
       ctx.restore();
     };
 
@@ -389,25 +505,41 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
       tick++;
       ctx.clearRect(0, 0, W, H);
 
-      // A. Occasional Radioactive Lightning Storm
+      // A. Occasional Rotating Searchlight Beams from Bunker Roof
+      ctx.save();
+      const beamAngle1 = Math.sin(tick * 0.008) * 0.55 - 0.2;
+      ctx.translate(W * 0.2, H);
+      ctx.rotate(beamAngle1);
+      const beamGrad = ctx.createLinearGradient(0, 0, 0, -H * 0.85);
+      beamGrad.addColorStop(0, 'rgba(245, 158, 11, 0.14)');
+      beamGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      ctx.fillStyle = beamGrad;
+      ctx.beginPath();
+      ctx.moveTo(-12, 0);
+      ctx.lineTo(-140, -H * 0.85);
+      ctx.lineTo(140, -H * 0.85);
+      ctx.lineTo(12, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // B. Radioactive Lightning Storm
       if (Date.now() > lightning.nextStrike) {
         triggerLightning();
       }
       if (lightning.alpha > 0.01) {
         ctx.save();
-        // Sky flash
         ctx.fillStyle = lightning.color;
-        ctx.globalAlpha = lightning.alpha * 0.08;
+        ctx.globalAlpha = lightning.alpha * 0.09;
         ctx.fillRect(0, 0, W, H);
 
-        // Jagged bolt segments
         ctx.strokeStyle = lightning.color;
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 22;
         ctx.shadowColor = lightning.color;
         lightning.segments.forEach((seg) => {
           ctx.beginPath();
-          ctx.globalAlpha = seg.branch ? lightning.alpha * 0.45 : lightning.alpha * 0.85;
-          ctx.lineWidth = seg.branch ? 1.2 : 2.5;
+          ctx.globalAlpha = seg.branch ? lightning.alpha * 0.5 : lightning.alpha * 0.9;
+          ctx.lineWidth = seg.branch ? 1.3 : 2.8;
           ctx.moveTo(seg.x1, seg.y1);
           ctx.lineTo(seg.x2, seg.y2);
           ctx.stroke();
@@ -416,7 +548,21 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
         lightning.alpha *= 0.88;
       }
 
-      // B. Ruined Post-Apocalyptic Skyline at Bottom Horizon
+      // C. Floating Vector Radiation Trefoil Symbols
+      vectorSymbols.forEach((vs) => {
+        vs.y += vs.vy;
+        vs.x += vs.vx;
+        vs.angle += vs.vAngle;
+        if (vs.y < -40) {
+          vs.y = H + 40;
+          vs.x = Math.random() * W;
+        }
+        drawRadiationSymbol(vs.x, vs.y, vs.r, vs.angle, vs.color, vs.alpha);
+      });
+
+      // D. Nuclear Cooling Towers & Ruined Skyline
+      coolingTowers.forEach((ct) => drawCoolingTower(ct, tick));
+
       ctx.save();
       buildings.forEach((b) => {
         ctx.beginPath();
@@ -424,27 +570,26 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
         b.roofPoints.forEach((rp) => ctx.lineTo(rp.rx, rp.ry));
         ctx.lineTo(b.x + b.w, H);
         ctx.closePath();
-        ctx.fillStyle = 'rgba(9, 9, 11, 0.72)';
-        ctx.strokeStyle = 'rgba(132, 204, 22, 0.16)';
+        ctx.fillStyle = 'rgba(9, 9, 11, 0.78)';
+        ctx.strokeStyle = 'rgba(132, 204, 22, 0.2)';
         ctx.lineWidth = 1;
         ctx.fill();
         ctx.stroke();
 
-        // Flickering survivors/fire windows inside ruins
         b.windows.forEach((w) => {
           const fl = Math.sin(tick * w.flickerSpeed + w.phase);
-          if (fl > -0.2) {
+          if (fl > -0.15) {
             ctx.fillStyle = w.color;
-            ctx.globalAlpha = 0.25 + (fl + 0.2) * 0.35;
+            ctx.globalAlpha = 0.22 + (fl + 0.15) * 0.35;
             ctx.fillRect(w.wx, w.wy, 4, 6);
           }
         });
       });
       ctx.restore();
 
-      // C. Acid Rain Streaks
+      // E. Slanted Acid Rain
       ctx.save();
-      ctx.lineWidth = 1.15;
+      ctx.lineWidth = 1.2;
       rain.forEach((d) => {
         d.x += d.vx;
         d.y += d.vy;
@@ -462,7 +607,7 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
       });
       ctx.restore();
 
-      // D. Floating Radioactive Spores & Embers
+      // F. Radioactive Spores
       particles.forEach((p) => {
         p.x += p.vx + Math.sin(tick * 0.02 + p.pulse) * 0.25;
         p.y += p.vy;
@@ -484,7 +629,7 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
         ctx.restore();
       });
 
-      // E. Flying Winged Mutants in Sky
+      // G. Flying Winged Mutants
       flyers.forEach((f) => {
         f.x += f.vx;
         f.wingPhase += f.wingSpeed;
@@ -496,7 +641,7 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
         drawWingedCreature(f);
       });
 
-      // F. Articulated Walking Zombie Horde along Bottom Ground
+      // H. Articulated Walking Zombie Horde along Bottom Horizon
       zombies.forEach((z) => {
         z.x += z.speed;
         z.phase += z.phaseSpeed;
@@ -507,13 +652,13 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
         drawArticulatedZombie(z);
       });
 
-      // G. Toxic Ground Mist Gradient at very bottom
-      const groundGrad = ctx.createLinearGradient(0, H - 55, 0, H);
+      // I. Toxic Ground Mist at Bottom
+      const groundGrad = ctx.createLinearGradient(0, H - 60, 0, H);
       groundGrad.addColorStop(0, 'rgba(132, 204, 22, 0)');
-      groundGrad.addColorStop(0.6, 'rgba(132, 204, 22, 0.08)');
-      groundGrad.addColorStop(1, 'rgba(245, 158, 11, 0.18)');
+      groundGrad.addColorStop(0.65, 'rgba(132, 204, 22, 0.1)');
+      groundGrad.addColorStop(1, 'rgba(245, 158, 11, 0.22)');
       ctx.fillStyle = groundGrad;
-      ctx.fillRect(0, H - 55, W, 55);
+      ctx.fillRect(0, H - 60, W, 60);
 
       animationId = requestAnimationFrame(render);
     };
@@ -533,13 +678,11 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
       {/* Fullscreen 60FPS Procedural Canvas Animation */}
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 
-      {/* Live Rotating Radar & Geiger Counter HUD in Bottom-Left */}
+      {/* Live Rotating Radar & Geiger Counter HUD in Bottom-Left (Pure SVG & CSS, Zero Emojis) */}
       <div className="hidden sm:flex fixed bottom-3 left-3 items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-zinc-950/90 border border-lime-500/60 shadow-[0_0_25px_rgba(132,204,22,0.35)] backdrop-blur-md">
-        {/* Mini Live Radar Sweep */}
         <div className="relative w-8 h-8 rounded-full bg-zinc-900 border border-lime-500/70 flex items-center justify-center overflow-hidden shrink-0">
           <div className="absolute inset-0 rounded-full border border-lime-500/20 scale-50" />
-          <div className="absolute inset-0 bg-[conic-gradient(from_0deg,transparent_0deg,rgba(132,204,22,0.55)_90deg,transparent_95deg)] animate-[spin_2.4s_linear_infinite]" />
-          {/* Radar Zombie Blips */}
+          <div className="absolute inset-0 bg-[conic-gradient(from_0deg,transparent_0deg,rgba(132,204,22,0.6)_90deg,transparent_95deg)] animate-[spin_2.2s_linear_infinite]" />
           <span className="absolute top-1.5 right-2 w-1 h-1 rounded-full bg-red-500 shadow-[0_0_6px_#ef4444] animate-ping" />
           <span className="absolute bottom-2 left-2 w-1 h-1 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b] animate-pulse" />
           <span className="w-1.5 h-1.5 rounded-full bg-lime-400 shadow-[0_0_6px_#84cc16]" />
@@ -547,11 +690,12 @@ export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
 
         <div className="font-mono leading-tight">
           <div className="text-[9px] text-lime-400 font-bold tracking-wider uppercase flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+            <Activity className="w-3 h-3 text-lime-400 animate-pulse" />
             <span>{t.geigerLabel || 'РАДИАЦИЯ • ЗОМБИ-РАДАР АКТИВЕН'}</span>
           </div>
           <div className="text-[11px] text-amber-400 font-extrabold flex items-center gap-2 mt-0.5">
-            <span>☢️ {radiationSv} Sv/h</span>
+            <ShieldAlert className="w-3.5 h-3.5 text-red-500 animate-bounce" />
+            <span>{radiationSv} Sv/h</span>
             <span className="text-[9px] px-1.5 py-0.2 rounded bg-red-950/90 text-red-400 border border-red-700/60">
               BIOHAZARD
             </span>
