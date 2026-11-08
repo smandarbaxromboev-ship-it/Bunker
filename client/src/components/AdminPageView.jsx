@@ -454,7 +454,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                   }`}
                 >
                   <Layers className="w-4 h-4" />
-                  <span>База Карт (6 категорий)</span>
+                  <span>{lang === 'uz' ? 'Kartalar Bazasi' : lang === 'en' ? 'Cards Database' : 'База Карт (6 категорий)'}</span>
                 </button>
 
                 <button
@@ -470,7 +470,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                   }`}
                 >
                   <Users className="w-4 h-4" />
-                  <span>Аккаунты Игроков</span>
+                  <span>{lang === 'uz' ? 'O\'yinchilar' : lang === 'en' ? 'Player Accounts' : 'Аккаунты Игроков'}</span>
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainSection === 'USERS' ? 'bg-black/20 text-black' : 'bg-zinc-800 text-zinc-300'}`}>
                     {registeredUsers.length}
                   </span>
@@ -489,7 +489,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                   }`}
                 >
                   <Gamepad2 className="w-4 h-4" />
-                  <span>Онлайн Игры</span>
+                  <span>{lang === 'uz' ? 'Onlayn O\'yinlar' : lang === 'en' ? 'Live Rooms' : 'Онлайн Игры'}</span>
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainSection === 'ROOMS' ? 'bg-black/20 text-black' : 'bg-zinc-800 text-zinc-300'}`}>
                     {onlineRooms.length}
                   </span>
@@ -731,7 +731,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                         {/* Players Chips */}
                         <div>
                           <div className="text-[11px] font-mono text-zinc-400 mb-1.5">
-                            Участники ({room.players?.length || 0} / 10):
+                            {lang === 'uz' ? `Ishtirokchilar (${room.players?.length || 0} / 12):` : lang === 'en' ? `Players (${room.players?.length || 0} / 12):` : `Участники (${room.players?.length || 0} / 12):`}
                           </div>
                           <div className="flex flex-wrap gap-1.5">
                             {(room.players || []).map(p => (
@@ -798,7 +798,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                     <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
-                      placeholder="Поиск по названию карты, описанию или козырю (RU/EN/UZ)..."
+                      placeholder={t.adminSearchPlaceholder || "Поиск по названию карты, описанию или козырю (RU/EN/UZ)..."}
                       value={search}
                       onChange={handleSearchChange}
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-20 py-2.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-red-500 font-mono transition"
@@ -811,14 +811,14 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                         }}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-zinc-400 hover:text-white px-1.5 py-0.5 rounded bg-zinc-800 cursor-pointer"
                       >
-                        ✕ Сброс
+                        ✕ {lang === 'uz' ? 'Tozalash' : lang === 'en' ? 'Clear' : 'Сброс'}
                       </button>
                     )}
                   </div>
 
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-xl shrink-0">
-                      Найдено: <strong className="text-red-400 font-bold">{cards.length}</strong>
+                      {lang === 'uz' ? 'Topildi:' : lang === 'en' ? 'Found:' : 'Найдено:'} <strong className="text-red-400 font-bold">{cards.length}</strong>
                     </span>
 
                     <button

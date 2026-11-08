@@ -17,6 +17,7 @@ app.use(express.static(clientDistPath));
 
 const server = http.createServer(app);
 const io = new Server(server, {
+  maxHttpBufferSize: 5e6,
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
@@ -53,6 +54,7 @@ io.on('connection', (socket) => {
     try {
       const res = userManager.updateProfile(username, { avatarUrl, rulesAccepted });
       if (res && res.success) {
+        gameManager.updatePlayerProfile(username, res.user);
         io.emit('userProfileUpdated', { username, user: res.user });
       }
       if (typeof callback === 'function') callback(res);
@@ -72,9 +74,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('getProfile', ({ username }, callback) => {
+  socket.on('getProfile', ({ username, fallbackUser }, callback) => {
     try {
-      const user = userManager.getUser(username);
+      const user = userManager.getUser(username, fallbackUser);
       if (typeof callback === 'function') callback({ user });
     } catch (e) {
       if (typeof callback === 'function') callback({ user: null });
@@ -89,6 +91,9 @@ io.on('connection', (socket) => {
   socket.on('buyShopItem', ({ username, itemId }, callback) => {
     try {
       const res = userManager.buyItem(username, itemId);
+      if (res && res.success && res.user) {
+        gameManager.updatePlayerProfile(username, res.user);
+      }
       if (typeof callback === 'function') callback(res);
     } catch (e) {
       if (typeof callback === 'function') callback({ error: 'Ошибка покупки' });
@@ -98,6 +103,9 @@ io.on('connection', (socket) => {
   socket.on('equipShopItem', ({ username, itemId }, callback) => {
     try {
       const res = userManager.equipItem(username, itemId);
+      if (res && res.success && res.user) {
+        gameManager.updatePlayerProfile(username, res.user);
+      }
       if (typeof callback === 'function') callback(res);
     } catch (e) {
       if (typeof callback === 'function') callback({ error: 'Ошибка экипировки' });

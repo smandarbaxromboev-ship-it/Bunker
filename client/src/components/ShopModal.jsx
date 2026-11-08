@@ -188,11 +188,11 @@ export default function ShopModal({ socket, lang, user, onClose, onUserUpdated }
         <div className="flex-1 overflow-y-auto pr-1">
           {loading ? (
             <div className="text-center py-12 font-mono text-zinc-500 text-xs">
-              Загрузка каталога (150+ предметов)...
+              {t.shopLoading || 'Загрузка каталога (150+ предметов)...'}
             </div>
           ) : filteredItems.length === 0 ? (
             <div className="text-center py-12 font-mono text-zinc-500 text-xs">
-              Ничего не найдено по вашему запросу.
+              {t.shopEmpty || 'Ничего не найдено по вашему запросу.'}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pb-2">

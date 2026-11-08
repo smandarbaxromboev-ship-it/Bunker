@@ -286,7 +286,27 @@ export const translations = {
     rulesSec5Title: "5. BUNCOINS, МАГАЗИН И ФОТО ПРОФИЛЯ",
     rulesSec5Desc: "За каждый пережитый раунд вы получаете +50 BunCoins, а победители бункера забирают +500 BunCoins! Тратьте монеты в магазине на 150+ уникальных скинов, неоновых рамок и званий. Вы также можете привязать любую свою ссылку на фото профиля!",
     rulesUnderstandBtn: "Я ВСЁ ПОНЯЛ, Я ГОТОВ К ВЫЖИВАНИЮ!",
-    rulesMandatoryNotice: "Ознакомление обязательно перед входом в бункер. Вы всегда сможете открыть правила кнопкой 'Правила' в меню."
+    rulesMandatoryNotice: "Ознакомление обязательно перед входом в бункер. Вы всегда сможете открыть правила кнопкой 'Правила' в меню.",
+
+    // UI Buttons & Labels
+    btnRules: "Правила",
+    btnRulesTooltip: "Правила и условия игры",
+    btnAtmosphere: "Атмосфера",
+    btnEffects: "Эффекты",
+    atmosphereOffTooltip: "Отключить эффекты радиации и зомби",
+    atmosphereOnTooltip: "Включить эффекты радиации и зомби",
+    profilePhotoDefault: "Фото профиля",
+    profileBtnTooltip: "Нажмите, чтобы настроить фото и профиль",
+    heroBadgeText: "ОНЛАЙН-ИГРА • 3-12 ИГРОКОВ • 2-5 ПРИЗОВЫХ МЕСТ",
+    howToPlayBtn: "Как играть? (Правила)",
+    fullRulesLink: "полные правила →",
+    footerInfoText: "БУНКЕР: 7 РАУНДОВ • МУЛЬТИПЛЕЕР 3-12 ЧЕЛОВЕК • 2-5 МЕСТ В БУНКЕРЕ",
+    shopLoading: "Загрузка каталога (150+ предметов)...",
+    shopEmpty: "Ничего не найдено по вашему запросу.",
+    authProcessing: "Обработка...",
+    logoTitle: "БУНКЕР",
+    logoSub: "РАУНДОВ ОТКРОВЕНИЙ",
+    geigerLabel: "РАДИАЦИЯ • ЗОМБИ-РАДАР АКТИВЕН"
   },
 
   en: {
@@ -573,7 +593,27 @@ export const translations = {
     rulesSec5Title: "5. BUNCOINS, SHOP & PROFILE PHOTO",
     rulesSec5Desc: "Earn +50 BunCoins for surviving each round, and bunker winners take +500 BunCoins! Spend coins in shop on 150+ skins, frames, and titles. You can also set a custom profile photo via direct link!",
     rulesUnderstandBtn: "I UNDERSTAND, I'M READY TO SURVIVE!",
-    rulesMandatoryNotice: "Mandatory briefing before entering the bunker. You can always reopen the rules anytime via 'Rules' in the menu."
+    rulesMandatoryNotice: "Mandatory briefing before entering the bunker. You can always reopen the rules anytime via 'Rules' in the menu.",
+
+    // UI Buttons & Labels
+    btnRules: "Rules",
+    btnRulesTooltip: "Game rules and conditions",
+    btnAtmosphere: "Atmosphere",
+    btnEffects: "Effects",
+    atmosphereOffTooltip: "Disable radiation & zombie animations",
+    atmosphereOnTooltip: "Enable radiation & zombie animations",
+    profilePhotoDefault: "Profile Photo",
+    profileBtnTooltip: "Click to customize photo and profile",
+    heroBadgeText: "ONLINE GAME • 3-12 PLAYERS • 2-5 BUNKER SPOTS",
+    howToPlayBtn: "How to play? (Rules)",
+    fullRulesLink: "full rules →",
+    footerInfoText: "BUNKER: 7 ROUNDS • MULTIPLAYER 3-12 PLAYERS • 2-5 WINNING SPOTS",
+    shopLoading: "Loading catalog (150+ items)...",
+    shopEmpty: "No items found matching your search.",
+    authProcessing: "Processing...",
+    logoTitle: "BUNKER",
+    logoSub: "ROUNDS OF REVELATION",
+    geigerLabel: "RADIATION • ZOMBIE RADAR ACTIVE"
   },
 
   uz: {
@@ -860,7 +900,27 @@ export const translations = {
     rulesSec5Title: "5. BUNCOINS, DO'KON VA PROFIL RASMI",
     rulesSec5Desc: "Har bir tirik qolingan raund uchun +50 BunCoins, g'oliblar esa +500 BunCoins oladi! Tangalarni do'kondagi 150+ kiyimlar, neon ramkalar va unvonlarga sarflang. Shuningdek shaxsiy rasm havolasini ham qo'yishingiz mumkin!",
     rulesUnderstandBtn: "HAMMASINI TUSHUNDIM, OMON QOLISHGA TAYYORMAN!",
-    rulesMandatoryNotice: "Bunkerga kirishdan oldin ko'rsatma bilan tanishish majburiy. Menyudagi 'Qoidalar' tugmasi orqali istalgan vaqtda qayta o'qishingiz mumkin."
+    rulesMandatoryNotice: "Bunkerga kirishdan oldin ko'rsatma bilan tanishish majburiy. Menyudagi 'Qoidalar' tugmasi orqali istalgan vaqtda qayta o'qishingiz mumkin.",
+
+    // UI Buttons & Labels
+    btnRules: "Qoidalar",
+    btnRulesTooltip: "O'yin qoidalari va shartlari",
+    btnAtmosphere: "Atmosfera",
+    btnEffects: "Effektlar",
+    atmosphereOffTooltip: "Radiatsiya va zombi animatsiyalarini o'chirish",
+    atmosphereOnTooltip: "Radiatsiya va zombi animatsiyalarini yoqish",
+    profilePhotoDefault: "Profil rasmi",
+    profileBtnTooltip: "Rasm va profilni sozlash uchun bosing",
+    heroBadgeText: "ONLAYN O'YIN • 3-12 O'YINCHI • 2-5 G'OLIBLIK JOYI",
+    howToPlayBtn: "Qanday o'ynaladi? (Qoidalar)",
+    fullRulesLink: "to'liq qoidalar →",
+    footerInfoText: "BUNKER: 7 RAUND • MULTIPLAYER 3-12 KISHI • BUNKERDA 2-5 JOY",
+    shopLoading: "Katalog yuklanmoqda (150+ buyumlar)...",
+    shopEmpty: "So'rovingiz bo'yicha hech narsa topilmadi.",
+    authProcessing: "Jarayonda...",
+    logoTitle: "BUNKER",
+    logoSub: "7 RAUND OCHILISHLAR",
+    geigerLabel: "RADIATSIYA • ZOMBI RADARI FAOL"
   }
 };
 

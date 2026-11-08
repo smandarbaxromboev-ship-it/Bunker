@@ -40,14 +40,14 @@ export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem('bunker_lang') || 'ru');
   const [user, setUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('bunker_user');
+      const saved = localStorage.getItem('bunker_user_v3');
       return saved ? JSON.parse(saved) : null;
     } catch (e) {
       return null;
     }
   });
   const [playerName, setPlayerName] = useState(() => {
-    const savedUser = localStorage.getItem('bunker_user');
+    const savedUser = localStorage.getItem('bunker_user_v3');
     if (savedUser) {
       try { return JSON.parse(savedUser).username; } catch (e) {}
     }
@@ -174,13 +174,13 @@ export default function App() {
     // Мгновенное начисление BunCoins от администратора в реальном времени!
     socket.on('userProfileUpdated', (data) => {
       if (!data || !data.user) return;
-      const mySaved = localStorage.getItem('bunker_user');
+      const mySaved = localStorage.getItem('bunker_user_v3');
       if (mySaved) {
         try {
           const parsed = JSON.parse(mySaved);
           if (parsed.username && parsed.username.toLowerCase() === data.user.username.toLowerCase()) {
             setUser(data.user);
-            localStorage.setItem('bunker_user', JSON.stringify(data.user));
+            localStorage.setItem('bunker_user_v3', JSON.stringify(data.user));
             soundManager.playBeep(1200, 0.15);
           }
         } catch (e) {}
@@ -188,7 +188,7 @@ export default function App() {
     });
 
     socket.on('userBlocked', ({ username, message }) => {
-      const mySaved = localStorage.getItem('bunker_user');
+      const mySaved = localStorage.getItem('bunker_user_v3');
       if (mySaved) {
         try {
           const parsed = JSON.parse(mySaved);
@@ -215,13 +215,17 @@ export default function App() {
     };
   }, []);
 
-  // Sync profile on mount
+  // Sync profile on mount and enforce mandatory rules if not accepted yet
   useEffect(() => {
     if (user?.username) {
-      socket.emit('getProfile', { username: user.username }, (res) => {
+      socket.emit('getProfile', { username: user.username, fallbackUser: user }, (res) => {
         if (res && res.user) {
           setUser(res.user);
-          localStorage.setItem('bunker_user', JSON.stringify(res.user));
+          localStorage.setItem('bunker_user_v3', JSON.stringify(res.user));
+          if (!res.user.rulesAccepted) {
+            setIsRulesMandatory(true);
+            setShowRulesModal(true);
+          }
         }
       });
     }
@@ -229,9 +233,10 @@ export default function App() {
 
   const handleAuthSuccess = (authedUser, isNewRegistration = false) => {
     setUser(authedUser);
-    localStorage.setItem('bunker_user', JSON.stringify(authedUser));
+    localStorage.setItem('bunker_user_v3', JSON.stringify(authedUser));
     setPlayerName(authedUser.username);
     localStorage.setItem('bunker_player_name', authedUser.username);
+    setShowAuthModal(false);
 
     // If new registration or rules not accepted yet, show mandatory RulesModal
     if (isNewRegistration || !authedUser.rulesAccepted) {
@@ -244,7 +249,7 @@ export default function App() {
     if (user?.username) {
       const updatedUser = { ...user, rulesAccepted: true };
       setUser(updatedUser);
-      localStorage.setItem('bunker_user', JSON.stringify(updatedUser));
+      localStorage.setItem('bunker_user_v3', JSON.stringify(updatedUser));
       socket.emit('updateProfile', { username: user.username, rulesAccepted: true });
     }
     setIsRulesMandatory(false);
@@ -253,12 +258,13 @@ export default function App() {
 
   const handleLogout = () => {
     setUser(null);
+    localStorage.removeItem('bunker_user_v3');
     localStorage.removeItem('bunker_user');
   };
 
   const handleUserUpdated = (updatedUser) => {
     setUser(updatedUser);
-    localStorage.setItem('bunker_user', JSON.stringify(updatedUser));
+    localStorage.setItem('bunker_user_v3', JSON.stringify(updatedUser));
   };
 
   const handleSwitchMobileTab = (tab) => {
@@ -412,7 +418,7 @@ export default function App() {
     return (
       <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 flex flex-col justify-between p-3 sm:p-6 text-slate-800 dark:text-zinc-100 transition-colors duration-200 relative overflow-hidden">
         {/* Apocalyptic Ambient Animations */}
-        <AtmosphereEffects enabled={atmosphereEnabled} />
+        <AtmosphereEffects enabled={atmosphereEnabled} lang={lang} />
 
         <div className="max-w-4xl mx-auto w-full pt-2 sm:pt-6 relative z-10">
           {/* Top Bar with User Profile, Rules, Atmosphere, Shop, Theme Toggle & Language Selector */}
@@ -424,7 +430,7 @@ export default function App() {
                   <button
                     onClick={() => setShowProfileModal(true)}
                     className="flex items-center space-x-2 cursor-pointer hover:opacity-85 transition text-left"
-                    title="Нажмите, чтобы настроить фото и профиль"
+                    title={t.profileBtnTooltip || "Нажмите, чтобы настроить фото и профиль"}
                   >
                     {user.characterDetails?.avatarUrl ? (
                       <img 
@@ -444,7 +450,7 @@ export default function App() {
                         </span>
                       </div>
                       <div className="text-[10px] text-zinc-400">
-                        {user.characterDetails?.title ? getLocalized(user.characterDetails.title, lang) : 'Фото профиля'}
+                        {user.characterDetails?.title ? getLocalized(user.characterDetails.title, lang) : (t.profilePhotoDefault || 'Фото профиля')}
                       </div>
                     </div>
                   </button>
@@ -478,17 +484,17 @@ export default function App() {
                   setIsRulesMandatory(false);
                   setShowRulesModal(true);
                 }}
-                title="Правила и условия игры"
+                title={t.btnRulesTooltip || "Правила и условия игры"}
                 className="px-3 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer"
               >
                 <span>📜</span>
-                <span className="hidden sm:inline">Правила</span>
+                <span className="hidden sm:inline">{t.btnRules || "Правила"}</span>
               </button>
 
               {/* Atmosphere Toggle */}
               <button
                 onClick={() => handleToggleAtmosphere(!atmosphereEnabled)}
-                title={atmosphereEnabled ? "Отключить эффекты радиации и зомби" : "Включить эффекты радиации и зомби"}
+                title={atmosphereEnabled ? (t.atmosphereOffTooltip || "Отключить эффекты") : (t.atmosphereOnTooltip || "Включить эффекты")}
                 className={`px-2.5 py-1.5 rounded-2xl border text-xs font-mono font-bold transition shadow-sm flex items-center space-x-1 cursor-pointer ${
                   atmosphereEnabled
                     ? 'bg-amber-500/20 text-amber-500 border-amber-500/50'
@@ -496,7 +502,7 @@ export default function App() {
                 }`}
               >
                 <span>☢️</span>
-                <span className="hidden md:inline text-[10px]">Эффекты</span>
+                <span className="hidden md:inline text-[10px]">{t.btnEffects || "Эффекты"}</span>
               </button>
 
               {/* Shop Button */}
@@ -512,7 +518,7 @@ export default function App() {
               {/* Theme Toggle */}
               <button
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                title={theme === 'dark' ? "Включить светлую тему" : "Включить темную тему"}
+                title={theme === 'dark' ? t.lightThemeTooltip : t.darkThemeTooltip}
                 className="p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 shadow-sm transition cursor-pointer"
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
@@ -550,12 +556,12 @@ export default function App() {
 
           {/* Hero Header with Animated BunkerLogo */}
           <div className="text-center space-y-3 mb-6 sm:mb-10">
-            <BunkerLogo size="hero" className="mx-auto" />
+            <BunkerLogo size="hero" className="mx-auto" lang={lang} />
 
             <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider">
                 <Radio className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-                ОНЛАЙН-ИГРА • 3-12 ИГРОКОВ • 2-5 ПРИЗОВЫХ МЕСТ
+                {t.heroBadgeText || 'ОНЛАЙН-ИГРА • 3-12 ИГРОКОВ • 2-5 ПРИЗОВЫХ МЕСТ'}
               </div>
 
               <button
@@ -566,7 +572,7 @@ export default function App() {
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-amber-400 border border-zinc-700 font-mono text-[11px] sm:text-xs font-bold transition shadow cursor-pointer"
               >
                 <span>📜</span>
-                <span>Как играть? (Правила)</span>
+                <span>{t.howToPlayBtn || 'Как играть? (Правила)'}</span>
               </button>
             </div>
 
@@ -693,7 +699,7 @@ export default function App() {
                 }}
                 className="text-amber-500 hover:underline text-xs lowercase cursor-pointer"
               >
-                полные правила &rarr;
+                {t.fullRulesLink || 'полные правила →'}
               </button>
             </div>
             <p>{t.rule1}</p>
@@ -704,14 +710,17 @@ export default function App() {
         </div>
 
         <footer className="text-center py-3 text-[10px] sm:text-[11px] text-slate-400 dark:text-zinc-600 font-mono relative z-10">
-          БУНКЕР: 7 РАУНДОВ • МУЛЬТИПЛЕЕР 3-12 ЧЕЛОВЕК • 2-5 МЕСТ В БУНКЕРЕ
+          {t.footerInfoText || 'БУНКЕР: 7 РАУНДОВ • МУЛЬТИПЛЕЕР 3-12 ЧЕЛОВЕК • 2-5 МЕСТ В БУНКЕРЕ'}
         </footer>
 
-        {/* Auth Modal */}
-        {showAuthModal && (
+        {/* Auth Modal (Automatically shown as mandatory when !user) */}
+        {(showAuthModal || !user) && (
           <AuthModal
             socket={socket}
             lang={lang}
+            setLang={handleSetLang}
+            isMandatory={!user}
+            defaultTab="register"
             onClose={() => setShowAuthModal(false)}
             onAuthSuccess={handleAuthSuccess}
           />
@@ -746,6 +755,7 @@ export default function App() {
           onUnderstand={handleRulesUnderstood}
           onClose={() => setShowRulesModal(false)}
           lang={lang}
+          setLang={handleSetLang}
         />
       </div>
     );
@@ -755,7 +765,7 @@ export default function App() {
   if (roomState?.status === 'GAME_OVER') {
     return (
       <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-3 sm:p-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200 relative overflow-hidden">
-        <AtmosphereEffects enabled={atmosphereEnabled} />
+        <AtmosphereEffects enabled={atmosphereEnabled} lang={lang} />
 
         <HeaderTerminal
           roomState={roomState}
@@ -799,6 +809,7 @@ export default function App() {
           onUnderstand={handleRulesUnderstood}
           onClose={() => setShowRulesModal(false)}
           lang={lang}
+          setLang={handleSetLang}
         />
       </div>
     );
@@ -808,7 +819,7 @@ export default function App() {
   if (roomState?.status === 'LOBBY') {
     return (
       <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-3 sm:p-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200 relative overflow-hidden">
-        <AtmosphereEffects enabled={atmosphereEnabled} />
+        <AtmosphereEffects enabled={atmosphereEnabled} lang={lang} />
 
         <HeaderTerminal
           roomState={roomState}
@@ -854,6 +865,7 @@ export default function App() {
           onUnderstand={handleRulesUnderstood}
           onClose={() => setShowRulesModal(false)}
           lang={lang}
+          setLang={handleSetLang}
         />
       </div>
     );
@@ -862,7 +874,7 @@ export default function App() {
   // ACTIVE GAME PLAY (Full Tablet & Mobile Responsiveness)
   return (
     <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 flex flex-col text-slate-800 dark:text-zinc-100 pb-20 md:pb-6 transition-colors duration-200 relative overflow-hidden">
-      <AtmosphereEffects enabled={atmosphereEnabled} />
+      <AtmosphereEffects enabled={atmosphereEnabled} lang={lang} />
 
       <HeaderTerminal 
         roomState={roomState} 
@@ -969,7 +981,7 @@ export default function App() {
             className="px-4 py-2.5 rounded-2xl bg-amber-500 text-black font-display font-bold text-xs shadow-2xl flex items-center gap-1.5 border-2 border-white/20"
           >
             <Sparkles className="w-4 h-4" />
-            <span>ВЫБРАТЬ КАРТУ</span>
+            <span>{t.btnChooseCard}</span>
           </button>
         </div>
       )}
@@ -1098,6 +1110,7 @@ export default function App() {
         <AuthModal
           socket={socket}
           lang={lang}
+          setLang={handleSetLang}
           onClose={() => setShowAuthModal(false)}
           onAuthSuccess={handleAuthSuccess}
         />
@@ -1132,6 +1145,7 @@ export default function App() {
         onUnderstand={handleRulesUnderstood}
         onClose={() => setShowRulesModal(false)}
         lang={lang}
+        setLang={handleSetLang}
       />
     </div>
   );

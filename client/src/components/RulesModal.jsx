@@ -8,7 +8,8 @@ export default function RulesModal({
   isMandatory = false, 
   onUnderstand, 
   onClose, 
-  lang = 'ru' 
+  lang = 'ru',
+  setLang
 }) {
   if (!isOpen) return null;
   const t = translations[lang] || translations.ru;
@@ -27,18 +28,52 @@ export default function RulesModal({
         <div className="absolute -top-20 -left-20 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-20 -right-20 w-48 h-48 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Close Button - ONLY IF NOT MANDATORY */}
-        {!isMandatory && onClose && (
-          <button
-            onClick={() => {
-              soundManager.playBeep(600, 0.05);
-              onClose();
-            }}
-            className="absolute top-4 right-4 p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer z-10"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
+        {/* Top Right Controls: Language Switcher & Optional Close Button */}
+        <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+          {setLang && (
+            <div className="flex items-center bg-zinc-900 rounded-xl p-0.5 border border-zinc-800 text-[11px] font-mono font-bold">
+              <button
+                type="button"
+                onClick={() => setLang('ru')}
+                className={`px-2 py-0.5 rounded-lg transition cursor-pointer ${
+                  lang === 'ru' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                RU
+              </button>
+              <button
+                type="button"
+                onClick={() => setLang('en')}
+                className={`px-2 py-0.5 rounded-lg transition cursor-pointer ${
+                  lang === 'en' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLang('uz')}
+                className={`px-2 py-0.5 rounded-lg transition cursor-pointer ${
+                  lang === 'uz' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                UZ
+              </button>
+            </div>
+          )}
+
+          {!isMandatory && onClose && (
+            <button
+              onClick={() => {
+                soundManager.playBeep(600, 0.05);
+                onClose();
+              }}
+              className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
 
         {/* Modal Header */}
         <div className="flex items-center space-x-3 mb-4 pb-3 border-b border-zinc-850 shrink-0">

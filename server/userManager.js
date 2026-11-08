@@ -81,11 +81,44 @@ class UserManager {
     return { success: true, user: this.sanitizeUser(newUser), isNewRegistration: true };
   }
 
+  ensureUser(username, fallback = {}) {
+    if (!username) return null;
+    const uname = username.trim();
+    if (!uname) return null;
+    const key = uname.toLowerCase();
+    let user = this.users.get(key);
+    if (!user) {
+      user = {
+        username: uname,
+        password: fallback.password || 'user123',
+        avatarUrl: fallback.avatarUrl || null,
+        bunCoins: typeof fallback.bunCoins === 'number' ? fallback.bunCoins : 500,
+        inventory: Array.isArray(fallback.inventory) && fallback.inventory.length > 0
+          ? fallback.inventory
+          : ['char_stalker', 'frame_default', 'title_survivor'],
+        equipped: fallback.equipped || {
+          character: 'char_stalker',
+          frame: 'frame_default',
+          title: 'title_survivor'
+        },
+        stats: fallback.stats || {
+          gamesPlayed: 0,
+          wins: 0,
+          roundsSurvived: 0
+        },
+        rulesAccepted: Boolean(fallback.rulesAccepted),
+        createdAt: fallback.createdAt || new Date().toISOString()
+      };
+      this.users.set(key, user);
+      this.saveUsers();
+    }
+    return user;
+  }
+
   updateProfile(username, updates = {}) {
     if (!username) return { error: 'Имя пользователя не указано' };
-    const key = username.trim().toLowerCase();
-    const user = this.users.get(key);
-    if (!user) return { error: 'Пользователь не найден' };
+    const user = this.ensureUser(username, updates);
+    if (!user) return { error: 'Имя пользователя не указано' };
 
     if (updates.avatarUrl !== undefined) {
       user.avatarUrl = updates.avatarUrl ? updates.avatarUrl.trim() : null;
@@ -113,9 +146,12 @@ class UserManager {
     return { success: true, user: this.sanitizeUser(user) };
   }
 
-  getUser(username) {
+  getUser(username, fallback = null) {
     if (!username) return null;
-    const user = this.users.get(username.trim().toLowerCase());
+    let user = this.users.get(username.trim().toLowerCase());
+    if (!user && fallback) {
+      user = this.ensureUser(username, fallback);
+    }
     return user ? this.sanitizeUser(user) : null;
   }
 
@@ -249,7 +285,7 @@ class UserManager {
   }
 
   buyItem(username, itemId) {
-    const user = this.users.get((username || '').toLowerCase());
+    const user = this.ensureUser(username);
     if (!user) return { error: 'Пользователь не найден' };
 
     const item = SHOP_ITEMS.find(i => i.id === itemId);
@@ -272,7 +308,7 @@ class UserManager {
   }
 
   equipItem(username, itemId) {
-    const user = this.users.get((username || '').toLowerCase());
+    const user = this.ensureUser(username);
     if (!user) return { error: 'Пользователь не найден' };
 
     const item = SHOP_ITEMS.find(i => i.id === itemId);

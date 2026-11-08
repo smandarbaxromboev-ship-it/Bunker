@@ -3,9 +3,17 @@ import { translations } from '../utils/translations';
 import { Shield, Lock, User, Sparkles, X, AlertCircle, Upload, Link as LinkIcon, CheckCircle2, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 
-export default function AuthModal({ socket, lang, onClose, onAuthSuccess }) {
+export default function AuthModal({ 
+  socket, 
+  lang, 
+  setLang, 
+  onClose, 
+  onAuthSuccess, 
+  isMandatory = false, 
+  defaultTab = 'register' 
+}) {
   const t = translations[lang] || translations.ru;
-  const [tab, setTab] = useState('login'); // 'login' | 'register'
+  const [tab, setTab] = useState(defaultTab); // 'login' | 'register'
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -77,7 +85,7 @@ export default function AuthModal({ socket, lang, onClose, onAuthSuccess }) {
       } else if (res && res.success && res.user) {
         soundManager.playBeep(880, 0.1);
         onAuthSuccess(res.user, tab === 'register');
-        onClose();
+        if (onClose) onClose();
       } else {
         setError(lang === 'uz' ? 'Xatolik yuz berdi' : lang === 'en' ? 'Unexpected error' : 'Произошла непредвиденная ошибка');
       }
@@ -91,13 +99,50 @@ export default function AuthModal({ socket, lang, onClose, onAuthSuccess }) {
         <div className="absolute -top-16 -right-16 w-36 h-36 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Top Right Controls: Language Switcher & Optional Close Button */}
+        <div className="flex items-center justify-end gap-2 mb-3">
+          {setLang && (
+            <div className="flex items-center bg-zinc-950 rounded-xl p-0.5 border border-zinc-800 text-[11px] font-mono font-bold">
+              <button
+                type="button"
+                onClick={() => setLang('ru')}
+                className={`px-2 py-0.5 rounded-lg transition cursor-pointer ${
+                  lang === 'ru' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                RU
+              </button>
+              <button
+                type="button"
+                onClick={() => setLang('en')}
+                className={`px-2 py-0.5 rounded-lg transition cursor-pointer ${
+                  lang === 'en' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLang('uz')}
+                className={`px-2 py-0.5 rounded-lg transition cursor-pointer ${
+                  lang === 'uz' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                UZ
+              </button>
+            </div>
+          )}
+
+          {!isMandatory && onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
 
         {/* Header */}
         <div className="flex items-center space-x-3 mb-5">
@@ -275,7 +320,7 @@ export default function AuthModal({ socket, lang, onClose, onAuthSuccess }) {
             disabled={loading}
             className="w-full mt-3 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-bold font-display text-sm tracking-wide uppercase rounded-xl transition shadow-[0_0_20px_rgba(245,158,11,0.35)] disabled:opacity-50 cursor-pointer"
           >
-            {loading ? 'Обработка...' : tab === 'login' ? (t.authBtnLogin || 'Войти в бункер') : (t.authBtnRegister || 'Зарегистрироваться')}
+            {loading ? (t.authProcessing || 'Обработка...') : tab === 'login' ? (t.authBtnLogin || 'Войти в бункер') : (t.authBtnRegister || 'Зарегистрироваться')}
           </button>
         </form>
 

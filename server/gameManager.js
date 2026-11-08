@@ -1160,6 +1160,25 @@ class GameManager {
     }
     return false;
   }
+
+  updatePlayerProfile(username, userProfile) {
+    if (!username || !userProfile) return;
+    const targetKey = username.trim().toLowerCase();
+    const updatedChar = resolvePlayerCharacter(userProfile);
+
+    for (const [code, room] of this.rooms.entries()) {
+      let changed = false;
+      room.players.forEach(p => {
+        if ((p.username && p.username.toLowerCase() === targetKey) || p.name.toLowerCase() === targetKey) {
+          p.character = updatedChar;
+          changed = true;
+        }
+      });
+      if (changed) {
+        this.broadcastRoom(code);
+      }
+    }
+  }
 }
 
 module.exports = GameManager;

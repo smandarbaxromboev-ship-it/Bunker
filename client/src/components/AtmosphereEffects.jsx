@@ -1,9 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { translations } from '../utils/translations';
 
-export default function AtmosphereEffects({ enabled = true }) {
+export default function AtmosphereEffects({ enabled = true, lang = 'ru' }) {
   const canvasRef = useRef(null);
+  const [radiationSv, setRadiationSv] = useState(4.82);
+  const t = translations[lang] || translations.ru;
 
-  // Canvas floating radioactive embers & dust
+  // Fluctuating Geiger radiation reading
+  useEffect(() => {
+    if (!enabled) return;
+    const interval = setInterval(() => {
+      setRadiationSv((prev) => {
+        const delta = (Math.random() - 0.48) * 0.35;
+        return Number(Math.max(3.2, Math.min(9.9, prev + delta)).toFixed(2));
+      });
+    }, 1800);
+    return () => clearInterval(interval);
+  }, [enabled]);
+
+  // Canvas floating radioactive spores, toxic acid rain & fallout sparks
   useEffect(() => {
     if (!enabled) return;
 
@@ -19,42 +34,78 @@ export default function AtmosphereEffects({ enabled = true }) {
     resize();
     window.addEventListener('resize', resize);
 
-    // Particle pool: radioactive sparks and toxic spore motes
-    const count = 42;
-    const items = [];
-    for (let i = 0; i < count; i++) {
-      items.push({
+    // 1. Glowing Fallout Spores
+    const sporeCount = 55;
+    const spores = [];
+    for (let i = 0; i < sporeCount; i++) {
+      const type = Math.random();
+      spores.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        r: Math.random() * 2.2 + 0.8,
-        vx: (Math.random() - 0.5) * 0.5,
-        vy: -Math.random() * 0.8 - 0.25, // float upwards
-        alpha: Math.random() * 0.7 + 0.2,
-        color: Math.random() > 0.4 ? 'rgba(245, 158, 11,' : 'rgba(132, 204, 22,' // amber or radioactive lime
+        r: Math.random() * 3.2 + 1.2,
+        vx: (Math.random() - 0.5) * 0.7,
+        vy: -Math.random() * 1.1 - 0.3,
+        alpha: Math.random() * 0.65 + 0.35,
+        color: type > 0.55 ? '#84cc16' : type > 0.2 ? '#f59e0b' : '#ef4444'
+      });
+    }
+
+    // 2. Acid Rain Streaks
+    const rainCount = 24;
+    const raindrops = [];
+    for (let i = 0; i < rainCount; i++) {
+      raindrops.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        len: Math.random() * 18 + 10,
+        vy: Math.random() * 4.5 + 3.5,
+        vx: 0.6,
+        alpha: Math.random() * 0.35 + 0.15
       });
     }
 
     const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      items.forEach(p => {
+      // Draw Acid Rain
+      ctx.lineWidth = 1.2;
+      raindrops.forEach(d => {
+        d.x += d.vx;
+        d.y += d.vy;
+        if (d.y > canvas.height) {
+          d.y = -20;
+          d.x = Math.random() * canvas.width;
+        }
+        if (d.x > canvas.width) d.x = 0;
+
+        ctx.beginPath();
+        ctx.moveTo(d.x, d.y);
+        ctx.lineTo(d.x + d.vx * 3, d.y + d.len);
+        ctx.strokeStyle = `rgba(132, 204, 22, ${d.alpha})`;
+        ctx.stroke();
+      });
+
+      // Draw Radioactive Spores
+      spores.forEach(p => {
         p.x += p.vx;
         p.y += p.vy;
 
-        // Wrap around
-        if (p.y < 0) {
+        if (p.y < -10) {
           p.y = canvas.height + 10;
           p.x = Math.random() * canvas.width;
         }
         if (p.x < 0) p.x = canvas.width;
         if (p.x > canvas.width) p.x = 0;
 
+        ctx.save();
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `${p.color} ${p.alpha})`;
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = p.color === 'rgba(245, 158, 11,' ? '#f59e0b' : '#84cc16';
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.alpha;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = p.color;
         ctx.fill();
+        ctx.restore();
       });
 
       animationId = requestAnimationFrame(render);
@@ -70,117 +121,169 @@ export default function AtmosphereEffects({ enabled = true }) {
 
   if (!enabled) return null;
 
+  const zombieChants = lang === 'uz'
+    ? ['☢️ RADIATSIYA!', '🧟 BUNKERNI OCH!', '🧠 MIYA...', '☣️ VIRUS!']
+    : lang === 'en'
+    ? ['☢️ RADIATION!', '🧟 OPEN THE BUNKER!', '🧠 BRAINS...', '☣️ BIOHAZARD!']
+    : ['☢️ РАДИАЦИЯ!', '🧟 ОТКРОЙТЕ БУНКЕР!', '🧠 МОЗГИ...', '☣️ ЗАРАЖЕНИЕ!'];
+
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none">
-      {/* 1. Canvas Radioactive Spores / Embers */}
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-65" />
+    <div className="fixed inset-0 pointer-events-none z-30 overflow-hidden select-none">
+      {/* 1. Canvas Radioactive Spores & Acid Rain */}
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-85" />
 
-      {/* 2. Toxic Fog at the Bottom */}
-      <div className="absolute bottom-0 left-0 right-0 h-36 sm:h-52 bg-gradient-to-t from-amber-950/25 via-emerald-950/15 to-transparent blur-2xl animate-pulse" />
+      {/* 2. Glowing Toxic Green & Amber Fog at the Bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-28 sm:h-40 bg-gradient-to-t from-lime-500/20 via-amber-500/10 to-transparent blur-xl animate-pulse" />
 
-      {/* 3. Occasional Radiation Lightning Flash in sky */}
-      <div className="absolute inset-0 bg-emerald-500/5 mix-blend-screen opacity-0 animate-[radStorm_20s_ease-in-out_infinite]" />
-
-      {/* 4. Flying Mutated Crows / Creatures across Sky */}
-      <div className="absolute top-8 sm:top-14 left-0 w-8 h-4 opacity-30 animate-[flyAcross_25s_linear_infinite]">
-        <svg viewBox="0 0 40 20" className="w-full h-full fill-current text-zinc-900 dark:text-zinc-600 animate-[wingFlap_0.6s_ease-in-out_infinite]">
-          <path d="M0,10 Q10,0 20,10 Q30,0 40,10 Q30,6 20,14 Q10,6 0,10 Z" />
+      {/* 3. Rotating Giant Holographic Biohazard & Radiation Watermarks in Corners */}
+      <div className="
+        fixed -bottom-16 -right-16 w-64 h-64 sm:w-80 sm:h-80 opacity-20 dark:opacity-25
+        text-lime-500 drop-shadow-[0_0_25px_rgba(132,204,22,0.8)]
+        animate-[spin_28s_linear_infinite]
+      ">
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
+          <circle cx="12" cy="12" r="2.5" />
+          <path d="M12 9.5a5.5 5.5 0 0 1 4.76 2.75l2.6-1.5A8.5 8.5 0 0 0 12 6.5v3z" />
+          <path d="M14.16 13.25a5.5 5.5 0 0 1-4.32 2.5v3a8.5 8.5 0 0 0 6.92-4l-2.6-1.5z" />
+          <path d="M9.84 13.25l-2.6 1.5a8.5 8.5 0 0 0 6.92 4v-3a5.5 5.5 0 0 1-4.32-2.5z" transform="rotate(120 12 12)" />
+          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 3" />
         </svg>
       </div>
 
-      <div className="absolute top-16 sm:top-24 left-0 w-6 h-3 opacity-20 animate-[flyAcross_38s_linear_infinite_10s]">
-        <svg viewBox="0 0 40 20" className="w-full h-full fill-current text-zinc-900 dark:text-zinc-600 animate-[wingFlap_0.5s_ease-in-out_infinite]">
-          <path d="M0,10 Q10,0 20,10 Q30,0 40,10 Q30,6 20,14 Q10,6 0,10 Z" />
-        </svg>
+      {/* 4. Floating Glowing Radiation & Biohazard Symbols Drifting Upwards */}
+      <div className="fixed left-[6%] bottom-10 text-xl sm:text-2xl opacity-60 drop-shadow-[0_0_12px_#84cc16] animate-[floatUp_14s_linear_infinite]">
+        ☢️
+      </div>
+      <div className="fixed left-[28%] bottom-6 text-lg sm:text-xl opacity-50 drop-shadow-[0_0_12px_#f59e0b] animate-[floatUp_19s_linear_infinite_4s]">
+        ☣️
+      </div>
+      <div className="fixed right-[22%] bottom-8 text-xl sm:text-2xl opacity-60 drop-shadow-[0_0_12px_#ef4444] animate-[floatUp_16s_linear_infinite_2s]">
+        ☢️
+      </div>
+      <div className="fixed right-[7%] bottom-12 text-lg sm:text-xl opacity-55 drop-shadow-[0_0_12px_#84cc16] animate-[floatUp_21s_linear_infinite_7s]">
+        ☣️
       </div>
 
-      {/* 5. Emergency Warning Siren Beacon Sweep */}
-      <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-gradient-to-b from-amber-500/10 via-red-600/5 to-transparent blur-3xl opacity-40 animate-[beaconPulse_8s_ease-in-out_infinite]" />
+      {/* 5. Flying Mutated Bats / Crows across Upper Sky */}
+      <div className="fixed top-14 left-0 text-lg sm:text-xl opacity-75 drop-shadow-[0_0_10px_#ef4444] animate-[flyAcross_22s_linear_infinite]">
+        🦇
+      </div>
+      <div className="fixed top-24 left-0 text-base sm:text-lg opacity-65 drop-shadow-[0_0_10px_#84cc16] animate-[flyAcross_31s_linear_infinite_8s]">
+        🦇
+      </div>
 
-      {/* 6. Wandering Zombie Horde Silhouettes along Bottom Horizon */}
-      <div className="absolute -bottom-1 left-0 right-0 h-16 sm:h-20 overflow-hidden opacity-30">
-        {/* Zombie 1 (Fast Stalker) */}
-        <div 
-          className="absolute bottom-0 w-10 h-16 bg-black rounded-t-full filter blur-[0.7px] animate-[walk_28s_linear_infinite]"
-          style={{
-            clipPath: 'polygon(30% 0%, 70% 0%, 85% 20%, 75% 45%, 90% 70%, 70% 100%, 30% 100%, 15% 70%, 25% 45%, 15% 20%)',
-            animationDuration: '30s'
-          }}
+      {/* 6. Emergency Warning Siren Sweep at Top */}
+      <div className="fixed -top-10 left-1/2 -translate-x-1/2 w-[650px] h-[240px] bg-gradient-to-b from-red-600/20 via-amber-500/10 to-transparent blur-3xl animate-[beaconPulse_6s_ease-in-out_infinite]" />
+
+      {/* 7. VIVID ZOMBIE HORDE MARCHING ALONG THE BOTTOM HORIZON */}
+      <div className="fixed bottom-0 left-0 right-0 h-24 overflow-hidden">
+        {/* Zombie 1: Fast Glowing Mutant with Speech Bubble */}
+        <div
+          className="absolute bottom-1 flex flex-col items-center animate-[zombieWalkRight_24s_linear_infinite]"
+          style={{ animationDelay: '0s' }}
         >
-          {/* Glowing Red Eyes */}
-          <div className="absolute top-2 left-2.5 w-1.5 h-1.5 bg-red-500 rounded-full shadow-[0_0_8px_#ef4444]" />
-          <div className="absolute top-2 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full shadow-[0_0_8px_#ef4444]" />
+          <span className="px-1.5 py-0.5 rounded bg-lime-950/90 border border-lime-500/70 text-[9px] font-mono font-bold text-lime-300 shadow-[0_0_10px_#84cc16] mb-0.5 whitespace-nowrap">
+            {zombieChants[0]}
+          </span>
+          <span className="text-2xl sm:text-3xl filter drop-shadow-[0_0_12px_#84cc16] animate-[zombieBob_0.7s_ease-in-out_infinite]">
+            🧟‍♂️
+          </span>
         </div>
 
-        {/* Zombie 2 (Heavy Stumbling Mutant) */}
-        <div 
-          className="absolute bottom-0 w-14 h-16 bg-black rounded-t-full filter blur-[0.8px] animate-[walk_42s_linear_infinite]"
-          style={{
-            animationDelay: '12s',
-            clipPath: 'polygon(40% 0%, 65% 0%, 85% 25%, 80% 50%, 95% 80%, 65% 100%, 35% 100%, 10% 75%, 20% 45%, 15% 25%)'
-          }}
+        {/* Zombie 2: Biohazard Crawler */}
+        <div
+          className="absolute bottom-1 flex flex-col items-center animate-[zombieWalkRight_32s_linear_infinite]"
+          style={{ animationDelay: '5s' }}
         >
-          <div className="absolute top-3 left-3 w-1.5 h-1.5 bg-amber-400 rounded-full shadow-[0_0_8px_#f59e0b]" />
-          <div className="absolute top-3 right-3 w-1.5 h-1.5 bg-amber-400 rounded-full shadow-[0_0_8px_#f59e0b]" />
+          <span className="px-1.5 py-0.5 rounded bg-amber-950/90 border border-amber-500/70 text-[9px] font-mono font-bold text-amber-300 shadow-[0_0_10px_#f59e0b] mb-0.5 whitespace-nowrap">
+            {zombieChants[1]}
+          </span>
+          <span className="text-2xl sm:text-3xl filter drop-shadow-[0_0_12px_#f59e0b] animate-[zombieBob_0.9s_ease-in-out_infinite]">
+            🧟‍♀️
+          </span>
         </div>
 
-        {/* Zombie 3 (Creeping Shadow Ghoul) */}
-        <div 
-          className="absolute bottom-0 w-9 h-13 bg-black rounded-t-full filter blur-[0.7px] animate-[walk_24s_linear_infinite]"
-          style={{
-            animationDelay: '6s',
-            clipPath: 'polygon(35% 0%, 65% 0%, 80% 30%, 70% 60%, 85% 100%, 15% 100%, 30% 60%, 20% 30%)'
-          }}
+        {/* Zombie 3: Red-Eyed Alpha Ghoul */}
+        <div
+          className="absolute bottom-1 flex flex-col items-center animate-[zombieWalkRight_28s_linear_infinite]"
+          style={{ animationDelay: '11s' }}
         >
-          <div className="absolute top-1.5 left-2 w-1.5 h-1.5 bg-lime-400 rounded-full shadow-[0_0_8px_#84cc16]" />
+          <span className="px-1.5 py-0.5 rounded bg-red-950/90 border border-red-500/70 text-[9px] font-mono font-bold text-red-300 shadow-[0_0_10px_#ef4444] mb-0.5 whitespace-nowrap">
+            {zombieChants[2]}
+          </span>
+          <span className="text-2xl sm:text-3xl filter drop-shadow-[0_0_14px_#ef4444] animate-[zombieBob_0.6s_ease-in-out_infinite]">
+            🧟
+          </span>
         </div>
 
-        {/* Zombie 4 (Crawling Mutant) */}
-        <div 
-          className="absolute bottom-0 w-12 h-10 bg-black filter blur-[0.8px] animate-[walk_36s_linear_infinite]"
-          style={{
-            animationDelay: '19s',
-            clipPath: 'polygon(20% 40%, 50% 20%, 80% 40%, 100% 70%, 90% 100%, 10% 100%, 0% 70%)'
-          }}
+        {/* Zombie 4: Walking Left from Right Edge */}
+        <div
+          className="absolute bottom-1 flex flex-col items-center animate-[zombieWalkLeft_26s_linear_infinite]"
+          style={{ animationDelay: '2s' }}
         >
-          <div className="absolute top-2 left-4 w-1.5 h-1.5 bg-red-600 rounded-full shadow-[0_0_8px_#dc2626]" />
+          <span className="px-1.5 py-0.5 rounded bg-lime-950/90 border border-lime-500/70 text-[9px] font-mono font-bold text-lime-300 shadow-[0_0_10px_#84cc16] mb-0.5 whitespace-nowrap">
+            {zombieChants[3]}
+          </span>
+          <span className="text-2xl sm:text-3xl filter drop-shadow-[0_0_12px_#84cc16] animate-[zombieBob_0.75s_ease-in-out_infinite]">
+            🧟‍♂️
+          </span>
+        </div>
+
+        {/* Zombie 5: Horde Follower */}
+        <div
+          className="absolute bottom-1 flex flex-col items-center animate-[zombieWalkLeft_35s_linear_infinite]"
+          style={{ animationDelay: '14s' }}
+        >
+          <span className="text-xl sm:text-2xl filter drop-shadow-[0_0_10px_#f59e0b] animate-[zombieBob_0.8s_ease-in-out_infinite]">
+            🧟‍♀️
+          </span>
         </div>
       </div>
 
-      {/* 7. Subtle CRT Terminal Scanline overlay */}
-      <div 
-        className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.22)_50%)] bg-[length:100%_4px] opacity-15" 
-      />
+      {/* 8. Live Geiger Counter HUD Badge (Bottom Left) */}
+      <div className="hidden sm:flex fixed bottom-3 left-3 items-center gap-2 px-2.5 py-1 rounded-xl bg-zinc-950/85 border border-lime-500/50 shadow-[0_0_15px_rgba(132,204,22,0.3)] backdrop-blur-md">
+        <span className="text-sm animate-[spin_4s_linear_infinite]">☢️</span>
+        <div className="font-mono leading-tight">
+          <div className="text-[9px] text-lime-400 font-bold tracking-wider uppercase flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-lime-400 animate-ping" />
+            <span>{t.geigerLabel || 'РАДИАЦИЯ • ЗОМБИ-РАДАР АКТИВЕН'}</span>
+          </div>
+          <div className="text-[10px] text-amber-400 font-extrabold">
+            {radiationSv} Sv/h • BIOHAZARD LEVEL 5
+          </div>
+        </div>
+      </div>
 
-      {/* 8. Edge Biohazard Vignette */}
-      <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.65)]" />
-
-      {/* Keyframe styles */}
+      {/* Keyframe animations */}
       <style>{`
-        @keyframes walk {
-          0% { transform: translateX(-80px) scale(0.9) skewX(-4deg); }
-          50% { transform: translateX(50vw) scale(1) skewX(4deg); }
-          100% { transform: translateX(calc(100vw + 80px)) scale(0.9) skewX(-4deg); }
+        @keyframes zombieWalkRight {
+          0% { transform: translateX(-120px); }
+          100% { transform: translateX(calc(100vw + 120px)); }
+        }
+        @keyframes zombieWalkLeft {
+          0% { transform: translateX(calc(100vw + 120px)) scaleX(-1); }
+          100% { transform: translateX(-120px) scaleX(-1); }
+        }
+        @keyframes zombieBob {
+          0%, 100% { transform: translateY(0px) rotate(-4deg); }
+          50% { transform: translateY(-6px) rotate(5deg); }
+        }
+        @keyframes floatUp {
+          0% { transform: translateY(20px) rotate(0deg) scale(0.8); opacity: 0; }
+          20% { opacity: 0.75; }
+          80% { opacity: 0.75; }
+          100% { transform: translateY(-85vh) rotate(360deg) scale(1.15); opacity: 0; }
         }
         @keyframes flyAcross {
-          0% { transform: translateX(-50px) translateY(0); }
-          50% { transform: translateX(50vw) translateY(15px); }
-          100% { transform: translateX(calc(100vw + 50px)) translateY(-5px); }
-        }
-        @keyframes wingFlap {
-          0%, 100% { transform: scaleY(1); }
-          50% { transform: scaleY(0.4); }
-        }
-        @keyframes radStorm {
-          0%, 90%, 100% { opacity: 0; }
-          92% { opacity: 0.25; }
-          93% { opacity: 0.05; }
-          95% { opacity: 0.35; }
-          96% { opacity: 0; }
+          0% { transform: translateX(-60px) translateY(0px) scale(0.9); }
+          25% { transform: translateX(25vw) translateY(18px) scale(1.05); }
+          50% { transform: translateX(50vw) translateY(-10px) scale(0.95); }
+          75% { transform: translateX(75vw) translateY(14px) scale(1.05); }
+          100% { transform: translateX(calc(100vw + 60px)) translateY(-5px) scale(0.9); }
         }
         @keyframes beaconPulse {
-          0%, 100% { transform: translateX(-50%) rotate(-15deg); opacity: 0.2; }
-          50% { transform: translateX(-50%) rotate(15deg); opacity: 0.55; }
+          0%, 100% { transform: translateX(-50%) rotate(-18deg); opacity: 0.25; }
+          50% { transform: translateX(-50%) rotate(18deg); opacity: 0.65; }
         }
       `}</style>
     </div>
