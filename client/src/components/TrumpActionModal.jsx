@@ -134,9 +134,31 @@ export default function TrumpActionModal({
   const t = translations[lang] || translations.ru;
   const ability = specialCard?.ability || 'swap_card';
 
-  // For swap_card / rewrite_card
-  const otherCards = myDeck.filter(c => c.type !== 'special');
-  const [selectedCardId, setSelectedCardId] = useState(otherCards[0]?.id || 'age');
+  // Detect if this trump card is restricted to a single specific category (e.g. only hobby, only health, only age, etc.)
+  const detectRestrictedCategory = (sc) => {
+    if (!sc) return null;
+    if (sc.targetCard) return sc.targetCard;
+    const text = `${sc.value?.ru || ''} ${sc.value?.en || ''} ${sc.description?.ru || ''}`.toLowerCase();
+    if (text.includes('возраст') || text.includes('age') || text.includes('yosh')) return 'age';
+    if (text.includes('болезн') || text.includes('здоровь') || text.includes('health') || text.includes('medical') || text.includes('медицинский сканер') || text.includes('salomatlik')) return 'health';
+    if (text.includes('професси') || text.includes('profession') || text.includes('kasb')) return 'profession';
+    if (text.includes('багаж') || text.includes('груз') || text.includes('luggage') || text.includes('supply') || text.includes('yuk')) return 'luggage';
+    if (text.includes('факт') || text.includes('fact') || text.includes('биографи')) return 'fact';
+    if (text.includes('хобби') || text.includes('hobby') || text.includes('xobbi')) return 'hobby';
+    return null; // null = universal (can rewrite any card)
+  };
+
+  const restrictedCategory = detectRestrictedCategory(specialCard);
+
+  // For swap_card / rewrite_card: if restrictedCategory is set, ONLY show that single card!
+  const allNonSpecialCards = myDeck.filter(c => c.type !== 'special');
+  const otherCards = restrictedCategory
+    ? allNonSpecialCards.filter(c => c.id === restrictedCategory)
+    : allNonSpecialCards;
+
+  const [selectedCardId, setSelectedCardId] = useState(
+    restrictedCategory || otherCards[0]?.id || 'age'
+  );
   const [customValue, setCustomValue] = useState('');
   const [customDesc, setCustomDesc] = useState('');
 
@@ -220,13 +242,19 @@ export default function TrumpActionModal({
           </div>
 
           {/* ABILITY CONTENT: 1. SWAP / REWRITE CARD */}
-          {(ability === 'swap_card' || ability === 'rewrite_card') && (
+          {(ability === 'swap_card' || ability === 'rewrite_card' || ability === 'reroll_self') && (
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-mono font-bold text-slate-600 dark:text-zinc-400 uppercase block mb-1.5">
-                  {t.trumpStep1}
+                  {restrictedCategory
+                    ? (lang === 'uz'
+                        ? `1. Ushbu kozir faqat [${getLocalized(otherCards[0]?.name, lang)}] kartasini o'zgartiradi:`
+                        : lang === 'en'
+                        ? `1. This Trump card modifies ONLY your [${getLocalized(otherCards[0]?.name, lang)}] card:`
+                        : `1. Этот козырь изменяет ТОЛЬКО вашу карту [${getLocalized(otherCards[0]?.name, lang)}]:`)
+                    : t.trumpStep1}
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className={`grid ${otherCards.length === 1 ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3'} gap-2`}>
                   {otherCards.map(c => {
                     const isSelected = selectedCardId === c.id;
                     const cTitle = getLocalized(c.name, lang);
@@ -235,8 +263,10 @@ export default function TrumpActionModal({
                         key={c.id}
                         type="button"
                         onClick={() => {
-                          setSelectedCardId(c.id);
-                          setCustomValue('');
+                          if (!restrictedCategory) {
+                            setSelectedCardId(c.id);
+                            setCustomValue('');
+                          }
                         }}
                         className={`p-2.5 rounded-2xl border text-left transition font-mono text-xs flex flex-col justify-between ${
                           isSelected
@@ -244,7 +274,14 @@ export default function TrumpActionModal({
                             : 'bg-slate-50 dark:bg-zinc-850 hover:bg-slate-100 dark:hover:bg-zinc-800 border-slate-200 dark:border-zinc-750 text-slate-700 dark:text-zinc-300'
                         }`}
                       >
-                        <span className="truncate block font-semibold">{cTitle}</span>
+                        <div className="flex items-center justify-between">
+                          <span className="truncate block font-semibold">{cTitle}</span>
+                          {restrictedCategory && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-black/20 text-black font-mono uppercase">
+                              {lang === 'uz' ? 'Qat\'iy' : lang === 'en' ? 'Locked to type' : 'Целевая карта'}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] opacity-75 truncate block mt-0.5">
                           {getLocalized(c.value, lang)}
                         </span>

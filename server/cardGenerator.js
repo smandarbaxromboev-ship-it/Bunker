@@ -85,6 +85,20 @@ function generateAgeCard() {
   };
 }
 
+// Helper: detect if a special card is restricted to a specific card category (e.g. only hobby, only health, etc.)
+function detectAllowedTargetCard(specialObj) {
+  if (!specialObj) return null;
+  if (specialObj.targetCard) return specialObj.targetCard;
+  const text = `${specialObj.ru || ''} ${specialObj.en || ''} ${specialObj.d_ru || ''}`.toLowerCase();
+  if (text.includes('возраст') || text.includes('age') || text.includes('yosh')) return 'age';
+  if (text.includes('болезн') || text.includes('здоровь') || text.includes('health') || text.includes('medical') || text.includes('медицинский сканер') || text.includes('salomatlik')) return 'health';
+  if (text.includes('професси') || text.includes('profession') || text.includes('kasb')) return 'profession';
+  if (text.includes('багаж') || text.includes('груз') || text.includes('luggage') || text.includes('supply') || text.includes('yuk')) return 'luggage';
+  if (text.includes('факт') || text.includes('fact') || text.includes('биографи')) return 'fact';
+  if (text.includes('хобби') || text.includes('hobby') || text.includes('xobbi')) return 'hobby';
+  return null; // null = universal (can rewrite any card)
+}
+
 // Deck generator for an entire room of players (guarantees ZERO DUPLICATES across game sessions!)
 function generateDecksForPlayers(playerCount) {
   const pickedProfs = getUniqueBatch(cardsManager.getActivePool('PROFESSIONS'), globalHistory.professions, playerCount);
@@ -159,6 +173,7 @@ function generateDecksForPlayers(playerCount) {
         value: { ru: special.ru, en: special.en, uz: special.uz },
         description: { ru: special.d_ru, en: special.d_en, uz: special.d_uz },
         ability: special.ability || "swap_card",
+        targetCard: detectAllowedTargetCard(special),
         used: false,
         revealed: false
       }

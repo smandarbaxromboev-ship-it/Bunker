@@ -16,6 +16,7 @@ export default function RoundResultModal({
   const isHost = roomState?.hostId === myPlayerId;
   const results = roomState?.votingResults;
   const exiled = results?.exiledPlayer;
+  const voteBreakdown = results?.voteBreakdown || [];
   const isExtraTimeElimination = Boolean(results?.isExtraTime);
   const capacity = roomState?.bunkerCapacity || 2;
   const remainingAlive = (roomState?.players || []).filter(p => p.isAlive).length;
@@ -139,6 +140,52 @@ export default function RoundResultModal({
               <ShieldCheck className="w-12 h-12 text-emerald-400 mb-2" />
               <span className="font-bold">{t.nobodyExiledTitle}</span>
               <span className="text-xs text-emerald-400/80 mt-1">{t.tieVotesNotice}</span>
+            </div>
+          )}
+
+          {/* Public Vote Breakdown Table: Who voted for whom */}
+          {voteBreakdown.length > 0 && (
+            <div className="my-3 p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-left space-y-2">
+              <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-amber-400 flex items-center justify-between border-b border-zinc-800 pb-1.5">
+                <span>
+                  {lang === 'uz'
+                    ? '📊 Kim kimga qarshi ovoz berdi:'
+                    : lang === 'en'
+                    ? '📊 Public Vote Breakdown (Who voted for whom):'
+                    : '📊 Открытые итоги (Кто против кого голосовал):'}
+                </span>
+                <span className="text-[10px] text-zinc-400">
+                  {voteBreakdown.filter(v => v.targetName).length} / {voteBreakdown.length}
+                </span>
+              </div>
+
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {voteBreakdown.map((v, idx) => (
+                  <div
+                    key={v.voterId || idx}
+                    className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-zinc-950/80 border border-zinc-850 text-xs font-mono"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0 truncate">
+                      <span>{v.voterAvatar || '🥷'}</span>
+                      <span className="font-bold text-zinc-200 truncate">{v.voterName}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-zinc-500">➔</span>
+                      {v.targetName ? (
+                        <span className="px-2 py-0.5 rounded-lg bg-red-950/70 border border-red-700/60 text-red-300 font-bold">
+                          {v.targetName}
+                          {v.weight > 1 ? ` (x${v.weight})` : ''}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-500 italic">
+                          {lang === 'uz' ? 'ovoz bermadi' : lang === 'en' ? 'abstained' : 'воздержался'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

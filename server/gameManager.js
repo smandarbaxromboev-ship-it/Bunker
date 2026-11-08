@@ -537,25 +537,90 @@ class GameManager {
     room.status = 'ROUND_VOTING';
     room.players.forEach(p => { p.votedFor = null; });
     this.addSystemMessage(room, {
-      ru: `Началось Тайное голосование! Призраки видят все голоса в реальном времени.`,
-      en: `Secret voting has begun! Ghosts see all votes in real-time.`,
-      uz: `Yashirin ovoz berish boshlandi! Arvohlar barcha ovozlarni jonli ko'radi.`
+      ru: `Началось голосование! По окончании голосования всем будет открыта полная таблица — кто против кого голосовал!`,
+      en: `Voting has begun! Once finished, everyone will see the full table of who voted against whom!`,
+      uz: `Ovoz berish boshlandi! Yakunda kim kimga qarshi ovoz bergani barchaga ochiq ko'rsatiladi!`
     });
 
     this.handleBotVotes(room);
     this.broadcastRoom(code);
   }
 
+  // Оценка слабости открытых карт кандидата для умного голосования ботов (чтобы боты голосовали как реальные люди, а не создавали вечную ничью 1-1-1!)
+  evaluatePlayerSuspectScore(player) {
+    let score = 10;
+    const revealed = (player.deck || []).filter(c => c.revealed);
+
+    // Если игрок скрывает карты — подозрительность выше
+    if (revealed.length === 0) score += 15;
+
+    revealed.forEach(card => {
+      const val = (card.value?.ru || card.value || '').toLowerCase();
+      if (card.type === 'age') {
+        const ageNum = parseInt(val, 10);
+        if (!isNaN(ageNum)) {
+          if (ageNum >= 60) score += 30;
+          else if (ageNum >= 48) score += 15;
+          else if (ageNum <= 30) score -= 8;
+        }
+      }
+      if (card.type === 'health') {
+        if (val.includes('идеальн') || val.includes('100%') || val.includes('здоров') || val.includes('иммунитет') || val.includes('космонавт') || val.includes('богатыр')) {
+          score -= 18;
+        } else {
+          score += 22;
+        }
+      }
+      if (card.type === 'profession') {
+        if (val.includes('хирург') || val.includes('врач') || val.includes('инженер') || val.includes('агроном') || val.includes('спецназ') || val.includes('медик') || val.includes('биолог')) {
+          score -= 20;
+        } else {
+          score += 12;
+        }
+      }
+    });
+
+    // Небольшой человеческий фактор
+    score += (Math.random() * 8);
+    return Math.max(1, score);
+  }
+
   handleBotVotes(room) {
     const bots = room.players.filter(p => p.isBot && p.isAlive);
     const aliveTargets = room.players.filter(p => p.isAlive);
+    if (bots.length === 0 || aliveTargets.length <= 1) return;
 
-    bots.forEach(bot => {
+    // Считаем очки подозрительности/слабости для каждого живого игрока
+    const scores = new Map();
+    aliveTargets.forEach(t => {
+      scores.set(t.id, this.evaluatePlayerSuspectScore(t));
+    });
+
+    // Находим главного кандидата (как в реальной игре, где игроки координируются против самого слабого)
+    const sortedTargets = [...aliveTargets].sort((a, b) => (scores.get(b.id) || 0) - (scores.get(a.id) || 0));
+    const primarySuspect = sortedTargets[0];
+    const secondarySuspect = sortedTargets[1] || sortedTargets[0];
+
+    bots.forEach((bot, idx) => {
       const possibleTargets = aliveTargets.filter(p => p.id !== bot.id);
-      if (possibleTargets.length > 0) {
-        const target = possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
-        bot.votedFor = target.id;
+      if (possibleTargets.length === 0) return;
+
+      // Если этот бот уже проголосовал (например, если метод вызван при подсчете) — не меняем его голос
+      if (bot.votedFor) return;
+
+      // 75% ботов голосуют консолидированно против самого слабого/подозрительного кандидата (или второго, если первый — сам бот)
+      let chosen = primarySuspect.id !== bot.id ? primarySuspect : secondarySuspect;
+
+      // Для разнообразия один из ботов при большом числе игроков может проголосовать за второго подозреваемого
+      if (idx > 0 && idx % 3 === 0 && secondarySuspect && secondarySuspect.id !== bot.id) {
+        chosen = secondarySuspect;
       }
+
+      if (!chosen || chosen.id === bot.id) {
+        chosen = possibleTargets[0];
+      }
+
+      bot.votedFor = chosen.id;
     });
   }
 
@@ -571,10 +636,18 @@ class GameManager {
 
     voter.votedFor = targetPlayerId;
 
+    // Если голосование идет прямо во время обсуждения и все люди проголосовали — боты тоже сразу отдают свои голоса!
+    const aliveHumans = room.players.filter(p => p.isAlive && !p.isBot);
+    const allHumansVoted = aliveHumans.length > 0 && aliveHumans.every(p => p.votedFor !== null);
+    if (allHumansVoted) {
+      this.handleBotVotes(room);
+    }
+
     const alivePlayers = room.players.filter(p => p.isAlive);
     const allVoted = alivePlayers.every(p => p.votedFor !== null);
 
-    if (allVoted && room.status === 'ROUND_VOTING') {
+    if (allVoted && (room.status === 'ROUND_VOTING' || allHumansVoted)) {
+      room.status = 'ROUND_VOTING';
       this.resolveVoting(room, false);
     } else {
       this.broadcastRoom(code);
@@ -594,13 +667,31 @@ class GameManager {
 
     const ability = payload.ability || specialCard.ability || 'swap_card';
 
-    // 1. ПЕРЕПИСЫВАНИЕ / ЗАМЕНА ЛЮБОЙ КАРТЫ СВОИМИ РУКАМИ
-    if (ability === 'swap_card' || ability === 'rewrite_card') {
-      const targetCardId = payload.targetCardId;
+    // Определяем, к какой именно карте привязан данный козырь (если это узкоспециализированный козырь, например "Замена хобби")
+    const detectRestrictedCategory = (sc) => {
+      if (sc.targetCard) return sc.targetCard;
+      const text = `${sc.value?.ru || ''} ${sc.value?.en || ''} ${sc.description?.ru || ''}`.toLowerCase();
+      if (text.includes('возраст') || text.includes('age') || text.includes('yosh')) return 'age';
+      if (text.includes('болезн') || text.includes('здоровь') || text.includes('health') || text.includes('medical') || text.includes('медицинский сканер') || text.includes('salomatlik')) return 'health';
+      if (text.includes('професси') || text.includes('profession') || text.includes('kasb')) return 'profession';
+      if (text.includes('багаж') || text.includes('груз') || text.includes('luggage') || text.includes('supply') || text.includes('yuk')) return 'luggage';
+      if (text.includes('факт') || text.includes('fact') || text.includes('биографи')) return 'fact';
+      if (text.includes('хобби') || text.includes('hobby') || text.includes('xobbi')) return 'hobby';
+      return null; // null = универсальный козырь (любая карта)
+    };
+
+    const allowedCategory = detectRestrictedCategory(specialCard);
+
+    // 1. ПЕРЕПИСЫВАНИЕ / ЗАМЕНА КАРТЫ СВОИМИ РУКАМИ (СТРОГО ПО ТИПУ КОЗЫРЯ!)
+    if (ability === 'swap_card' || ability === 'rewrite_card' || ability === 'reroll_self') {
+      const targetCardId = allowedCategory || payload.targetCardId;
       const customValue = (payload.customValue || "").trim();
       const customDesc = (payload.customDesc || "").trim();
 
       if (!targetCardId) return { error: "Выберите карту для замены" };
+      if (allowedCategory && payload.targetCardId && payload.targetCardId !== allowedCategory) {
+        return { error: `Этот козырь позволяет изменить ТОЛЬКО карту категории "${allowedCategory}"!` };
+      }
       if (!customValue) return { error: "Введите новое значение для карты" };
 
       const targetCard = player.deck.find(c => c.id === targetCardId);
@@ -678,17 +769,28 @@ class GameManager {
       return { success: true, message: "Право ВЕТО применено!" };
     }
 
-    // 5. ШПИОН / СКАНЕР ДОСЬЕ
+    // 5. ШПИОН / СКАНЕР ДОСЬЕ (ИЛИ МЕДИЦИНСКИЙ СКАНЕР ТОЛЬКО ЗДОРОВЬЯ)
     if (ability === 'inspect') {
       const targetPlayer = room.players.find(p => p.id === payload.targetPlayerId);
       if (!targetPlayer) return { error: "Выберите игрока для проверки" };
 
+      const isMedicalOnly = allowedCategory === 'health';
+      const inspectedCards = isMedicalOnly
+        ? targetPlayer.deck.filter(c => c.id === 'health')
+        : targetPlayer.deck;
+
       specialCard.used = true;
       specialCard.revealed = true;
       this.addSystemMessage(room, {
-        ru: `🔍 [КОЗЫРЬ]: ${player.name} применил Сканер и тайно изучил закрытые карты игрока ${targetPlayer.name}!`,
-        en: `🔍 [TRUMP]: ${player.name} deployed Scanner and secretly inspected ${targetPlayer.name}'s hidden dossier!`,
-        uz: `🔍 [KOZIR]: ${player.name} skanerdan foydalanib, ${targetPlayer.name}ning maxfiy kartalarini ko'rib chiqdi!`
+        ru: isMedicalOnly
+          ? `🩺 [МЕД-СКАНЕР]: ${player.name} просканировал карту Здоровья игрока ${targetPlayer.name}!`
+          : `🔍 [КОЗЫРЬ]: ${player.name} применил Сканер и тайно изучил закрытые карты игрока ${targetPlayer.name}!`,
+        en: isMedicalOnly
+          ? `🩺 [MED-SCANNER]: ${player.name} scanned the Health card of ${targetPlayer.name}!`
+          : `🔍 [TRUMP]: ${player.name} deployed Scanner and secretly inspected ${targetPlayer.name}'s hidden dossier!`,
+        uz: isMedicalOnly
+          ? `🩺 [TIBBIY SKANER]: ${player.name} ${targetPlayer.name}ning Salomatlik kartasini tekshirdi!`
+          : `🔍 [KOZIR]: ${player.name} skanerdan foydalanib, ${targetPlayer.name}ning maxfiy kartalarini ko'rib chiqdi!`
       });
       this.broadcastRoom(code);
 
@@ -697,7 +799,7 @@ class GameManager {
         inspectedPlayer: {
           id: targetPlayer.id,
           name: targetPlayer.name,
-          deck: targetPlayer.deck
+          deck: inspectedCards
         } 
       };
     }
@@ -738,16 +840,41 @@ class GameManager {
 
   resolveVoting(room, isTimeout = false) {
     this.clearRoomTimer(room.code);
+
+    // Если кто-то из живых ботов еще не проголосовал — боты отдают голоса перед подсчетом!
+    this.handleBotVotes(room);
+
     const alivePlayers = room.players.filter(p => p.isAlive);
     const voteCounts = {};
     alivePlayers.forEach(p => { voteCounts[p.id] = 0; });
 
+    // Полная открытая таблица: кто против кого проголосовал (показывается всем после завершения голосования!)
+    const voteBreakdown = [];
+
     let totalVotesCast = 0;
     alivePlayers.forEach(p => {
+      const weight = p.voteWeight || 1;
       if (p.votedFor && voteCounts[p.votedFor] !== undefined) {
-        const weight = p.voteWeight || 1;
         voteCounts[p.votedFor] += weight;
         totalVotesCast += weight;
+        const targetObj = room.players.find(t => t.id === p.votedFor);
+        voteBreakdown.push({
+          voterId: p.id,
+          voterName: p.name,
+          voterAvatar: p.character?.avatar || (p.isBot ? '🤖' : '🥷'),
+          targetId: p.votedFor,
+          targetName: targetObj ? targetObj.name : '???',
+          weight
+        });
+      } else {
+        voteBreakdown.push({
+          voterId: p.id,
+          voterName: p.name,
+          voterAvatar: p.character?.avatar || (p.isBot ? '🤖' : '🥷'),
+          targetId: null,
+          targetName: null,
+          weight: 0
+        });
       }
     });
 
@@ -766,6 +893,17 @@ class GameManager {
       }
     });
 
+    // Отправляем открытую сводку в системный чат, чтобы все видели, кто за кого голосовал
+    if (voteBreakdown.some(v => v.targetName)) {
+      const summaryRu = voteBreakdown.filter(v => v.targetName).map(v => `${v.voterName} ➔ ${v.targetName}${v.weight > 1 ? ` (x${v.weight})` : ''}`).join(' | ');
+      const summaryEn = voteBreakdown.filter(v => v.targetName).map(v => `${v.voterName} ➔ ${v.targetName}${v.weight > 1 ? ` (x${v.weight})` : ''}`).join(' | ');
+      this.addSystemMessage(room, {
+        ru: `📊 ОТКРЫТЫЕ ИТОГИ ГОЛОСОВАНИЯ: ${summaryRu}`,
+        en: `📊 PUBLIC VOTE BREAKDOWN: ${summaryEn}`,
+        uz: `📊 OCHIQ OVOZ BERISH NATIJALARI: ${summaryEn}`
+      });
+    }
+
     // НИЧЬЯ (равенство голосов) - если кандидатов несколько или все голоса равны
     const isTie = (candidatesToExile.length > 1 && maxVotes > 0) || (totalVotesCast === 0 && !isTimeout);
 
@@ -775,13 +913,19 @@ class GameManager {
       room.timerType = 'EXTRA_TIME';
       room.timerExpiresAt = Date.now() + 5 * 60 * 1000;
       room.status = 'ROUND_DISCUSSION';
+      room.lastTieBreakdown = voteBreakdown;
       // Сбрасываем голоса для повторного голосования
       alivePlayers.forEach(p => { p.votedFor = null; });
 
+      const tiedNames = candidatesToExile
+        .map(id => room.players.find(p => p.id === id)?.name)
+        .filter(Boolean)
+        .join(' vs ');
+
       this.addSystemMessage(room, {
-        ru: `⚖️ НИЧЬЯ В ГОЛОСОВАНИИ! Добавлено +5 МИНУТ дополнительного времени для срочных дебатов и переголосования!`,
-        en: `⚖️ TIE IN VOTING! +5 MINUTES of extra time added for debates and revoting!`,
-        uz: `⚖️ OVOZLAR TENG KELDI! Shoshilinch bahslar va qayta ovoz berish uchun +5 DAQIQA qo'shildi!`
+        ru: `⚖️ НИЧЬЯ В ГОЛОСОВАНИИ (${tiedNames} — по ${maxVotes} гол.)! Добавлено +5 МИНУТ дополнительного времени для срочных дебатов и переголосования!`,
+        en: `⚖️ TIE IN VOTING (${tiedNames} — ${maxVotes} votes each)! +5 MINUTES of extra time added for debates and revoting!`,
+        uz: `⚖️ OVOZLAR TENG KELDI (${tiedNames} — ${maxVotes} tadan ovoz)! Shoshilinch bahslar va qayta ovoz berish uchun +5 DAQIQA qo'shildi!`
       });
 
       this.setRoomTimer(room.code, 5 * 60 * 1000, () => {
@@ -863,6 +1007,7 @@ class GameManager {
     room.votingResults = {
       round: room.currentRound,
       voteCounts,
+      voteBreakdown,
       isExtraTime: wasExtraTime,
       exiledPlayer: exiledPlayer ? {
         id: exiledPlayer.id,
