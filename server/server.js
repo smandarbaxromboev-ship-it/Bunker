@@ -334,6 +334,20 @@ io.on('connection', (socket) => {
     gameManager.restartToLobby(roomCode, requesterId);
   });
 
+  // Выход игрока (или Призрака) из комнаты в главное меню
+  socket.on('leaveRoom', ({ roomCode, playerId }, callback) => {
+    try {
+      if (roomCode) {
+        socket.leave(String(roomCode).trim());
+      }
+      gameManager.leaveRoom(roomCode, playerId, socket.id);
+      if (typeof callback === 'function') callback({ success: true });
+    } catch (e) {
+      console.error('Ошибка leaveRoom:', e);
+      if (typeof callback === 'function') callback({ error: 'Ошибка выхода из комнаты' });
+    }
+  });
+
   // Отправка текстового сообщения или стикера в чат
   socket.on('sendMessage', ({ roomCode, senderId, text, sticker }) => {
     gameManager.addChatMessage(roomCode, senderId, text, sticker);

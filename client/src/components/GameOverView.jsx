@@ -22,7 +22,34 @@ export default function GameOverView({ roomState, myPlayerId, onRestart, onLeave
   }, []);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 py-4">
+    <div className="max-w-5xl mx-auto space-y-6 py-2 sm:py-4">
+      {/* Quick Action Bar at Top so players/ghosts can immediately exit or play again without scrolling */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 shadow-lg">
+        {onLeaveGame && (
+          <button
+            onClick={() => {
+              soundManager.playBeep(600, 0.05);
+              onLeaveGame();
+            }}
+            className="px-5 py-2.5 rounded-xl font-display font-bold text-xs sm:text-sm tracking-wider flex items-center gap-2 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/40 transition cursor-pointer shadow-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>{t.btnLeaveGame || (lang === 'uz' ? '← Asosiy menyuga chiqish' : lang === 'en' ? '← Return to Main Menu' : '← Выйти в главное меню')}</span>
+          </button>
+        )}
+
+        <button
+          onClick={() => {
+            soundManager.playBeep(800, 0.1);
+            onRestart();
+          }}
+          className="px-5 py-2.5 rounded-xl font-display font-bold text-xs sm:text-sm tracking-wider flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black shadow-lg shadow-amber-500/20 transition cursor-pointer"
+        >
+          <RotateCcw className="w-4 h-4" />
+          <span>{t.btnPlayAgain}</span>
+        </button>
+      </div>
+
       {/* Top Banner */}
       <div className="text-center space-y-2">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold uppercase tracking-wider">
@@ -30,7 +57,11 @@ export default function GameOverView({ roomState, myPlayerId, onRestart, onLeave
           {t.roundsCompleted}
         </div>
         <h1 className="text-3xl sm:text-5xl font-display font-black text-white tracking-wide">
-          {t.winnersTitle}
+          {lang === 'uz'
+            ? `BUNKER G'OLIBLARI (${winners.length} TA OMON QOLGAN):`
+            : lang === 'en'
+            ? `BUNKER WINNERS (${winners.length} SURVIVORS):`
+            : `ПОБЕДИТЕЛИ БУНКЕРА (${winners.length} ВЫЖИВШИХ):`}
         </h1>
         <p className="text-sm text-zinc-400 max-w-md mx-auto">
           {t.winnersDesc}
@@ -110,29 +141,23 @@ export default function GameOverView({ roomState, myPlayerId, onRestart, onLeave
               soundManager.playBeep(600, 0.05);
               onLeaveGame();
             }}
-            className="px-6 py-3.5 rounded-2xl font-display font-bold text-sm tracking-wider flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-700 transition cursor-pointer shadow-md"
+            className="px-6 py-3.5 rounded-2xl font-display font-bold text-sm tracking-wider flex items-center gap-2 bg-red-950/60 hover:bg-red-900 text-red-200 border border-red-700/60 transition cursor-pointer shadow-md"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>{t.btnLeaveGame || '← В главное меню'}</span>
           </button>
         )}
 
-        {isHost ? (
-          <button
-            onClick={() => {
-              soundManager.playBeep(800, 0.1);
-              onRestart();
-            }}
-            className="px-8 py-3.5 rounded-2xl font-display font-bold text-base tracking-wider flex items-center gap-3 bg-amber-500 hover:bg-amber-400 text-black shadow-xl shadow-amber-500/20 transition cursor-pointer"
-          >
-            <RotateCcw className="w-5 h-5" />
-            <span>{t.btnPlayAgain}</span>
-          </button>
-        ) : (
-          <div className="text-sm text-zinc-400 font-mono">
-            {t.waitingHost}
-          </div>
-        )}
+        <button
+          onClick={() => {
+            soundManager.playBeep(800, 0.1);
+            onRestart();
+          }}
+          className="px-8 py-3.5 rounded-2xl font-display font-bold text-base tracking-wider flex items-center gap-3 bg-amber-500 hover:bg-amber-400 text-black shadow-xl shadow-amber-500/20 transition cursor-pointer"
+        >
+          <RotateCcw className="w-5 h-5" />
+          <span>{t.btnPlayAgain}</span>
+        </button>
       </div>
     </div>
   );

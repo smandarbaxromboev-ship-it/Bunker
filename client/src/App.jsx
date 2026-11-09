@@ -102,10 +102,22 @@ export default function App() {
   };
 
   const handleLeaveRoom = () => {
-    setInRoom(false);
-    setRoomState(null);
+    const codeToLeave = roomState?.code || localStorage.getItem('bunker_room_code');
+    const idToLeave = myPlayerId || localStorage.getItem('bunker_player_id');
+
     localStorage.removeItem('bunker_room_code');
     localStorage.removeItem('bunker_player_id');
+
+    if (codeToLeave) {
+      socket.emit('leaveRoom', { roomCode: codeToLeave, playerId: idToLeave });
+    }
+
+    setShowVotingModal(false);
+    setShowResultModal(false);
+    setActiveTrumpCard(null);
+    setInspectCardData(null);
+    setInRoom(false);
+    setRoomState(null);
     setMyPlayerId('');
   };
 
@@ -145,11 +157,13 @@ export default function App() {
     });
 
     socket.on('roomStateUpdate', (newState) => {
+      const savedCode = localStorage.getItem('bunker_room_code');
+      // Если игрок уже вышел в главное меню, игнорируем запаздывающие пакеты от старой комнаты
+      if (!savedCode || (newState?.code && savedCode !== newState.code)) {
+        return;
+      }
       setRoomState(newState);
       setInRoom(true);
-      if (newState?.code) {
-        localStorage.setItem('bunker_room_code', newState.code);
-      }
     });
 
     socket.on('chatMessage', (msg) => {
@@ -905,7 +919,11 @@ export default function App() {
         }`}>
           {/* 👻 GHOST VISION HUD IF ELIMINATED */}
           {!isAlive && (
-            <GhostVisionHUD ghostVotes={roomState?.ghostVotes} lang={lang} />
+            <GhostVisionHUD
+              ghostVotes={roomState?.ghostVotes}
+              onLeaveRoom={handleLeaveRoom}
+              lang={lang}
+            />
           )}
 
           {/* Stage Banner */}

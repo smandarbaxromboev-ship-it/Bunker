@@ -43,26 +43,28 @@ export default function RoundResultModal({
       <div className="bg-zinc-950 border-2 border-red-600 rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-[0_0_60px_rgba(239,68,68,0.4)] flex flex-col text-center relative overflow-hidden max-h-[92vh]">
         {/* Top Control Bar: Back Button & Minimize Button */}
         <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-850 shrink-0">
-          <div>
-            {onLeaveRoom && isAlive && (
+          <div className="flex items-center gap-2">
+            {onLeaveRoom && (
               <button
                 onClick={() => {
                   soundManager.playBeep(600, 0.05);
-                  if (window.confirm(lang === 'uz' ? 'Bunkerdan chiqishni xohlaysizmi?' : lang === 'en' ? 'Leave bunker and return to menu?' : 'Вы действительно хотите выйти из бункера в главное меню?')) {
+                  if (!isAlive || willEndNow) {
+                    onLeaveRoom();
+                  } else if (window.confirm(lang === 'uz' ? 'Bunkerdan chiqishni xohlaysizmi?' : lang === 'en' ? 'Leave bunker and return to menu?' : 'Вы действительно хотите выйти из бункера в главное меню?')) {
                     onLeaveRoom();
                   }
                 }}
                 className="px-2.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-red-950/60 text-zinc-300 hover:text-red-400 border border-zinc-800 text-xs font-mono font-bold transition flex items-center gap-1 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t.btnBack}</span>
+                <span>{t.btnLeaveGame || t.btnBack}</span>
               </button>
             )}
 
             {!isAlive && (
               <span className="text-[11px] font-mono text-purple-400 flex items-center gap-1">
                 <span>👻</span>
-                <span>{t.ghostObservationBadge || (lang === 'uz' ? 'Arvoh (kuzatuvchi)' : lang === 'en' ? 'Ghost (spectating)' : 'Призрак (наблюдение)')}</span>
+                <span className="hidden sm:inline">{t.ghostObservationBadge || (lang === 'uz' ? 'Arvoh' : lang === 'en' ? 'Ghost' : 'Призрак')}</span>
               </span>
             )}
           </div>
@@ -198,9 +200,9 @@ export default function RoundResultModal({
           </div>
         </div>
 
-        {/* Next Round Button */}
-        <div className="pt-2 border-t border-zinc-850 shrink-0">
-          {isHost ? (
+        {/* Next Round & Exit Buttons */}
+        <div className="pt-2 border-t border-zinc-850 shrink-0 space-y-2">
+          {(isHost || willEndNow || !isAlive) ? (
             <button
               onClick={() => {
                 soundManager.playBeep(900, 0.08);
@@ -224,6 +226,19 @@ export default function RoundResultModal({
             <div className="text-xs text-zinc-400 font-mono py-2 bg-zinc-900/50 rounded-xl border border-zinc-800/60">
               {t.waitingHost}
             </div>
+          )}
+
+          {(!isAlive || willEndNow) && onLeaveRoom && (
+            <button
+              onClick={() => {
+                soundManager.playBeep(600, 0.05);
+                onLeaveRoom();
+              }}
+              className="w-full py-2.5 rounded-xl font-mono font-bold text-xs tracking-wide flex items-center justify-center gap-2 bg-zinc-900 hover:bg-red-950/70 text-zinc-300 hover:text-red-300 border border-zinc-700 hover:border-red-700/60 transition cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>{lang === 'uz' ? 'Asosiy menyuga chiqish' : lang === 'en' ? 'Exit to Main Menu' : 'Выйти в главное меню'}</span>
+            </button>
           )}
         </div>
       </div>

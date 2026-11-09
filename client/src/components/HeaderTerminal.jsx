@@ -51,11 +51,13 @@ export default function HeaderTerminal({
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
         {/* Left: Brand & Room code & Back button */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {onLeaveRoom && isAlive && (
+          {onLeaveRoom && (
             <button
               onClick={() => {
                 soundManager.playBeep(600, 0.05);
-                if (window.confirm(lang === 'uz' ? 'Bunkerdan chiqishni xohlaysizmi?' : lang === 'en' ? 'Leave bunker and return to menu?' : 'Вы действительно хотите выйти из бункера в главное меню?')) {
+                if (!isAlive || roomState?.status === 'GAME_OVER' || roomState?.status === 'LOBBY') {
+                  onLeaveRoom();
+                } else if (window.confirm(lang === 'uz' ? 'Bunkerdan chiqishni xohlaysizmi?' : lang === 'en' ? 'Leave bunker and return to menu?' : 'Вы действительно хотите выйти из бункера в главное меню?')) {
                   onLeaveRoom();
                 }
               }}
@@ -63,17 +65,17 @@ export default function HeaderTerminal({
               className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-red-50 dark:bg-zinc-900 dark:hover:bg-red-950/60 text-slate-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm cursor-pointer shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">{t.btnBack}</span>
+              <span className="hidden sm:inline">{t.btnLeaveGame || t.btnBack}</span>
             </button>
           )}
 
-          {onLeaveRoom && !isAlive && (
+          {!isAlive && roomState?.status !== 'GAME_OVER' && (
             <div
-              title={t.ghostLockedNotice || "Выбывшие игроки остаются наблюдать в призрачном режиме до финала"}
-              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-purple-950/60 border border-purple-800/80 text-purple-300 text-xs font-mono font-bold flex items-center gap-1 shadow-sm shrink-0 cursor-not-allowed select-none"
+              title={lang === 'uz' ? 'Siz Arvoh rejimidasiz (istalgan vaqtda chiqishingiz mumkin)' : lang === 'en' ? 'You are in Ghost mode (you can leave anytime)' : 'Вы в режиме Призрака (можете наблюдать или выйти в любой момент)'}
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-purple-950/60 border border-purple-800/80 text-purple-300 text-xs font-mono font-bold flex items-center gap-1 shadow-sm shrink-0 select-none"
             >
               <span className="text-sm">👻</span>
-              <span className="hidden sm:inline text-[11px]">{t.ghostLockedBadge || (lang === 'uz' ? 'Arvoh (bloklangan)' : lang === 'en' ? 'Ghost (locked)' : 'Призрак (заблокировано)')}</span>
+              <span className="hidden sm:inline text-[11px]">{lang === 'uz' ? 'Arvoh' : lang === 'en' ? 'Ghost' : 'Призрак'}</span>
             </div>
           )}
 

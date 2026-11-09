@@ -209,10 +209,53 @@ class GameManager {
     if (!room) return { error: 'Сессия не найдена.' };
 
     const player = room.players.find(p => p.id === playerId);
-    if (!player) return { error: 'Игрок не найден.' };
+    if (!player || player.hasLeft) return { error: 'Игрок не найден.' };
 
     player.socketId = socketId;
     return { code, playerId, room: this.getSanitizedRoomState(room, playerId) };
+  }
+
+  leaveRoom(code, playerId, socketId) {
+    const cleanCode = (code || '').trim();
+    const room = this.rooms.get(cleanCode);
+    if (!room) return;
+
+    const player = room.players.find(p => (playerId && p.id === playerId) || (socketId && p.socketId === socketId));
+    if (!player) return;
+
+    // Отвязываем сокет, чтобы сервер больше НИКОГДА не возвращал вышедшего игрока обратно в комнату!
+    player.socketId = null;
+    player.hasLeft = true;
+
+    if (room.status === 'LOBBY') {
+      room.players = room.players.filter(p => p.id !== player.id);
+      room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
+    } else if (player.isAlive && room.status !== 'GAME_OVER') {
+      player.isAlive = false;
+      this.addSystemMessage(room, {
+        ru: `🚪 ${player.name} покинул бункер и вышел в главное меню.`,
+        en: `🚪 ${player.name} left the bunker and returned to main menu.`,
+        uz: `🚪 ${player.name} bunkerni tark etib asosiy menyuga chiqdi.`
+      });
+    }
+
+    // Если в комнате больше не осталось живых подключенных людей — закрываем комнату и очищаем таймеры
+    const connectedHumans = room.players.filter(p => !p.isBot && p.socketId && !p.hasLeft);
+    if (connectedHumans.length === 0) {
+      this.clearRoomTimer(room.code);
+      this.rooms.delete(room.code);
+      return;
+    }
+
+    // Если вышел хост — передаем права хоста следующему человеку в комнате
+    if (room.hostId === player.id) {
+      room.players.forEach(p => { p.isHost = false; });
+      const newHost = connectedHumans[0];
+      newHost.isHost = true;
+      room.hostId = newHost.id;
+    }
+
+    this.broadcastRoom(room.code);
   }
 
   addBot(code, requesterId, lang = 'ru') {
@@ -509,12 +552,19 @@ class GameManager {
 
     this.broadcastRoom(room.code);
 
-    // Таймер на 20 минут: по истечении выбывает набравший больше голосов или случайный игрок!
-    const timerHandle = setTimeout(() => {
-      this.handleRoundTimeout(room.code);
-    }, 20 * 60 * 1000);
+    // Если все оставшиеся в живых игроки — боты (а человек стал Призраком 👻), автоматически переходим к голосованию через 3 секунды!
+    const aliveHumans = room.players.filter(p => p.isAlive && !p.isBot && !p.hasLeft);
+    if (aliveHumans.length === 0) {
+      this.setRoomTimer(room.code, 3000, () => {
+        this.startVotingPhase(room.code, room.hostId);
+      });
+      return;
+    }
 
-    this.roomTimers.set(room.code, timerHandle);
+    // Таймер на 20 минут: по истечении выбывает набравший больше голосов или случайный игрок!
+    this.setRoomTimer(room.code, 20 * 60 * 1000, () => {
+      this.handleRoundTimeout(room.code);
+    });
   }
 
   handleRoundTimeout(code) {
@@ -544,6 +594,14 @@ class GameManager {
 
     this.handleBotVotes(room);
     this.broadcastRoom(code);
+
+    // Если все живые игроки уже проголосовали (например, человек — Призрак 👻, а живы только боты), сразу подводим итоги!
+    const alivePlayers = room.players.filter(p => p.isAlive);
+    if (alivePlayers.length > 0 && alivePlayers.every(p => p.votedFor !== null)) {
+      this.setRoomTimer(code, 1500, () => {
+        this.resolveVoting(room, false);
+      });
+    }
   }
 
   // Оценка слабости открытых карт кандидата для умного голосования ботов (чтобы боты голосовали как реальные люди, а не создавали вечную ничью 1-1-1!)
@@ -1020,13 +1078,21 @@ class GameManager {
     room.status = 'ROUND_RESULT';
     room.timerExpiresAt = null;
 
-    // Проверяем: осталось ли выживших <= bunkerCapacity человек?
+    // Проверяем: осталось ли выживших <= bunkerCapacity человек или завершен 7 раунд?
     const remainingAlive = room.players.filter(p => p.isAlive);
     const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
-    if (remainingAlive.length <= capacity) {
-      setTimeout(() => {
+    if (remainingAlive.length <= capacity || room.currentRound >= 7) {
+      this.setRoomTimer(room.code, 3500, () => {
         this.endGame(room);
-      }, 3500);
+      });
+    } else {
+      // Если человек стал Призраком 👻 и в живых остались только боты — автоматически запускаем следующий раунд через 4 секунды!
+      const aliveHumans = remainingAlive.filter(p => !p.isBot && !p.hasLeft);
+      if (aliveHumans.length === 0) {
+        this.setRoomTimer(room.code, 4000, () => {
+          this.nextRoundOrEnd(room.code, room.hostId);
+        });
+      }
     }
 
     this.broadcastRoom(room.code);
@@ -1036,6 +1102,7 @@ class GameManager {
     const room = this.rooms.get(code);
     if (!room || room.status !== 'ROUND_RESULT') return;
 
+    this.clearRoomTimer(code);
     const alivePlayers = room.players.filter(p => p.isAlive);
     const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
 
@@ -1055,6 +1122,7 @@ class GameManager {
   }
 
   endGame(room) {
+    if (!room || room.status === 'GAME_OVER') return;
     this.clearRoomTimer(room.code);
     room.status = 'GAME_OVER';
     room.timerExpiresAt = null;
@@ -1085,13 +1153,14 @@ class GameManager {
   restartToLobby(code, requesterId) {
     const room = this.rooms.get(code);
     if (!room) return;
-    if (room.hostId !== requesterId) return;
 
     this.clearRoomTimer(code);
     room.status = 'LOBBY';
     room.currentRound = 1;
     room.timerExpiresAt = null;
     room.activeTurnPlayerId = null;
+    // Оставляем только подключенных игроков и ботов (удаляем тех, кто уже вышел в главное меню)
+    room.players = room.players.filter(p => p.isBot || !p.hasLeft);
     room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
     room.players.forEach(p => {
       p.isAlive = true;

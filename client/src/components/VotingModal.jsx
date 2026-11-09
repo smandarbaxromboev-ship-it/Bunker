@@ -38,25 +38,27 @@ export default function VotingModal({
         {/* Top Control Bar: Back Button & Minimize Button */}
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-800">
           <div className="flex items-center gap-2">
-            {onLeaveRoom && isAlive && (
+            {onLeaveRoom && (
               <button
                 onClick={() => {
                   soundManager.playBeep(600, 0.05);
-                  if (window.confirm(lang === 'uz' ? 'Bunkerdan chiqishni xohlaysizmi?' : lang === 'en' ? 'Leave bunker and return to menu?' : 'Вы действительно хотите выйти из бункера в главное меню?')) {
+                  if (!isAlive) {
+                    onLeaveRoom();
+                  } else if (window.confirm(lang === 'uz' ? 'Bunkerdan chiqishni xohlaysizmi?' : lang === 'en' ? 'Leave bunker and return to menu?' : 'Вы действительно хотите выйти из бункера в главное меню?')) {
                     onLeaveRoom();
                   }
                 }}
                 className="px-2.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-red-950/60 text-zinc-300 hover:text-red-400 border border-zinc-800 text-xs font-mono font-bold transition flex items-center gap-1 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t.btnBack}</span>
+                <span>{t.btnLeaveGame || t.btnBack}</span>
               </button>
             )}
 
             {!isAlive && (
               <span className="text-[11px] font-mono text-purple-400 flex items-center gap-1">
                 <span>👻</span>
-                <span>{t.ghostObservationBadge || (lang === 'uz' ? 'Arvoh (kuzatuvchi)' : lang === 'en' ? 'Ghost (spectating)' : 'Призрак (наблюдение)')}</span>
+                <span className="hidden sm:inline">{t.ghostObservationBadge || (lang === 'uz' ? 'Arvoh' : lang === 'en' ? 'Ghost' : 'Призрак')}</span>
               </span>
             )}
           </div>
