@@ -33,11 +33,15 @@ export default function CardRevealModal({
 
   const hasRevealedThisRound = myPlayer.hasRevealedThisRound;
   const deck = myPlayer.deck || [];
-  const unrevealedCards = deck.filter(c => !c.revealed);
+  const profCard = deck.find(c => (c.id === 'profession' || c.type === 'profession') && !c.revealed);
+  const isRoundOneProfessionMandate = currentRound === 1 && Boolean(profCard);
+  const effectiveSelectedId = isRoundOneProfessionMandate ? profCard.id : selectedCardId;
 
   const handleConfirmReveal = (cardId) => {
+    const targetId = isRoundOneProfessionMandate ? profCard.id : cardId;
+    if (!targetId) return;
     soundManager.playCardReveal();
-    onRevealCard(cardId);
+    onRevealCard(targetId);
     setSelectedCardId(null);
   };
 
@@ -76,7 +80,13 @@ export default function CardRevealModal({
           )}
 
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono mt-1">
-            {t.revealModalHint}
+            {isRoundOneProfessionMandate
+              ? (lang === 'uz'
+                  ? '💼 1-raund qoidasi: birinchi bo\'lib har doim "Kasb" kartasi ochiladi!'
+                  : lang === 'en'
+                  ? '💼 Round 1 rule: the "Profession" card is always revealed first!'
+                  : '💼 Правило 1-го раунда: первым всегда открывается карта «ПРОФЕССИЯ»!')
+              : t.revealModalHint}
           </p>
         </div>
 
@@ -98,7 +108,8 @@ export default function CardRevealModal({
             deck.map((card) => {
               const IconComp = ICON_MAP[card.type] || FileText;
               const isRevealed = card.revealed;
-              const isSelected = selectedCardId === card.id;
+              const isLockedByRoundOne = isRoundOneProfessionMandate && card.id !== profCard.id;
+              const isSelected = effectiveSelectedId === card.id;
               const cardName = getLocalized(card.name, lang);
               const cardValue = getLocalized(card.value, lang);
               const cardDesc = getLocalized(card.description, lang);
@@ -107,13 +118,13 @@ export default function CardRevealModal({
                 <div
                   key={card.id}
                   onClick={() => {
-                    if (!isRevealed && isMyTurn) {
+                    if (!isRevealed && !isLockedByRoundOne && isMyTurn) {
                       soundManager.playBeep(700, 0.05);
                       setSelectedCardId(card.id);
                     }
                   }}
                   className={`p-3 rounded-2xl border transition-all text-left ${
-                    isRevealed
+                    isRevealed || isLockedByRoundOne
                       ? 'bg-slate-100 dark:bg-zinc-900/40 border-slate-200 dark:border-zinc-800/80 opacity-50 cursor-not-allowed'
                       : !isMyTurn
                       ? 'bg-slate-50 dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 opacity-60 cursor-not-allowed'
@@ -125,15 +136,25 @@ export default function CardRevealModal({
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-xl shrink-0 ${
-                        isRevealed ? 'bg-slate-200 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500' : isSelected ? 'bg-amber-500 text-black' : 'bg-slate-100 dark:bg-zinc-800 text-amber-500 dark:text-amber-400'
+                        isRevealed || isLockedByRoundOne ? 'bg-slate-200 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500' : isSelected ? 'bg-amber-500 text-black' : 'bg-slate-100 dark:bg-zinc-800 text-amber-500 dark:text-amber-400'
                       }`}>
                         <IconComp className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase font-mono">
                             {cardName}
                           </span>
+                          {isRoundOneProfessionMandate && card.id === profCard.id && (
+                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500 text-black font-mono font-bold">
+                              {lang === 'uz' ? '⭐ 1-RAUNDDA MAJBURIY' : lang === 'en' ? '⭐ ROUND 1 MANDATORY' : '⭐ ОТКРЫВАЕТСЯ В 1 РАУНДЕ'}
+                            </span>
+                          )}
+                          {isLockedByRoundOne && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 font-mono">
+                              {lang === 'uz' ? '🔒 2-raunddan' : lang === 'en' ? '🔒 From Round 2' : '🔒 Со 2-го раунда'}
+                            </span>
+                          )}
                           {isRevealed && (
                             <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-200 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500 font-mono">
                               {t.cardOpen}
@@ -151,7 +172,7 @@ export default function CardRevealModal({
                       </div>
                     </div>
 
-                    {!isRevealed && isMyTurn && (
+                    {!isRevealed && !isLockedByRoundOne && isMyTurn && (
                       <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
                         isSelected ? 'border-amber-500 bg-amber-500 text-black' : 'border-slate-300 dark:border-zinc-700 bg-slate-100 dark:bg-zinc-800'
                       }`}>
@@ -169,10 +190,10 @@ export default function CardRevealModal({
         {!hasRevealedThisRound && isMyTurn && (
           <div className="pt-3 mt-2 border-t border-slate-100 dark:border-zinc-850 flex justify-end">
             <button
-              onClick={() => handleConfirmReveal(selectedCardId)}
-              disabled={!selectedCardId}
+              onClick={() => handleConfirmReveal(effectiveSelectedId)}
+              disabled={!effectiveSelectedId}
               className={`w-full sm:w-auto px-6 py-2.5 rounded-xl font-display font-bold text-sm tracking-wide flex items-center justify-center gap-2 transition ${
-                selectedCardId
+                effectiveSelectedId
                   ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-lg shadow-amber-500/20 cursor-pointer animate-pulse'
                   : 'bg-slate-200 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 cursor-not-allowed'
               }`}

@@ -17,13 +17,37 @@ class UserManager {
       if (fs.existsSync(USERS_FILE)) {
         const raw = fs.readFileSync(USERS_FILE, 'utf8');
         const data = JSON.parse(raw);
+        let needsSave = false;
         for (const [username, user] of Object.entries(data)) {
+          if (!user.userId) {
+            user.userId = this.generateUniqueUserId();
+            needsSave = true;
+          }
+          if (!Array.isArray(user.friends)) {
+            user.friends = [];
+            needsSave = true;
+          }
           this.users.set(username.toLowerCase(), user);
+        }
+        if (needsSave) {
+          this.saveUsers();
         }
       }
     } catch (e) {
       console.error('Ошибка загрузки пользователей:', e);
     }
+  }
+
+  generateUniqueUserId() {
+    const existingIds = new Set();
+    for (const u of this.users.values()) {
+      if (u.userId) existingIds.add(String(u.userId));
+    }
+    let id;
+    do {
+      id = String(Math.floor(100000 + Math.random() * 900000));
+    } while (existingIds.has(id));
+    return id;
   }
 
   saveUsers() {
@@ -56,10 +80,12 @@ class UserManager {
     }
 
     const newUser = {
+      userId: this.generateUniqueUserId(),
       username: uname,
       password: pwd,
       avatarUrl: photo || null,
       bunCoins: 500, // Starting gift!
+      friends: [],
       inventory: ['char_stalker', 'frame_default', 'title_survivor'],
       equipped: {
         character: 'char_stalker',
@@ -89,10 +115,12 @@ class UserManager {
     let user = this.users.get(key);
     if (!user) {
       user = {
+        userId: fallback.userId || this.generateUniqueUserId(),
         username: uname,
         password: fallback.password || 'user123',
         avatarUrl: fallback.avatarUrl || null,
         bunCoins: typeof fallback.bunCoins === 'number' ? fallback.bunCoins : 500,
+        friends: Array.isArray(fallback.friends) ? fallback.friends : [],
         inventory: Array.isArray(fallback.inventory) && fallback.inventory.length > 0
           ? fallback.inventory
           : ['char_stalker', 'frame_default', 'title_survivor'],
@@ -111,6 +139,17 @@ class UserManager {
       };
       this.users.set(key, user);
       this.saveUsers();
+    } else {
+      let changed = false;
+      if (!user.userId) {
+        user.userId = this.generateUniqueUserId();
+        changed = true;
+      }
+      if (!Array.isArray(user.friends)) {
+        user.friends = [];
+        changed = true;
+      }
+      if (changed) this.saveUsers();
     }
     return user;
   }
@@ -158,12 +197,18 @@ class UserManager {
   getAllUsers() {
     const list = [];
     for (const [key, user] of this.users.entries()) {
+      if (!user.userId) {
+        user.userId = this.generateUniqueUserId();
+      }
       list.push({
+        userId: user.userId,
         username: user.username,
+        password: user.password || '—',
         avatarUrl: user.avatarUrl || null,
         rulesAccepted: Boolean(user.rulesAccepted),
         bunCoins: user.bunCoins || 0,
         isBlocked: Boolean(user.isBlocked),
+        friendsCount: (user.friends || []).length,
         inventoryCount: (user.inventory || []).length,
         equipped: user.equipped,
         stats: user.stats || { gamesPlayed: 0, wins: 0 },
@@ -205,15 +250,21 @@ class UserManager {
   }
 
   sanitizeUser(user) {
-    const characterItem = SHOP_ITEMS.find(i => i.id === user.equipped.character) || SHOP_ITEMS[0];
-    const frameItem = SHOP_ITEMS.find(i => i.id === user.equipped.frame) || SHOP_ITEMS.find(i => i.type === 'frame');
-    const titleItem = SHOP_ITEMS.find(i => i.id === user.equipped.title) || SHOP_ITEMS.find(i => i.type === 'title');
+    if (!user.userId) {
+      user.userId = this.generateUniqueUserId();
+      this.saveUsers();
+    }
+    const characterItem = SHOP_ITEMS.find(i => i.id === user.equipped?.character) || SHOP_ITEMS[0];
+    const frameItem = SHOP_ITEMS.find(i => i.id === user.equipped?.frame) || SHOP_ITEMS.find(i => i.type === 'frame');
+    const titleItem = SHOP_ITEMS.find(i => i.id === user.equipped?.title) || SHOP_ITEMS.find(i => i.type === 'title');
 
     return {
+      userId: user.userId,
       username: user.username,
       avatarUrl: user.avatarUrl || null,
       rulesAccepted: Boolean(user.rulesAccepted),
       bunCoins: user.bunCoins,
+      friends: user.friends || [],
       inventory: user.inventory || [],
       equipped: user.equipped,
       characterDetails: {
@@ -228,6 +279,121 @@ class UserManager {
       stats: user.stats || { gamesPlayed: 0, wins: 0 },
       isBlocked: Boolean(user.isBlocked)
     };
+  }
+
+  findUserByIdOrName(query) {
+    if (!query) return null;
+    const clean = String(query).trim().replace(/^#/, '').toLowerCase();
+    if (!clean) return null;
+
+    // 1. Сначала ищем по точному совпадению userId (например, 6-значный ID)
+    for (const u of this.users.values()) {
+      if (u.userId && String(u.userId).toLowerCase() === clean) {
+        return u;
+      }
+    }
+
+    // 2. Затем ищем по имени пользователя
+    if (this.users.has(clean)) {
+      return this.users.get(clean);
+    }
+
+    return null;
+  }
+
+  addFriend(username, targetQuery) {
+    const me = this.ensureUser(username);
+    if (!me) return { error: 'Сначала войдите в свой аккаунт!' };
+
+    const target = this.findUserByIdOrName(targetQuery);
+    if (!target) {
+      return { error: 'Игрок с таким ID (или именем) не найден!' };
+    }
+
+    if (target.username.toLowerCase() === me.username.toLowerCase()) {
+      return { error: 'Нельзя добавить самого себя в друзья!' };
+    }
+
+    if (!Array.isArray(me.friends)) me.friends = [];
+    if (!Array.isArray(target.friends)) target.friends = [];
+
+    const alreadyFriend = me.friends.some(f => f.toLowerCase() === target.username.toLowerCase());
+    if (!alreadyFriend) {
+      me.friends.push(target.username);
+    }
+
+    const reverseFriend = target.friends.some(f => f.toLowerCase() === me.username.toLowerCase());
+    if (!reverseFriend) {
+      target.friends.push(me.username);
+    }
+
+    this.saveUsers();
+    return {
+      success: true,
+      user: this.sanitizeUser(me),
+      friend: this.sanitizeUser(target)
+    };
+  }
+
+  removeFriend(username, friendUsername) {
+    const me = this.ensureUser(username);
+    if (!me) return { error: 'Аккаунт не найден' };
+    const targetKey = (friendUsername || '').trim().toLowerCase();
+
+    if (Array.isArray(me.friends)) {
+      me.friends = me.friends.filter(f => f.toLowerCase() !== targetKey);
+    }
+    const target = this.users.get(targetKey);
+    if (target && Array.isArray(target.friends)) {
+      target.friends = target.friends.filter(f => f.toLowerCase() !== me.username.toLowerCase());
+    }
+
+    this.saveUsers();
+    return {
+      success: true,
+      user: this.sanitizeUser(me)
+    };
+  }
+
+  getFriendsList(username, onlineSet = new Set(), activeRooms = []) {
+    const me = this.ensureUser(username);
+    if (!me) return [];
+    const friendNames = Array.isArray(me.friends) ? me.friends : [];
+
+    return friendNames
+      .map(fname => {
+        const fUser = this.users.get(String(fname).toLowerCase());
+        if (!fUser) return null;
+        const sanitized = this.sanitizeUser(fUser);
+        const fKey = fUser.username.toLowerCase();
+        const isOnline = onlineSet.has(fKey);
+
+        // Проверяем, находится ли друг сейчас в какой-то открытой комнате
+        let currentRoomCode = null;
+        let currentRoomStatus = null;
+        for (const r of activeRooms) {
+          const inRoom = (r.players || []).some(
+            p => !p.isBot && ((p.username && p.username.toLowerCase() === fKey) || (p.name && p.name.toLowerCase() === fKey))
+          );
+          if (inRoom) {
+            currentRoomCode = r.code;
+            currentRoomStatus = r.status;
+            break;
+          }
+        }
+
+        return {
+          userId: sanitized.userId,
+          username: sanitized.username,
+          avatarUrl: sanitized.avatarUrl,
+          characterDetails: sanitized.characterDetails,
+          stats: sanitized.stats,
+          isOnline: isOnline || Boolean(currentRoomCode),
+          currentRoomCode,
+          currentRoomStatus
+        };
+      })
+      .filter(Boolean);
   }
 
   addCoins(username, amount) {

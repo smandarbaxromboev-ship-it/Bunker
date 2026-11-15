@@ -329,7 +329,11 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
 
   const filteredUsers = registeredUsers.filter(u => {
     if (!userSearch.trim()) return true;
-    return u.username.toLowerCase().includes(userSearch.trim().toLowerCase());
+    const q = userSearch.trim().toLowerCase().replace(/^#/, '');
+    return (
+      u.username.toLowerCase().includes(q) ||
+      (u.userId && String(u.userId).toLowerCase().includes(q))
+    );
   });
 
   return (
@@ -560,11 +564,11 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                     </span>
                   </div>
 
-                  <div className="relative w-56">
+                  <div className="relative w-64">
                     <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
-                      placeholder="Поиск по имени..."
+                      placeholder="Поиск по имени или ID..."
                       value={userSearch}
                       onChange={(e) => setUserSearch(e.target.value)}
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-amber-500 font-mono"
@@ -589,15 +593,28 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-lg ${
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-lg overflow-hidden shrink-0 ${
                             u.isBlocked ? 'bg-red-950 text-red-400 border border-red-700' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
                           }`}>
-                            {u.isBlocked ? '🚫' : '👤'}
+                            {u.avatarUrl ? (
+                              <img src={u.avatarUrl} alt={u.username} className="w-full h-full object-cover" />
+                            ) : (
+                              <span>{u.isBlocked ? '🚫' : '👤'}</span>
+                            )}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-mono font-bold text-sm text-white">
                                 {u.username}
+                              </span>
+                              {u.userId && (
+                                <span className="px-2 py-0.5 rounded-lg bg-cyan-950/80 border border-cyan-700/70 text-cyan-300 text-[10px] font-mono font-bold">
+                                  ID: #{u.userId}
+                                </span>
+                              )}
+                              <span className="px-2.5 py-0.5 rounded-lg bg-amber-950/70 border border-amber-600/60 text-amber-300 text-[11px] font-mono font-bold flex items-center gap-1">
+                                <span>🔑 Пароль:</span>
+                                <strong className="text-white select-all">{u.password || '—'}</strong>
                               </span>
                               {u.isBlocked ? (
                                 <span className="bg-red-950 text-red-400 border border-red-700/80 px-2 py-0.2 rounded-full text-[10px] font-mono font-bold flex items-center gap-1">
@@ -611,8 +628,10 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] font-mono text-zinc-400 flex items-center gap-2 mt-0.5">
+                            <div className="text-[11px] font-mono text-zinc-400 flex items-center gap-2 mt-1 flex-wrap">
                               <span>🪙 Баланс: <strong className="text-amber-400 font-bold">{u.bunCoins}</strong></span>
+                              <span>•</span>
+                              <span>👥 Друзей: <strong className="text-cyan-400">{u.friendsCount || 0}</strong></span>
                               <span>•</span>
                               <span>Игр: {u.stats?.gamesPlayed || 0}</span>
                               <span>•</span>

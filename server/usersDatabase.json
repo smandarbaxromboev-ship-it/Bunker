@@ -1,1 +1,25 @@
-{}
+{
+  "уа": {
+    "username": "уа",
+    "password": "уа34",
+    "avatarUrl": null,
+    "bunCoins": 500,
+    "inventory": [
+      "char_stalker",
+      "frame_default",
+      "title_survivor"
+    ],
+    "equipped": {
+      "character": "char_stalker",
+      "frame": "frame_default",
+      "title": "title_survivor"
+    },
+    "stats": {
+      "gamesPlayed": 0,
+      "wins": 0,
+      "roundsSurvived": 0
+    },
+    "rulesAccepted": true,
+    "createdAt": "2026-11-15T09:40:47.782Z"
+  }
+}

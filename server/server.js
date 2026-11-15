@@ -26,6 +26,32 @@ const io = new Server(server, {
 
 const gameManager = new GameManager(io);
 
+// Отслеживание онлайн-игроков по username (username.toLowerCase() -> Set<socketId>)
+const userSockets = new Map();
+
+function bindUserSocket(username, socketId) {
+  if (!username || !socketId) return;
+  const key = String(username).trim().toLowerCase();
+  if (!key) return;
+  if (!userSockets.has(key)) {
+    userSockets.set(key, new Set());
+  }
+  userSockets.get(key).add(socketId);
+}
+
+function unbindSocket(socketId) {
+  for (const [key, set] of userSockets.entries()) {
+    set.delete(socketId);
+    if (set.size === 0) {
+      userSockets.delete(key);
+    }
+  }
+}
+
+function getOnlineUsernamesSet() {
+  return new Set(userSockets.keys());
+}
+
 // Проверка админских прав: login: Samandar, parol: 05052013
 function checkAdminAuth(login, password) {
   return (
@@ -43,6 +69,9 @@ io.on('connection', (socket) => {
   socket.on('register', ({ username, password, avatarUrl }, callback) => {
     try {
       const res = userManager.register(username, password, avatarUrl);
+      if (res && res.success && res.user) {
+        bindUserSocket(res.user.username, socket.id);
+      }
       if (typeof callback === 'function') callback(res);
     } catch (e) {
       console.error('Ошибка register:', e);
@@ -54,6 +83,7 @@ io.on('connection', (socket) => {
     try {
       const res = userManager.updateProfile(username, { avatarUrl, rulesAccepted });
       if (res && res.success) {
+        bindUserSocket(res.user.username, socket.id);
         gameManager.updatePlayerProfile(username, res.user);
         io.emit('userProfileUpdated', { username, user: res.user });
       }
@@ -67,6 +97,9 @@ io.on('connection', (socket) => {
   socket.on('login', ({ username, password }, callback) => {
     try {
       const res = userManager.login(username, password);
+      if (res && res.success && res.user) {
+        bindUserSocket(res.user.username, socket.id);
+      }
       if (typeof callback === 'function') callback(res);
     } catch (e) {
       console.error('Ошибка login:', e);
@@ -77,9 +110,132 @@ io.on('connection', (socket) => {
   socket.on('getProfile', ({ username, fallbackUser }, callback) => {
     try {
       const user = userManager.getUser(username, fallbackUser);
+      if (user && user.username) {
+        bindUserSocket(user.username, socket.id);
+      }
       if (typeof callback === 'function') callback({ user });
     } catch (e) {
       if (typeof callback === 'function') callback({ user: null });
+    }
+  });
+
+  // ===================== ДРУЗЬЯ ПО ID И ПРИГЛАШЕНИЯ В КОМНАТУ =====================
+  socket.on('getFriends', ({ username }, callback) => {
+    try {
+      if (username) bindUserSocket(username, socket.id);
+      const user = userManager.getUser(username);
+      const friends = userManager.getFriendsList(
+        username,
+        getOnlineUsernamesSet(),
+        gameManager.getActiveRoomsSummary()
+      );
+      if (typeof callback === 'function') {
+        callback({
+          success: true,
+          userId: user ? user.userId : null,
+          friends
+        });
+      }
+    } catch (e) {
+      console.error('Ошибка getFriends:', e);
+      if (typeof callback === 'function') callback({ error: 'Ошибка загрузки списка друзей' });
+    }
+  });
+
+  socket.on('addFriend', ({ username, targetQuery }, callback) => {
+    try {
+      if (username) bindUserSocket(username, socket.id);
+      const res = userManager.addFriend(username, targetQuery);
+      if (res.error) {
+        if (typeof callback === 'function') callback(res);
+        return;
+      }
+
+      const onlineSet = getOnlineUsernamesSet();
+      const activeRooms = gameManager.getActiveRoomsSummary();
+      const myFriends = userManager.getFriendsList(username, onlineSet, activeRooms);
+
+      // Уведомляем второго игрока в реальном времени, что его добавили в друзья!
+      if (res.friend && res.friend.username) {
+        const targetFriends = userManager.getFriendsList(res.friend.username, onlineSet, activeRooms);
+        io.emit('friendsUpdated', {
+          targetUsername: res.friend.username,
+          addedBy: res.user.username,
+          friends: targetFriends
+        });
+      }
+
+      if (typeof callback === 'function') {
+        callback({
+          success: true,
+          user: res.user,
+          friend: res.friend,
+          friends: myFriends
+        });
+      }
+    } catch (e) {
+      console.error('Ошибка addFriend:', e);
+      if (typeof callback === 'function') callback({ error: 'Ошибка добавления друга' });
+    }
+  });
+
+  socket.on('removeFriend', ({ username, friendUsername }, callback) => {
+    try {
+      const res = userManager.removeFriend(username, friendUsername);
+      const friends = userManager.getFriendsList(
+        username,
+        getOnlineUsernamesSet(),
+        gameManager.getActiveRoomsSummary()
+      );
+      if (typeof callback === 'function') {
+        callback({
+          success: true,
+          user: res.user,
+          friends
+        });
+      }
+    } catch (e) {
+      if (typeof callback === 'function') callback({ error: 'Ошибка удаления друга' });
+    }
+  });
+
+  socket.on('inviteFriendToRoom', ({ fromUsername, targetUsername, targetUserId, roomCode }, callback) => {
+    try {
+      if (!roomCode) {
+        if (typeof callback === 'function') callback({ error: 'Сначала создайте комнату или войдите в бункер!' });
+        return;
+      }
+      const sender = userManager.getUser(fromUsername);
+      const target = userManager.findUserByIdOrName(targetUserId || targetUsername);
+      if (!target) {
+        if (typeof callback === 'function') callback({ error: 'Игрок не найден!' });
+        return;
+      }
+
+      const invitePayload = {
+        id: 'inv_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        fromUsername: sender ? sender.username : fromUsername,
+        fromUserId: sender ? sender.userId : null,
+        fromAvatar: sender?.characterDetails?.avatar || '🥷',
+        fromAvatarUrl: sender?.avatarUrl || null,
+        targetUsername: target.username,
+        targetUserId: target.userId,
+        roomCode: String(roomCode).trim(),
+        timestamp: Date.now()
+      };
+
+      // Отправляем всем сокетам (клиент отфильтрует по своему username / userId)
+      io.emit('roomInvite', invitePayload);
+
+      if (typeof callback === 'function') {
+        callback({
+          success: true,
+          message: `Приглашение в комнату #${roomCode} отправлено игроку ${target.username}!`
+        });
+      }
+    } catch (e) {
+      console.error('Ошибка inviteFriendToRoom:', e);
+      if (typeof callback === 'function') callback({ error: 'Ошибка отправки приглашения' });
     }
   });
 
@@ -354,6 +510,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    unbindSocket(socket.id);
     console.log(`[SOCKET] Клиент отключился: ${socket.id}`);
   });
 });

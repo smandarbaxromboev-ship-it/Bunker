@@ -26,6 +26,7 @@ import BunkerLogo from './components/BunkerLogo';
 import AtmosphereEffects from './components/AtmosphereEffects';
 import RulesModal from './components/RulesModal';
 import ProfileModal from './components/ProfileModal';
+import FriendsModal from './components/FriendsModal';
 
 const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
   ? undefined 
@@ -67,6 +68,8 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShopModal, setShowShopModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showFriendsModal, setShowFriendsModal] = useState(false);
+  const [pendingInvite, setPendingInvite] = useState(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isRulesMandatory, setIsRulesMandatory] = useState(false);
   const [showVotingModal, setShowVotingModal] = useState(true);
@@ -219,6 +222,21 @@ export default function App() {
       handleLeaveRoom();
     });
 
+    socket.on('roomInvite', (invite) => {
+      if (!invite || !invite.roomCode) return;
+      const mySaved = localStorage.getItem('bunker_user_v3');
+      if (!mySaved) return;
+      try {
+        const parsed = JSON.parse(mySaved);
+        const matchName = parsed.username && invite.targetUsername && parsed.username.toLowerCase() === invite.targetUsername.toLowerCase();
+        const matchId = parsed.userId && invite.targetUserId && String(parsed.userId) === String(invite.targetUserId);
+        if (matchName || matchId) {
+          soundManager.playBeep(1150, 0.14);
+          setPendingInvite(invite);
+        }
+      } catch (e) {}
+    });
+
     return () => {
       socket.off('connect');
       socket.off('roomStateUpdate');
@@ -226,6 +244,7 @@ export default function App() {
       socket.off('userProfileUpdated');
       socket.off('userBlocked');
       socket.off('roomClosedByAdmin');
+      socket.off('roomInvite');
     };
   }, []);
 
@@ -351,6 +370,35 @@ export default function App() {
     });
   };
 
+  const handleJoinRoomByCode = (targetCode) => {
+    const clean = String(targetCode || '').trim();
+    if (!clean || !user) return;
+
+    // Если уже в другой комнате — сначала выходим из старой
+    const currentCode = roomState?.code || localStorage.getItem('bunker_room_code');
+    const currentPid = myPlayerId || localStorage.getItem('bunker_player_id');
+    if (currentCode && currentCode !== clean) {
+      socket.emit('leaveRoom', { roomCode: currentCode, playerId: currentPid });
+    }
+
+    const name = (user.username || playerName || 'Выживший').trim();
+    soundManager.playBeep(950, 0.08);
+    setPendingInvite(null);
+
+    socket.emit('joinRoom', { roomCode: clean, playerName: name, userProfile: user }, (res) => {
+      if (res?.error) {
+        setErrorMessage(res.error);
+        alert(res.error);
+        return;
+      }
+      setMyPlayerId(res.playerId);
+      localStorage.setItem('bunker_player_id', res.playerId);
+      localStorage.setItem('bunker_room_code', res.code);
+      setRoomState(res.room);
+      setInRoom(true);
+    });
+  };
+
   const handleStartGame = () => {
     if (!roomState?.code) return;
     socket.emit('startGame', { roomCode: roomState.code, requesterId: myPlayerId }, (res) => {
@@ -416,6 +464,43 @@ export default function App() {
   const isHost = roomState?.hostId === myPlayerId;
   const isChatLocked = false; // Чат теперь доступен всегда, даже во время и после голосования!
 
+  const renderInviteBanner = () => {
+    if (!pendingInvite) return null;
+    return (
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[70] w-[94vw] max-w-md bg-zinc-950/95 border-2 border-cyan-400 rounded-2xl p-4 shadow-[0_0_40px_rgba(6,182,212,0.45)] animate-bounce text-white">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-xl shrink-0">
+              {pendingInvite.fromAvatar || '🥷'}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-bold">
+                {lang === 'uz' ? "DO'STDAN TAKLIF!" : lang === 'en' ? 'FRIEND ROOM INVITE!' : '📨 ПРИГЛАШЕНИЕ ОТ ДРУГА!'}
+              </div>
+              <div className="text-xs sm:text-sm font-display font-bold text-white truncate">
+                {pendingInvite.fromUsername} {lang === 'uz' ? `sizni #${pendingInvite.roomCode} xonasiga chaqiryapti!` : lang === 'en' ? `invites you to Bunker #${pendingInvite.roomCode}!` : `зовёт вас в Бункер #${pendingInvite.roomCode}!`}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => handleJoinRoomByCode(pendingInvite.roomCode)}
+              className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-display font-bold text-xs transition cursor-pointer shadow-lg"
+            >
+              {lang === 'uz' ? 'Kirish' : lang === 'en' ? 'Join' : 'Войти'}
+            </button>
+            <button
+              onClick={() => setPendingInvite(null)}
+              className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700 text-xs transition cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // DEDICATED /admin ROUTE
   if (currentPath === '/admin') {
     return (
@@ -459,6 +544,11 @@ export default function App() {
                     <div className="font-mono">
                       <div className="text-xs font-bold text-slate-800 dark:text-zinc-100 flex items-center space-x-1">
                         <span>{user.username}</span>
+                        {user.userId && (
+                          <span className="bg-cyan-500/20 text-cyan-500 dark:text-cyan-400 px-1.5 py-0.2 rounded text-[10px] font-bold">
+                            ID: #{user.userId}
+                          </span>
+                        )}
                         <span className="bg-amber-500/20 text-amber-500 px-1.5 py-0.2 rounded text-[10px] font-bold">
                           🪙 {user.bunCoins}
                         </span>
@@ -490,8 +580,23 @@ export default function App() {
               )}
             </div>
 
-            {/* Right: Rules, Atmosphere, Shop, Theme & Language */}
+            {/* Right: Friends, Rules, Atmosphere, Shop, Theme & Language */}
             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              {/* Friends by ID Button */}
+              {user && (
+                <button
+                  onClick={() => setShowFriendsModal(true)}
+                  title={lang === 'uz' ? "Do'stlar (ID orqali)" : lang === 'en' ? 'Friends (by ID)' : 'Добавить друзей по ID и играть вместе'}
+                  className="px-3 py-1.5 rounded-2xl bg-cyan-500/15 hover:bg-cyan-500 hover:text-zinc-950 border border-cyan-500/40 text-cyan-600 dark:text-cyan-300 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <span>👥</span>
+                  <span>{lang === 'uz' ? "Do'stlar" : lang === 'en' ? 'Friends' : 'Друзья'}</span>
+                  {user.userId && (
+                    <span className="hidden sm:inline text-[10px] opacity-80">#{user.userId}</span>
+                  )}
+                </button>
+              )}
+
               {/* Rules Button */}
               <button
                 onClick={() => {
@@ -771,6 +876,21 @@ export default function App() {
           lang={lang}
           setLang={handleSetLang}
         />
+
+        {/* Friends by ID Modal */}
+        {showFriendsModal && user && (
+          <FriendsModal
+            user={user}
+            socket={socket}
+            currentRoomCode={roomState?.code || null}
+            onJoinFriendRoom={handleJoinRoomByCode}
+            onClose={() => setShowFriendsModal(false)}
+            onUserUpdated={handleUserUpdated}
+            lang={lang}
+          />
+        )}
+
+        {renderInviteBanner()}
       </div>
     );
   }
@@ -780,6 +900,7 @@ export default function App() {
     return (
       <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-3 sm:p-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200 relative overflow-hidden">
         <AtmosphereEffects enabled={atmosphereEnabled} lang={lang} />
+        {renderInviteBanner()}
 
         <HeaderTerminal
           roomState={roomState}
@@ -794,6 +915,7 @@ export default function App() {
           onOpenShop={() => setShowShopModal(true)}
           onOpenProfile={() => setShowProfileModal(true)}
           onOpenRules={() => { setIsRulesMandatory(false); setShowRulesModal(true); }}
+          onOpenFriends={() => setShowFriendsModal(true)}
           atmosphereEnabled={atmosphereEnabled}
           setAtmosphereEnabled={handleToggleAtmosphere}
           onLeaveRoom={handleLeaveRoom}
@@ -817,6 +939,18 @@ export default function App() {
           <ProfileModal user={user} socket={socket} lang={lang} onClose={() => setShowProfileModal(false)} onProfileUpdated={handleUserUpdated} />
         )}
 
+        {showFriendsModal && user && (
+          <FriendsModal
+            user={user}
+            socket={socket}
+            currentRoomCode={roomState?.code || null}
+            onJoinFriendRoom={handleJoinRoomByCode}
+            onClose={() => setShowFriendsModal(false)}
+            onUserUpdated={handleUserUpdated}
+            lang={lang}
+          />
+        )}
+
         <RulesModal
           isOpen={showRulesModal}
           isMandatory={isRulesMandatory}
@@ -834,6 +968,7 @@ export default function App() {
     return (
       <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-3 sm:p-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200 relative overflow-hidden">
         <AtmosphereEffects enabled={atmosphereEnabled} lang={lang} />
+        {renderInviteBanner()}
 
         <HeaderTerminal
           roomState={roomState}
@@ -848,6 +983,7 @@ export default function App() {
           onOpenShop={() => setShowShopModal(true)}
           onOpenProfile={() => setShowProfileModal(true)}
           onOpenRules={() => { setIsRulesMandatory(false); setShowRulesModal(true); }}
+          onOpenFriends={() => setShowFriendsModal(true)}
           atmosphereEnabled={atmosphereEnabled}
           setAtmosphereEnabled={handleToggleAtmosphere}
           onLeaveRoom={handleLeaveRoom}
@@ -861,6 +997,7 @@ export default function App() {
             onAddBot={handleAddBot}
             onRemoveBot={handleRemoveBot}
             onLeaveLobby={handleLeaveRoom}
+            onOpenFriends={() => setShowFriendsModal(true)}
             lang={lang}
           />
         </main>
@@ -871,6 +1008,18 @@ export default function App() {
 
         {showProfileModal && (
           <ProfileModal user={user} socket={socket} lang={lang} onClose={() => setShowProfileModal(false)} onProfileUpdated={handleUserUpdated} />
+        )}
+
+        {showFriendsModal && user && (
+          <FriendsModal
+            user={user}
+            socket={socket}
+            currentRoomCode={roomState?.code || null}
+            onJoinFriendRoom={handleJoinRoomByCode}
+            onClose={() => setShowFriendsModal(false)}
+            onUserUpdated={handleUserUpdated}
+            lang={lang}
+          />
         )}
 
         <RulesModal
@@ -889,6 +1038,7 @@ export default function App() {
   return (
     <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 flex flex-col text-slate-800 dark:text-zinc-100 pb-20 md:pb-6 transition-colors duration-200 relative overflow-hidden">
       <AtmosphereEffects enabled={atmosphereEnabled} lang={lang} />
+      {renderInviteBanner()}
 
       <HeaderTerminal 
         roomState={roomState} 
@@ -903,6 +1053,7 @@ export default function App() {
         onOpenShop={() => setShowShopModal(true)}
         onOpenProfile={() => setShowProfileModal(true)}
         onOpenRules={() => { setIsRulesMandatory(false); setShowRulesModal(true); }}
+        onOpenFriends={() => setShowFriendsModal(true)}
         atmosphereEnabled={atmosphereEnabled}
         setAtmosphereEnabled={handleToggleAtmosphere}
         onLeaveRoom={handleLeaveRoom}
@@ -1165,6 +1316,19 @@ export default function App() {
         lang={lang}
         setLang={handleSetLang}
       />
+
+      {/* 10. Friends by ID Modal */}
+      {showFriendsModal && user && (
+        <FriendsModal
+          user={user}
+          socket={socket}
+          currentRoomCode={roomState?.code || null}
+          onJoinFriendRoom={handleJoinRoomByCode}
+          onClose={() => setShowFriendsModal(false)}
+          onUserUpdated={handleUserUpdated}
+          lang={lang}
+        />
+      )}
     </div>
   );
 }

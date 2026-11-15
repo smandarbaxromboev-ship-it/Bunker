@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Radio, Volume2, VolumeX, Flame,
   ChevronDown, ChevronUp, Sun, Moon,
-  ShoppingBag, User, Coins, LogOut, ArrowLeft,
+  ShoppingBag, User, Users, Coins, LogOut, ArrowLeft,
   BookOpen, Sparkles
 } from 'lucide-react';
 import { soundManager } from '../utils/audio';
@@ -23,6 +23,7 @@ export default function HeaderTerminal({
   onOpenShop,
   onOpenProfile,
   onOpenRules,
+  onOpenFriends,
   atmosphereEnabled = true,
   setAtmosphereEnabled,
   onLeaveRoom,
@@ -121,8 +122,23 @@ export default function HeaderTerminal({
           </div>
         )}
 
-        {/* Right: Rules, Atmosphere, Profile, Shop, Theme, Lang, Sound */}
+        {/* Right: Friends, Rules, Atmosphere, Profile, Shop, Theme, Lang, Sound */}
         <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+          {/* Friends by ID Button */}
+          {onOpenFriends && user && (
+            <button
+              onClick={() => {
+                soundManager.playBeep(750, 0.05);
+                onOpenFriends();
+              }}
+              title={lang === 'uz' ? "Do'stlar (ID orqali)" : lang === 'en' ? 'Friends (by ID)' : 'Друзья по ID и приглашения'}
+              className="p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-600 dark:text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm cursor-pointer"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{lang === 'uz' ? "Do'stlar" : lang === 'en' ? 'Friends' : 'Друзья'}</span>
+            </button>
+          )}
+
           {/* Rules Guide Button */}
           {onOpenRules && (
             <button

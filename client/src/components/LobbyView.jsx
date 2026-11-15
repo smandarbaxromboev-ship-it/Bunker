@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Copy, Check, Play, Bot, AlertOctagon, Trophy, Trash2, UserMinus, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Users, Copy, Check, Play, Bot, AlertOctagon, Trophy, Trash2, UserMinus, ArrowLeft, AlertCircle, UserPlus } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 import { translations, getLocalized } from '../utils/translations';
 import CharacterAvatar from './CharacterAvatar';
@@ -11,6 +11,7 @@ export default function LobbyView({
   onAddBot, 
   onRemoveBot, 
   onLeaveLobby,
+  onOpenFriends,
   lang = 'ru' 
 }) {
   const [copied, setCopied] = useState(false);
@@ -97,18 +98,39 @@ export default function LobbyView({
             </p>
           </div>
 
-          {/* Big Code Badge */}
-          <div className="flex items-center gap-2 bg-slate-50 dark:bg-black/90 border-2 border-amber-500/60 rounded-2xl p-3 px-5 shadow-[0_0_25px_rgba(245,158,11,0.12)]">
-            <span className="text-3xl sm:text-4xl font-display font-bold text-amber-600 dark:text-amber-400 tracking-widest">
-              {roomState?.code}
-            </span>
-            <button
-              onClick={copyCode}
-              title={t.copyCodeTooltip || (lang === 'ru' ? "Скопировать цифровой код" : lang === 'uz' ? "Xona kodini nusxalash" : "Copy room code")}
-              className="p-2 rounded-xl bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-amber-500 transition ml-2 cursor-pointer"
-            >
-              {copied ? <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-5 h-5" />}
-            </button>
+          {/* Big Code Badge & Invite Friends Button */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {onOpenFriends && (
+              <button
+                onClick={() => {
+                  soundManager.playBeep(850, 0.05);
+                  onOpenFriends();
+                }}
+                className="px-4 py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition cursor-pointer"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>
+                  {lang === 'uz'
+                    ? "Do'stlarni ID orqali chaqirish"
+                    : lang === 'en'
+                    ? 'Invite Friends by ID'
+                    : 'Позвать друзей по ID'}
+                </span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-black/90 border-2 border-amber-500/60 rounded-2xl p-3 px-5 shadow-[0_0_25px_rgba(245,158,11,0.12)]">
+              <span className="text-3xl sm:text-4xl font-display font-bold text-amber-600 dark:text-amber-400 tracking-widest">
+                {roomState?.code}
+              </span>
+              <button
+                onClick={copyCode}
+                title={t.copyCodeTooltip || (lang === 'ru' ? "Скопировать цифровой код" : lang === 'uz' ? "Xona kodini nusxalash" : "Copy room code")}
+                className="p-2 rounded-xl bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-amber-500 transition ml-2 cursor-pointer"
+              >
+                {copied ? <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
         </div>
 

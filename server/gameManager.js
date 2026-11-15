@@ -382,11 +382,19 @@ class GameManager {
       p.revealedCardId = null;
     });
 
-    this.addSystemMessage(room, {
-      ru: `НАЧИНАЕТСЯ ПООЧЕРЕДНОЕ ВСКРЫТИЕ КАРТ РАУНДА ${room.currentRound}! Каждому дается ровно 1 минута на выбор.`,
-      en: `SEQUENTIAL CARD REVEAL BEGINS FOR ROUND ${room.currentRound}! Each player has 60 seconds to choose.`,
-      uz: `${room.currentRound}-RAUND UCHUN NAVBAT BILAN KARTALARNI OCHISH BOSHLANDI! Har biriga 1 daqiqa beriladi.`
-    });
+    if (room.currentRound === 1) {
+      this.addSystemMessage(room, {
+        ru: `💼 РАУНД 1: ПО ПРАВИЛАМ БУНКЕРА ПЕРВЫМ ВСЕГДА ОТКРЫВАЕТСЯ КАРТА «ПРОФЕССИЯ»! Каждому дается 1 минута.`,
+        en: `💼 ROUND 1: BY BUNKER RULES, THE "PROFESSION" CARD IS ALWAYS REVEALED FIRST! Each player has 60 seconds.`,
+        uz: `💼 1-RAUND: BUNKER QOIDALARIGA KO'RA BIRINCHI BO'LIB HAR DOIM "KASB" KARTASI OCHILADI! Har biriga 1 daqiqa beriladi.`
+      });
+    } else {
+      this.addSystemMessage(room, {
+        ru: `НАЧИНАЕТСЯ ПООЧЕРЕДНОЕ ВСКРЫТИЕ КАРТ РАУНДА ${room.currentRound}! Каждому дается ровно 1 минута на выбор.`,
+        en: `SEQUENTIAL CARD REVEAL BEGINS FOR ROUND ${room.currentRound}! Each player has 60 seconds to choose.`,
+        uz: `${room.currentRound}-RAUND UCHUN NAVBAT BILAN KARTALARNI OCHISH BOSHLANDI! Har biriga 1 daqiqa beriladi.`
+      });
+    }
     this.promptNextPlayerReveal(room);
   }
 
@@ -423,9 +431,9 @@ class GameManager {
     room.timerType = 'REVEAL';
 
     this.addSystemMessage(room, {
-      ru: `🔔 Очередь хода: ${currentPlayer.name}! У вас есть 60 секунд, чтобы показать карту.`,
-      en: `🔔 Current turn: ${currentPlayer.name}! You have 60 seconds to reveal a card.`,
-      uz: `🔔 Navbat: ${currentPlayer.name}! Kartani ochish uchun sizda 60 soniya bor.`
+      ru: `🔔 Очередь хода: ${currentPlayer.name}! У вас есть 60 секунд, чтобы показать карту${room.currentRound === 1 ? ' ПРОФЕССИИ' : ''}.`,
+      en: `🔔 Current turn: ${currentPlayer.name}! You have 60 seconds to reveal ${room.currentRound === 1 ? 'your PROFESSION card' : 'a card'}.`,
+      uz: `🔔 Navbat: ${currentPlayer.name}! ${room.currentRound === 1 ? 'KASB kartasini' : 'Kartani'} ochish uchun sizda 60 soniya bor.`
     });
     this.broadcastRoom(room.code);
 
@@ -440,7 +448,11 @@ class GameManager {
   performBotCardReveal(room, bot) {
     const unrevealed = bot.deck.filter(c => !c.revealed);
     if (unrevealed.length > 0) {
-      const chosen = unrevealed[Math.floor(Math.random() * unrevealed.length)];
+      // В 1-м раунде ВСЕГДА первым открывается Профессия!
+      const profCard = unrevealed.find(c => c.id === 'profession' || c.type === 'profession');
+      const chosen = (room.currentRound === 1 && profCard)
+        ? profCard
+        : unrevealed[Math.floor(Math.random() * unrevealed.length)];
       chosen.revealed = true;
       chosen.revealedInRound = room.currentRound;
       bot.revealedCardId = chosen.id;
@@ -472,7 +484,10 @@ class GameManager {
     if (player && player.isAlive && !player.revealedCardId) {
       const unrevealed = player.deck.filter(c => !c.revealed);
       if (unrevealed.length > 0) {
-        const randomCard = unrevealed[Math.floor(Math.random() * unrevealed.length)];
+        const profCard = unrevealed.find(c => c.id === 'profession' || c.type === 'profession');
+        const randomCard = (room.currentRound === 1 && profCard)
+          ? profCard
+          : unrevealed[Math.floor(Math.random() * unrevealed.length)];
         randomCard.revealed = true;
         randomCard.revealedInRound = room.currentRound;
         player.revealedCardId = randomCard.id;
@@ -486,9 +501,9 @@ class GameManager {
         const valUz = typeof randomCard.value === 'object' ? (randomCard.value.uz || randomCard.value.ru) : randomCard.value;
 
         this.addSystemMessage(room, {
-          ru: `⏱️ Время 1 минута истекло! У ${player.name} случайно открыта карта: [${nameRu}] — "${valRu}"`,
-          en: `⏱️ 1 minute expired! A random card was revealed for ${player.name}: [${nameEn}] — "${valEn}"`,
-          uz: `⏱️ 1 daqiqa vaqt tugadi! ${player.name} uchun tasodifiy karta ochildi: [${nameUz}] — "${valUz}"`
+          ru: `⏱️ Время 1 минута истекло! У ${player.name} открыта карта: [${nameRu}] — "${valRu}"`,
+          en: `⏱️ 1 minute expired! A card was revealed for ${player.name}: [${nameEn}] — "${valEn}"`,
+          uz: `⏱️ 1 daqiqa vaqt tugadi! ${player.name} uchun karta ochildi: [${nameUz}] — "${valUz}"`
         });
       }
     }
@@ -507,7 +522,11 @@ class GameManager {
     // Разрешаем вскрывать ТОЛЬКО тому, чей сейчас ход!
     if (!currentPlayer || currentPlayer.id !== playerId) return;
 
-    const card = currentPlayer.deck.find(c => c.id === cardId);
+    // В 1-м раунде ВСЕГДА первым открывается Профессия!
+    const profCard = currentPlayer.deck.find(c => (c.id === 'profession' || c.type === 'profession') && !c.revealed);
+    const card = (room.currentRound === 1 && profCard)
+      ? profCard
+      : currentPlayer.deck.find(c => c.id === cardId);
     if (!card || card.revealed) return;
 
     this.clearRoomTimer(code);
