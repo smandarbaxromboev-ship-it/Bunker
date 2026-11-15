@@ -208,8 +208,12 @@ export default function PlayerCard({
 
               {/* Full description shown on expansion or reveal */}
               {isRevealed && cardDesc && (
-                <div className={`mt-1.5 pl-6 text-[11px] text-slate-600 dark:text-zinc-400 leading-relaxed ${
-                  isExpanded ? 'block' : 'line-clamp-1'
+                <div className={`mt-1.5 pl-6 text-[11px] leading-relaxed ${
+                  card.type === 'special'
+                    ? 'block text-amber-700 dark:text-amber-300/95 font-medium bg-amber-500/10 border border-amber-500/30 rounded-xl px-2.5 py-1.5 mt-2'
+                    : isExpanded
+                    ? 'block text-slate-600 dark:text-zinc-400'
+                    : 'line-clamp-1 text-slate-600 dark:text-zinc-400'
                 }`}>
                   {cardDesc}
                 </div>
@@ -222,13 +226,13 @@ export default function PlayerCard({
                     <button
                       type="button"
                       onClick={() => onUseTrump && onUseTrump(card)}
-                      className="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 active:scale-98 text-black font-display font-bold text-[11px] shadow-sm flex items-center justify-center gap-1.5 animate-pulse cursor-pointer border border-amber-600/30"
+                      className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 active:scale-98 text-black font-display font-extrabold text-xs shadow-md shadow-amber-500/20 flex items-center justify-center gap-1.5 animate-pulse cursor-pointer border border-amber-600/40"
                     >
                       <span>{t.btnUseTrump}</span>
                     </button>
                   ) : (
-                    <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500 font-semibold italic">
-                      {t.trumpAlreadyUsed}
+                    <span className="text-[10px] font-mono text-emerald-500 dark:text-emerald-400 font-bold italic">
+                      ✓ {t.trumpAlreadyUsed}
                     </span>
                   )}
                 </div>

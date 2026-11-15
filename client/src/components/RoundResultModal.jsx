@@ -200,33 +200,27 @@ export default function RoundResultModal({
           </div>
         </div>
 
-        {/* Next Round & Exit Buttons */}
+        {/* Next Round & Exit Buttons (Available to ALL players so no one has to wait for Host!) */}
         <div className="pt-2 border-t border-zinc-850 shrink-0 space-y-2">
-          {(isHost || willEndNow || !isAlive) ? (
-            <button
-              onClick={() => {
-                soundManager.playBeep(900, 0.08);
-                onNextRound();
-              }}
-              className="w-full py-3 rounded-xl font-display font-bold text-sm tracking-wide flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-lg shadow-amber-500/30 transition cursor-pointer"
-            >
-              {willEndNow ? (
-                <>
-                  <Trophy className="w-5 h-5" />
-                  <span>{t.btnDetermineWinners}</span>
-                </>
-              ) : (
-                <>
-                  <span>{t.btnNextRound} {roomState.currentRound + 1}</span>
-                  <ArrowRight className="w-5 h-5" />
-                </>
-              )}
-            </button>
-          ) : (
-            <div className="text-xs text-zinc-400 font-mono py-2 bg-zinc-900/50 rounded-xl border border-zinc-800/60">
-              {t.waitingHost}
-            </div>
-          )}
+          <button
+            onClick={() => {
+              soundManager.playBeep(900, 0.08);
+              onNextRound();
+            }}
+            className="w-full py-3 rounded-xl font-display font-bold text-sm tracking-wide flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-lg shadow-amber-500/30 transition cursor-pointer"
+          >
+            {willEndNow ? (
+              <>
+                <Trophy className="w-5 h-5" />
+                <span>{t.btnDetermineWinners}</span>
+              </>
+            ) : (
+              <>
+                <span>{t.btnNextRound} {roomState.currentRound + 1}</span>
+                <ArrowRight className="w-5 h-5" />
+              </>
+            )}
+          </button>
 
           {(!isAlive || willEndNow) && onLeaveRoom && (
             <button

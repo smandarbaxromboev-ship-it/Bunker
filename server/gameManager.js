@@ -450,12 +450,25 @@ class GameManager {
     if (unrevealed.length > 0) {
       // В 1-м раунде ВСЕГДА первым открывается Профессия!
       const profCard = unrevealed.find(c => c.id === 'profession' || c.type === 'profession');
+      // В остальных раундах сначала открываем обычные характеристики, а козырь — в последнюю очередь
+      const regularUnrevealed = unrevealed.filter(c => c.type !== 'special');
+      const pool = regularUnrevealed.length > 0 ? regularUnrevealed : unrevealed;
       const chosen = (room.currentRound === 1 && profCard)
         ? profCard
-        : unrevealed[Math.floor(Math.random() * unrevealed.length)];
+        : pool[Math.floor(Math.random() * pool.length)];
       chosen.revealed = true;
       chosen.revealedInRound = room.currentRound;
       bot.revealedCardId = chosen.id;
+
+      // Если бот открыл козырь — активируем его способность!
+      if (chosen.type === 'special' && !chosen.used) {
+        chosen.used = true;
+        if (chosen.ability === 'immunity' || chosen.ability === 'bodyguard') {
+          bot.hasImmunityThisRound = true;
+        } else if (chosen.ability === 'double_vote') {
+          bot.voteWeight = 2;
+        }
+      }
 
       const nameRu = typeof chosen.name === 'object' ? chosen.name.ru : chosen.name;
       const nameEn = typeof chosen.name === 'object' ? (chosen.name.en || chosen.name.ru) : chosen.name;
@@ -562,11 +575,12 @@ class GameManager {
     room.timerDuration = 20 * 60; // 20 минут = 1200 секунд
     room.timerExpiresAt = Date.now() + 20 * 60 * 1000;
     room.timerType = 'ROUND';
+    room.players.forEach(p => { p.votedFor = null; });
 
     this.addSystemMessage(room, {
-      ru: `📢 ВСЕ КАРТЫ ВСКРЫТЫ! Запущен 20-минутный таймер раунда. Обсуждайте и спорьте!`,
-      en: `📢 ALL CARDS REVEALED! 20-minute discussion timer started. Debate and persuade!`,
-      uz: `📢 BARCHA KARTALAR OCHILDI! 20 daqiqalik muhokama taymeri ishga tushdi. Bahslashing!`
+      ru: `📢 ВСЕ КАРТЫ ВСКРЫТЫ! Любой игрок уже сейчас может голосовать на карточках игроков или открыть окно голосования (не нужно ждать создателя комнаты)!`,
+      en: `📢 ALL CARDS REVEALED! Any player can vote right now on player cards or open the voting window (no need to wait for the room host)!`,
+      uz: `📢 BARCHA KARTALAR OCHILDI! Har bir o'yinchi xona yaratuvchisini kutmasdan hoziroq ovoz berishi mumkin!`
     });
 
     this.broadcastRoom(room.code);
@@ -601,14 +615,18 @@ class GameManager {
 
   startVotingPhase(code, requesterId) {
     const room = this.rooms.get(code);
-    if (!room || room.status !== 'ROUND_DISCUSSION') return;
+    if (!room || (room.status !== 'ROUND_DISCUSSION' && room.status !== 'ROUND_VOTING')) return;
+    if (room.status === 'ROUND_VOTING') {
+      this.broadcastRoom(code);
+      return;
+    }
 
     room.status = 'ROUND_VOTING';
-    room.players.forEach(p => { p.votedFor = null; });
+    // НЕ сбрасываем голоса тех, кто уже проголосовал во время обсуждения!
     this.addSystemMessage(room, {
-      ru: `Началось голосование! По окончании голосования всем будет открыта полная таблица — кто против кого голосовал!`,
-      en: `Voting has begun! Once finished, everyone will see the full table of who voted against whom!`,
-      uz: `Ovoz berish boshlandi! Yakunda kim kimga qarshi ovoz bergani barchaga ochiq ko'rsatiladi!`
+      ru: `🗳️ Голосование активно для всех! По окончании голосования всем будет открыта полная таблица — кто против кого голосовал!`,
+      en: `🗳️ Voting is active for everyone! Once finished, everyone will see the full table of who voted against whom!`,
+      uz: `🗳️ Ovoz berish barcha uchun faol! Yakunda kim kimga qarshi ovoz bergani barchaga ochiq ko'rsatiladi!`
     });
 
     this.handleBotVotes(room);
@@ -713,17 +731,17 @@ class GameManager {
 
     voter.votedFor = targetPlayerId;
 
-    // Если голосование идет прямо во время обсуждения и все люди проголосовали — боты тоже сразу отдают свои голоса!
-    const aliveHumans = room.players.filter(p => p.isAlive && !p.isBot);
-    const allHumansVoted = aliveHumans.length > 0 && aliveHumans.every(p => p.votedFor !== null);
-    if (allHumansVoted) {
-      this.handleBotVotes(room);
-    }
+    // Боты тоже сразу отдают свои голоса, как только началось голосование или первый человек проголосовал
+    this.handleBotVotes(room);
 
-    const alivePlayers = room.players.filter(p => p.isAlive);
+    // Проверяем всех живых реальных людей (которые не покинули игру)
+    const aliveHumans = room.players.filter(p => p.isAlive && !p.isBot && !p.hasLeft);
+    const allHumansVoted = aliveHumans.length > 0 && aliveHumans.every(p => p.votedFor !== null);
+
+    const alivePlayers = room.players.filter(p => p.isAlive && !p.hasLeft);
     const allVoted = alivePlayers.every(p => p.votedFor !== null);
 
-    if (allVoted && (room.status === 'ROUND_VOTING' || allHumansVoted)) {
+    if (allVoted || allHumansVoted) {
       room.status = 'ROUND_VOTING';
       this.resolveVoting(room, false);
     } else {

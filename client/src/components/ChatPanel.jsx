@@ -109,8 +109,8 @@ export default function ChatPanel({
           )}
         </div>
 
-        {/* Voting trigger button for Host */}
-        {isHost && canStartVoting && (
+        {/* Voting trigger button for ALL players (not just Host!) */}
+        {canStartVoting && (
           <button
             onClick={() => {
               soundManager.playAlarm();

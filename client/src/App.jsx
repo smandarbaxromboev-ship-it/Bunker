@@ -87,6 +87,8 @@ export default function App() {
   useEffect(() => {
     if (roomState?.status === 'ROUND_VOTING') {
       setShowVotingModal(true);
+    } else if (roomState?.status === 'ROUND_DISCUSSION') {
+      setShowVotingModal(false);
     } else if (roomState?.status === 'ROUND_RESULT') {
       setShowResultModal(true);
     }
@@ -424,6 +426,7 @@ export default function App() {
   };
 
   const handleStartVoting = () => {
+    setShowVotingModal(true);
     if (!roomState?.code) return;
     socket.emit('startVoting', { roomCode: roomState.code, requesterId: myPlayerId });
   };
@@ -1113,7 +1116,7 @@ export default function App() {
                 key={player.id}
                 player={player}
                 isSelf={player.id === myPlayerId}
-                isVoting={roomState.status === 'ROUND_VOTING'}
+                isVoting={(roomState.status === 'ROUND_VOTING' || roomState.status === 'ROUND_DISCUSSION') && isAlive}
                 onVoteTarget={handleCastVote}
                 hasVotedForThis={myPlayer?.votedFor === player.id}
                 onInspectCard={(data) => setInspectCardData(data)}
@@ -1136,7 +1139,7 @@ export default function App() {
             onSendMessage={handleSendMessage}
             onStartVoting={handleStartVoting}
             isHost={isHost}
-            canStartVoting={roomState?.status === 'ROUND_DISCUSSION'}
+            canStartVoting={roomState?.status === 'ROUND_DISCUSSION' || roomState?.status === 'ROUND_VOTING'}
             lang={lang}
           />
         </div>
@@ -1195,7 +1198,16 @@ export default function App() {
         <CardRevealModal
           myPlayer={myPlayer}
           currentRound={roomState.currentRound}
-          onRevealCard={handleRevealCard}
+          onRevealCard={(cardId) => {
+            handleRevealCard(cardId);
+            if (cardId === 'special') {
+              const spCard = myPlayer?.deck?.find(c => c.id === 'special' || c.type === 'special');
+              if (spCard && !spCard.used) {
+                setActiveTrumpCard(spCard);
+              }
+            }
+          }}
+          onUseTrump={(card) => setActiveTrumpCard(card)}
           expiresAt={roomState?.timerExpiresAt}
           activeTurnPlayer={roomState?.players?.find(p => p.id === roomState.activeTurnPlayerId)}
           isMyTurn={roomState?.activeTurnPlayerId === myPlayerId}
@@ -1203,8 +1215,8 @@ export default function App() {
         />
       )}
 
-      {/* 2. Secret Voting Modal (Minimizable so players can chat and vote whenever they want) */}
-      {roomState?.status === 'ROUND_VOTING' && showVotingModal && (
+      {/* 2. Secret Voting Modal (Available to ALL players during both ROUND_DISCUSSION and ROUND_VOTING) */}
+      {(roomState?.status === 'ROUND_VOTING' || roomState?.status === 'ROUND_DISCUSSION') && showVotingModal && (
         <VotingModal
           roomState={roomState}
           myPlayerId={myPlayerId}
@@ -1215,8 +1227,8 @@ export default function App() {
         />
       )}
 
-      {/* Floating Button when Voting is Active but minimized */}
-      {roomState?.status === 'ROUND_VOTING' && !showVotingModal && (
+      {/* Floating Button when Discussion or Voting is Active so ANY player can open VotingModal anytime */}
+      {(roomState?.status === 'ROUND_VOTING' || roomState?.status === 'ROUND_DISCUSSION') && !showVotingModal && (
         <div className="fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 z-40 animate-bounce">
           <button
             onClick={() => setShowVotingModal(true)}

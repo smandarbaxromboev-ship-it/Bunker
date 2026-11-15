@@ -27,7 +27,15 @@ class CardsManager {
         const data = JSON.parse(raw);
         if (data.cards) {
           for (const cat of this.categories) {
-            if (Array.isArray(data.cards[cat])) {
+            if (cat === 'SPECIALS') {
+              // Всегда используем обновленные боевые козыри (плюс новые, если админ добавил их вручную с описанием)
+              const customSpecials = Array.isArray(data.cards.SPECIALS)
+                ? data.cards.SPECIALS.filter(c => c && c.d_uz && c.d_uz !== c.uz && c.ru && c.ru.includes('КОЗЫРЬ'))
+                : [];
+              this.cards.SPECIALS = customSpecials.length >= baseDatabase.SPECIALS.length
+                ? customSpecials
+                : [...baseDatabase.SPECIALS];
+            } else if (Array.isArray(data.cards[cat])) {
               this.cards[cat] = data.cards[cat];
             }
           }

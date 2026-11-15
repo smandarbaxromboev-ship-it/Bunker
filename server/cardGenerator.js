@@ -119,7 +119,6 @@ function generateDecksForPlayers(playerCount) {
     const special = pickedSpecials[i];
 
     const deck = [
-      generateAgeCard(),
       {
         id: "profession",
         type: "profession",
@@ -129,6 +128,7 @@ function generateDecksForPlayers(playerCount) {
         description: { ru: prof.d_ru, en: prof.d_en, uz: prof.d_uz },
         revealed: false
       },
+      generateAgeCard(),
       {
         id: "health",
         type: "health",
