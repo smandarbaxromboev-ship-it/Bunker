@@ -80,6 +80,7 @@ class GameManager {
     this.io = io;
     this.rooms = new Map(); // roomCode -> roomData
     this.roomTimers = new Map(); // roomCode -> timeout handle
+    this.botTimers = new Map(); // roomCode -> array of timeout handles for staggered bot actions
   }
 
   generateRoomCode() {
@@ -90,7 +91,16 @@ class GameManager {
     return code;
   }
 
+  clearBotTimers(code) {
+    if (this.botTimers.has(code)) {
+      const handles = this.botTimers.get(code) || [];
+      handles.forEach(h => clearTimeout(h));
+      this.botTimers.delete(code);
+    }
+  }
+
   clearRoomTimer(code) {
+    this.clearBotTimers(code);
     if (this.roomTimers.has(code)) {
       clearTimeout(this.roomTimers.get(code));
       this.roomTimers.delete(code);
@@ -598,6 +608,9 @@ class GameManager {
     this.setRoomTimer(room.code, 20 * 60 * 1000, () => {
       this.handleRoundTimeout(room.code);
     });
+
+    // Запускаем реалистичное поведение ботов: они думают, обсуждают новые карты в чате и голосуют по очереди!
+    this.scheduleRealisticBotVotes(room);
   }
 
   handleRoundTimeout(code) {
@@ -629,93 +642,263 @@ class GameManager {
       uz: `🗳️ Ovoz berish barcha uchun faol! Yakunda kim kimga qarshi ovoz bergani barchaga ochiq ko'rsatiladi!`
     });
 
-    this.handleBotVotes(room);
     this.broadcastRoom(code);
 
+    // Если какие-то боты еще думают — пусть завершат голосование в реалистичном темпе
+    const unvotedBots = room.players.filter(p => p.isBot && p.isAlive && !p.votedFor);
+    if (unvotedBots.length > 0 && !this.botTimers.has(code)) {
+      this.scheduleRealisticBotVotes(room, true);
+    }
+
     // Если все живые игроки уже проголосовали (например, человек — Призрак 👻, а живы только боты), сразу подводим итоги!
-    const alivePlayers = room.players.filter(p => p.isAlive);
+    const alivePlayers = room.players.filter(p => p.isAlive && !p.hasLeft);
     if (alivePlayers.length > 0 && alivePlayers.every(p => p.votedFor !== null)) {
-      this.setRoomTimer(code, 1500, () => {
+      this.setRoomTimer(code, 1200, () => {
         this.resolveVoting(room, false);
       });
     }
   }
 
-  // Оценка слабости открытых карт кандидата для умного голосования ботов (чтобы боты голосовали как реальные люди, а не создавали вечную ничью 1-1-1!)
-  evaluatePlayerSuspectScore(player) {
-    let score = 10;
-    const revealed = (player.deck || []).filter(c => c.revealed);
+  // Детальная оценка одной открытой карты (положительное число = опасная/слабая карта, отрицательное = полезная для бункера)
+  evaluateSingleCardRisk(card) {
+    if (!card) return 0;
+    const val = `${card.value?.ru || card.value || ''} ${card.description?.ru || card.description || ''}`.toLowerCase();
 
-    // Если игрок скрывает карты — подозрительность выше
-    if (revealed.length === 0) score += 15;
+    if (card.type === 'age') {
+      const ageNum = parseInt(val, 10);
+      if (!isNaN(ageNum)) {
+        if (ageNum >= 65) return 32;
+        if (ageNum >= 52) return 18;
+        if (ageNum >= 40) return 6;
+        if (ageNum <= 32) return -12;
+      }
+      return 4;
+    }
+
+    if (card.type === 'health') {
+      if (val.includes('идеальн') || val.includes('100%') || val.includes('полностью здоров') || val.includes('иммунитет') || val.includes('космонавт') || val.includes('богатыр') || val.includes('вынослив')) {
+        return -22;
+      }
+      if (val.includes('зараз') || val.includes('вирус') || val.includes('инфекц') || val.includes('туберкулез') || val.includes('чума') || val.includes('радиац') || val.includes('мутац') || val.includes('смертельн') || val.includes('неизлечим') || val.includes('шизофрен') || val.includes('психоз')) {
+        return 36;
+      }
+      if (val.includes('астма') || val.includes('диабет') || val.includes('слепот') || val.includes('глухот') || val.includes('паралич') || val.includes('сердц') || val.includes('эпилепс') || val.includes('аллерг') || val.includes('перелом') || val.includes('рана')) {
+        return 24;
+      }
+      return 14;
+    }
+
+    if (card.type === 'profession') {
+      if (val.includes('хирург') || val.includes('врач') || val.includes('медик') || val.includes('инженер') || val.includes('агроном') || val.includes('биолог') || val.includes('спецназ') || val.includes('военн') || val.includes('электрик') || val.includes('механик') || val.includes('химик') || val.includes('фармацевт') || val.includes('спасател') || val.includes('строител')) {
+        return -24;
+      }
+      if (val.includes('блогер') || val.includes('тикток') || val.includes('астролог') || val.includes('таролог') || val.includes('безработн') || val.includes('мошенник') || val.includes('вор') || val.includes('критик') || val.includes('стример') || val.includes('мим') || val.includes('клоун')) {
+        return 28;
+      }
+      return 8;
+    }
+
+    if (card.type === 'luggage') {
+      if (val.includes('аптечк') || val.includes('генератор') || val.includes('оружи') || val.includes('автомат') || val.includes('пистолет') || val.includes('семена') || val.includes('вода') || val.includes('фильтр') || val.includes('инструмент') || val.includes('раци') || val.includes('антибиотик') || val.includes('противогаз') || val.includes('патрон') || val.includes('консерв')) {
+        return -18;
+      }
+      if (val.includes('пуст') || val.includes('сломан') || val.includes('бесполезн') || val.includes('плюшев') || val.includes('косметик') || val.includes('фантик') || val.includes('мусор') || val.includes('бомб') || val.includes('яд') || val.includes('вирус')) {
+        return 24;
+      }
+      return 6;
+    }
+
+    if (card.type === 'hobby') {
+      if (val.includes('выживан') || val.includes('охот') || val.includes('стрельб') || val.includes('медицин') || val.includes('радио') || val.includes('ремонт') || val.includes('садовод') || val.includes('боевые') || val.includes('кулинар') || val.includes('шитье') || val.includes('хими')) {
+        return -14;
+      }
+      if (val.includes('азарт') || val.includes('казино') || val.includes('сплетн') || val.includes('сериал') || val.includes('сон') || val.includes('коллекционир') || val.includes('игр')) {
+        return 18;
+      }
+      return 5;
+    }
+
+    if (card.type === 'fact') {
+      if (val.includes('спас') || val.includes('герой') || val.includes('построил') || val.includes('выжил') || val.includes('награжден') || val.includes('изобрел') || val.includes('лидер')) {
+        return -14;
+      }
+      if (val.includes('тюрьм') || val.includes('судим') || val.includes('предал') || val.includes('украл') || val.includes('фоби') || val.includes('боится') || val.includes('паник') || val.includes('убил') || val.includes('поджег') || val.includes('обман')) {
+        return 26;
+      }
+      return 8;
+    }
+
+    return 4;
+  }
+
+  // Индивидуальная оценка кандидата конкретным ботом (каждый бот думает сам, учитывая карту текущего раунда, память и самозащиту!)
+  evaluateCandidateForBot(room, bot, candidate, botIdx = 0) {
+    let score = 15;
+    const revealed = (candidate.deck || []).filter(c => c.revealed);
+
+    if (revealed.length === 0) {
+      score += 20;
+    }
+
+    // Личный характер бота (чтобы разные боты обращали внимание на разные слабые стороны!)
+    const focusTypes = ['health', 'profession', 'luggage', 'fact', 'age', 'hobby'];
+    const botFocusType = focusTypes[botIdx % focusTypes.length];
 
     revealed.forEach(card => {
-      const val = (card.value?.ru || card.value || '').toLowerCase();
-      if (card.type === 'age') {
-        const ageNum = parseInt(val, 10);
-        if (!isNaN(ageNum)) {
-          if (ageNum >= 60) score += 30;
-          else if (ageNum >= 48) score += 15;
-          else if (ageNum <= 30) score -= 8;
-        }
-      }
-      if (card.type === 'health') {
-        if (val.includes('идеальн') || val.includes('100%') || val.includes('здоров') || val.includes('иммунитет') || val.includes('космонавт') || val.includes('богатыр')) {
-          score -= 18;
-        } else {
-          score += 22;
-        }
-      }
-      if (card.type === 'profession') {
-        if (val.includes('хирург') || val.includes('врач') || val.includes('инженер') || val.includes('агроном') || val.includes('спецназ') || val.includes('медик') || val.includes('биолог')) {
-          score -= 20;
-        } else {
-          score += 12;
-        }
-      }
+      const cardRisk = this.evaluateSingleCardRisk(card);
+      // Карта, открытая ИМЕННО В ЭТОМ РАУНДЕ, имеет решающий вес (x2.4), чтобы боты реагировали на новые открытия!
+      const isCurrentRoundCard = card.revealedInRound === room.currentRound;
+      const roundMultiplier = isCurrentRoundCard ? 2.4 : 0.75;
+      // Если эта категория совпадает с "характером" бота — еще x1.35 внимания
+      const personalityMultiplier = card.type === botFocusType ? 1.35 : 1.0;
+
+      score += cardRisk * roundMultiplier * personalityMultiplier;
     });
 
-    // Небольшой человеческий фактор
-    score += (Math.random() * 8);
-    return Math.max(1, score);
+    // 1. ЗАЩИТА ОТ ПОВТОРОВ: если бот голосовал против этого игрока в прошлом раунде и тот выжил — бот переключается на других кандидатов!
+    if (bot.lastRoundVotedFor && bot.lastRoundVotedFor === candidate.id) {
+      score -= 38;
+    }
+
+    // 2. САМОЗАЩИТА / ОТВЕТНЫЙ ГОЛОС: если этот кандидат голосовал против этого бота в прошлом раунде (или прямо сейчас голосует против него!)
+    if (Array.isArray(bot.lastVotedAgainstBy) && bot.lastVotedAgainstBy.includes(candidate.id)) {
+      score += 22;
+    }
+    if (candidate.votedFor === bot.id) {
+      score += 25;
+    }
+
+    // 3. Не тратим голос впустую на игрока с открытым иммунитетом в этом раунде
+    if (candidate.hasImmunityThisRound) {
+      score -= 60;
+    }
+
+    // 4. Независимое "человеческое мнение" конкретного бота
+    score += (Math.random() * 26) - 10;
+
+    return score;
+  }
+
+  // Выбор цели для одного конкретного бота
+  chooseTargetForSingleBot(room, bot, botIdx = 0) {
+    const aliveTargets = room.players.filter(p => p.isAlive && !p.hasLeft && p.id !== bot.id);
+    if (aliveTargets.length === 0) return null;
+    if (aliveTargets.length === 1) return aliveTargets[0];
+
+    // Считаем личный рейтинг подозрительности от лица ЭТОГО бота
+    const scored = aliveTargets.map(t => ({
+      player: t,
+      score: this.evaluateCandidateForBot(room, bot, t, botIdx)
+    })).sort((a, b) => b.score - a.score);
+
+    // Чтобы не было хаотичной ничьей 1-1-1-1-1 при большом числе игроков, но и не было 100% одинаковых голосов:
+    // Бот выбирает между №1 и №2 подозреваемыми по его личному рейтингу (70% за №1, 30% за №2)
+    const top1 = scored[0].player;
+    const top2 = scored[1]?.player || top1;
+
+    // Если в комнате уже есть лидеры по голосам среди других ботов, часть ботов поддерживает одного из 2 главных кандидатов раунда, а часть голосует независимо
+    const pickSecond = (botIdx % 3 === 1) || (Math.random() < 0.28);
+    return pickSecond ? top2 : top1;
+  }
+
+  // Живое, поэтапное голосование ботов с аргументами в чате (как реальные люди!)
+  scheduleRealisticBotVotes(room, fastMode = false) {
+    if (!room) return;
+    this.clearBotTimers(room.code);
+
+    const bots = room.players.filter(p => p.isBot && p.isAlive && !p.votedFor);
+    if (bots.length === 0) return;
+
+    const handles = [];
+    // Случайно перемешиваем порядок ботов в каждом раунде, чтобы они никогда не ходили в одном и том же порядке!
+    const shuffledBots = [...bots].sort(() => Math.random() - 0.5);
+
+    shuffledBots.forEach((bot, orderIdx) => {
+      // Реалистичная задержка: от 2.2 сек до 8.5 сек (или быстрее, если запущено ускоренное голосование)
+      const baseDelay = fastMode
+        ? 900 + orderIdx * 800 + Math.floor(Math.random() * 500)
+        : 2400 + orderIdx * 2100 + Math.floor(Math.random() * 1200);
+
+      const handle = setTimeout(() => {
+        const currentRoom = this.rooms.get(room.code);
+        if (!currentRoom) return;
+        if (currentRoom.status !== 'ROUND_DISCUSSION' && currentRoom.status !== 'ROUND_VOTING') return;
+        if (!bot.isAlive || bot.votedFor) return;
+
+        const target = this.chooseTargetForSingleBot(currentRoom, bot, orderIdx);
+        if (!target) return;
+
+        bot.votedFor = target.id;
+
+        // В каждом раунде 1-2 бота пишут живой комментарий в чат, объясняя свой голос по открытой карте!
+        if (orderIdx === 0 || (orderIdx === 2 && Math.random() < 0.65)) {
+          const currentRoundCard = (target.deck || []).find(c => c.revealed && c.revealedInRound === currentRoom.currentRound)
+            || (target.deck || []).find(c => c.revealed);
+          const cardValRu = currentRoundCard ? (currentRoundCard.value?.ru || currentRoundCard.value) : '';
+          const cardValEn = currentRoundCard ? (currentRoundCard.value?.en || cardValRu) : '';
+          const cardValUz = currentRoundCard ? (currentRoundCard.value?.uz || cardValRu) : '';
+
+          const phrasesRu = [
+            `Хм, у ${target.name} открылась карта «${cardValRu}» — для бункера это слабовато. Голосую против ${target.name}.`,
+            `В этом раунде больше всего сомнений вызывает ${target.name} (${cardValRu}). Мой голос против него.`,
+            `Я проанализировал открытые карты этого раунда: голосую против ${target.name}.`
+          ];
+          const phrasesEn = [
+            `Hmm, ${target.name} revealed "${cardValEn}" — looks risky for the bunker. Voting against ${target.name}.`,
+            `In this round ${target.name} (${cardValEn}) raises the most doubts. My vote goes to them.`,
+            `Looking at this round's cards, I'm voting against ${target.name}.`
+          ];
+          const phrasesUz = [
+            `Hmm, ${target.name}da «${cardValUz}» kartasi ochildi — bunker uchun xavfli. ${target.name}ga qarshi ovoz beraman.`,
+            `Bu raundda ${target.name} (${cardValUz}) eng ko'p shubha uyg'otdi. Ovozni unga qarshi beraman.`,
+            `Ushbu raundda ochilgan kartalarga qarab, ${target.name}ga qarshi ovoz beraman.`
+          ];
+          const pIdx = (currentRoom.currentRound + orderIdx) % phrasesRu.length;
+
+          currentRoom.messages.push({
+            id: 'msg_bot_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            senderId: bot.id,
+            senderName: bot.name,
+            senderAvatar: bot.character?.avatar || '🤖',
+            text: {
+              ru: phrasesRu[pIdx],
+              en: phrasesEn[pIdx],
+              uz: phrasesUz[pIdx]
+            },
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isSystem: false,
+            isGhost: false
+          });
+        }
+
+        // Проверяем: если ВСЕ живые игроки (и люди, и боты) уже отдали свои голоса — завершаем голосование!
+        const alivePlayers = currentRoom.players.filter(p => p.isAlive && !p.hasLeft);
+        const allVoted = alivePlayers.length > 0 && alivePlayers.every(p => p.votedFor !== null);
+
+        if (allVoted) {
+          currentRoom.status = 'ROUND_VOTING';
+          this.resolveVoting(currentRoom, false);
+        } else {
+          this.broadcastRoom(currentRoom.code);
+        }
+      }, baseDelay);
+
+      handles.push(handle);
+    });
+
+    this.botTimers.set(room.code, handles);
   }
 
   handleBotVotes(room) {
     const bots = room.players.filter(p => p.isBot && p.isAlive);
-    const aliveTargets = room.players.filter(p => p.isAlive);
-    if (bots.length === 0 || aliveTargets.length <= 1) return;
-
-    // Считаем очки подозрительности/слабости для каждого живого игрока
-    const scores = new Map();
-    aliveTargets.forEach(t => {
-      scores.set(t.id, this.evaluatePlayerSuspectScore(t));
-    });
-
-    // Находим главного кандидата (как в реальной игре, где игроки координируются против самого слабого)
-    const sortedTargets = [...aliveTargets].sort((a, b) => (scores.get(b.id) || 0) - (scores.get(a.id) || 0));
-    const primarySuspect = sortedTargets[0];
-    const secondarySuspect = sortedTargets[1] || sortedTargets[0];
+    if (bots.length === 0) return;
 
     bots.forEach((bot, idx) => {
-      const possibleTargets = aliveTargets.filter(p => p.id !== bot.id);
-      if (possibleTargets.length === 0) return;
-
-      // Если этот бот уже проголосовал (например, если метод вызван при подсчете) — не меняем его голос
       if (bot.votedFor) return;
-
-      // 75% ботов голосуют консолидированно против самого слабого/подозрительного кандидата (или второго, если первый — сам бот)
-      let chosen = primarySuspect.id !== bot.id ? primarySuspect : secondarySuspect;
-
-      // Для разнообразия один из ботов при большом числе игроков может проголосовать за второго подозреваемого
-      if (idx > 0 && idx % 3 === 0 && secondarySuspect && secondarySuspect.id !== bot.id) {
-        chosen = secondarySuspect;
+      const chosen = this.chooseTargetForSingleBot(room, bot, idx);
+      if (chosen) {
+        bot.votedFor = chosen.id;
       }
-
-      if (!chosen || chosen.id === bot.id) {
-        chosen = possibleTargets[0];
-      }
-
-      bot.votedFor = chosen.id;
     });
   }
 
@@ -731,9 +914,6 @@ class GameManager {
 
     voter.votedFor = targetPlayerId;
 
-    // Боты тоже сразу отдают свои голоса, как только началось голосование или первый человек проголосовал
-    this.handleBotVotes(room);
-
     // Проверяем всех живых реальных людей (которые не покинули игру)
     const aliveHumans = room.players.filter(p => p.isAlive && !p.isBot && !p.hasLeft);
     const allHumansVoted = aliveHumans.length > 0 && aliveHumans.every(p => p.votedFor !== null);
@@ -741,9 +921,13 @@ class GameManager {
     const alivePlayers = room.players.filter(p => p.isAlive && !p.hasLeft);
     const allVoted = alivePlayers.every(p => p.votedFor !== null);
 
-    if (allVoted || allHumansVoted) {
+    if (allVoted) {
       room.status = 'ROUND_VOTING';
       this.resolveVoting(room, false);
+    } else if (allHumansVoted) {
+      // Все живые люди уже проголосовали! Если какие-то боты еще "думают", ускоряем оставшихся ботов (по очереди через 0.7 сек), чтобы не ждать долго
+      this.broadcastRoom(code);
+      this.scheduleRealisticBotVotes(room, true);
     } else {
       this.broadcastRoom(code);
     }
@@ -918,7 +1102,10 @@ class GameManager {
 
     // 7. ПЕРЕГОЛОСОВАНИЕ
     if (ability === 'revote') {
-      room.players.forEach(p => { p.votedFor = null; });
+      room.players.forEach(p => {
+        if (p.votedFor) p.lastRoundVotedFor = p.votedFor;
+        p.votedFor = null;
+      });
       specialCard.used = true;
       specialCard.revealed = true;
       this.addSystemMessage(room, {
@@ -927,6 +1114,7 @@ class GameManager {
         uz: `🔄 [KOZIR]: ${player.name} darhol QAYTA OVOZ BERISHNI talab qildi! Barcha ovozlar bekor qilindi.`
       });
       this.broadcastRoom(code);
+      this.scheduleRealisticBotVotes(room);
       return { success: true, message: "Голоса сброшены, голосуйте заново!" };
     }
 
@@ -940,6 +1128,15 @@ class GameManager {
     this.handleBotVotes(room);
 
     const alivePlayers = room.players.filter(p => p.isAlive);
+
+    // Сохраняем память ботов и игроков о том, кто против кого голосовал в этом голосовании (чтобы в следующем раунде не повторяться и помнить атакующих!)
+    alivePlayers.forEach(p => {
+      p.lastVotedAgainstBy = alivePlayers.filter(v => v.votedFor === p.id).map(v => v.id);
+      if (p.votedFor) {
+        p.lastRoundVotedFor = p.votedFor;
+      }
+    });
+
     const voteCounts = {};
     alivePlayers.forEach(p => { voteCounts[p.id] = 0; });
 
@@ -1028,6 +1225,7 @@ class GameManager {
       });
 
       this.broadcastRoom(room.code);
+      this.scheduleRealisticBotVotes(room);
       return;
     }
 
