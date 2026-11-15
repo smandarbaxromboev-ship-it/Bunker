@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+
+Sitemap: https://bunker-six-lime.vercel.app/sitemap.xml

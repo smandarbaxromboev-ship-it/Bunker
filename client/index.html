@@ -3,14 +3,64 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>БУНКЕР: 7 Раундов Откровений</title>
+    <title>БУНКЕР: 7 Раундов Откровений — Онлайн игра на выживание (RU / UZ / EN)</title>
+    <meta name="description" content="Бесплатная многопользовательская онлайн-игра «Бункер: 7 Раундов Откровений» на русском, узбекском и английском языках! Создавайте комнату, добавляйте друзей по ID, открывайте карты профессий и козырей, голосуйте и выживайте!" />
+    <meta name="keywords" content="Бункер онлайн, игра Бункер, Bunker online game, Bunker o'yin, Бункер 7 раундов, играть в бункер с друзьями, бункер бесплатно" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#09090b" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Бункер 7" />
+
+    <!-- Canonical & OpenGraph for Google & Telegram/Socials -->
+    <link rel="canonical" href="https://bunker-six-lime.vercel.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://bunker-six-lime.vercel.app/" />
+    <meta property="og:title" content="БУНКЕР: 7 Раундов Откровений — Онлайн игра с друзьями" />
+    <meta property="og:description" content="Многопользовательская игра на выживание (3–12 игроков). Профессии, козыри, голосование, чат и приглашения друзей по ID!" />
+    <meta property="og:image" content="https://bunker-six-lime.vercel.app/icon.svg" />
+
+    <!-- PWA Manifest & Icons -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+
+    <!-- Google Structured Data (JSON-LD VideoGame) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "БУНКЕР: 7 Раундов Откровений",
+        "alternateName": ["Bunker: 7 Rounds of Revelations", "Bunker: 7 Raund Ochilishlar"],
+        "url": "https://bunker-six-lime.vercel.app/",
+        "description": "Многопользовательская онлайн-игра на выживание и дискуссию от 3 до 12 игроков.",
+        "genre": ["Social Deduction", "Survival", "Board Game", "Party Game"],
+        "playMode": "MultiPlayer",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Android, iOS, Windows, macOS, Web",
+        "inLanguage": ["ru", "uz", "en"],
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%2309090b' stroke='%23f59e0b' stroke-width='6'/><path d='M50 15 L50 85 M15 50 L85 50 M25 25 L75 75 M25 75 L75 25' stroke='%23f59e0b' stroke-width='4'/></svg>" />
   </head>
   <body class="bg-zinc-950 text-zinc-100 font-mono antialiased selection:bg-amber-500 selection:text-black overflow-x-hidden min-h-[100dvh] touch-manipulation">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

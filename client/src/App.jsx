@@ -74,9 +74,38 @@ export default function App() {
   const [isRulesMandatory, setIsRulesMandatory] = useState(false);
   const [showVotingModal, setShowVotingModal] = useState(true);
   const [showResultModal, setShowResultModal] = useState(true);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
   const [atmosphereEnabled, setAtmosphereEnabled] = useState(() => {
     return localStorage.getItem('bunker_atmosphere') !== 'false';
   });
+
+  useEffect(() => {
+    const onBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallApp = async () => {
+    soundManager.playBeep(900, 0.08);
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      try {
+        await deferredInstallPrompt.userChoice;
+      } catch (e) {}
+      setDeferredInstallPrompt(null);
+    } else {
+      alert(
+        lang === 'uz'
+          ? "📲 Ilovani o'rnatish: Brauzer menyusidan (⋮ yoki Ulashish) «Asosiy ekranga qo'shish / Ilovani o'rnatish» tugmasini bosing!"
+          : lang === 'en'
+          ? "📲 Install App: Open your browser menu (⋮ or Share) and tap 'Add to Home screen / Install App'!"
+          : "📲 Установка приложения: Откройте меню браузера (⋮ в Chrome или Поделиться в Safari) и нажмите «Установить приложение / Добавить на главный экран»!"
+      );
+    }
+  };
 
   const handleToggleAtmosphere = (val) => {
     setAtmosphereEnabled(val);
@@ -599,6 +628,16 @@ export default function App() {
                   )}
                 </button>
               )}
+
+              {/* Install PWA App Button */}
+              <button
+                onClick={handleInstallApp}
+                title={lang === 'uz' ? "Ilovani telefonga o'rnatish" : lang === 'en' ? 'Install App on Phone/PC' : 'Скачать и установить приложение Бункер на телефон или ПК'}
+                className="px-3 py-1.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500 hover:text-zinc-950 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer"
+              >
+                <span>📲</span>
+                <span className="hidden sm:inline">{lang === 'uz' ? "Ilova" : lang === 'en' ? 'Get App' : 'Скачать App'}</span>
+              </button>
 
               {/* Rules Button */}
               <button

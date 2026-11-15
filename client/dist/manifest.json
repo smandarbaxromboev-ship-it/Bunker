@@ -1,0 +1,22 @@
+{
+  "id": "/",
+  "name": "БУНКЕР: 7 Раундов Откровений",
+  "short_name": "Бункер 7",
+  "description": "Многопользовательская онлайн-игра на выживание «Бункер: 7 Раундов Откровений». Играйте с друзьями по коду комнаты и ID!",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#09090b",
+  "theme_color": "#f59e0b",
+  "lang": "ru",
+  "categories": ["games", "entertainment", "social"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
