@@ -96,15 +96,15 @@ export default function App() {
         await deferredInstallPrompt.userChoice;
       } catch (e) {}
       setDeferredInstallPrompt(null);
-    } else {
-      alert(
-        lang === 'uz'
-          ? "📲 Ilovani o'rnatish: Brauzer menyusidan (⋮ yoki Ulashish) «Asosiy ekranga qo'shish / Ilovani o'rnatish» tugmasini bosing!"
-          : lang === 'en'
-          ? "📲 Install App: Open your browser menu (⋮ or Share) and tap 'Add to Home screen / Install App'!"
-          : "📲 Установка приложения: Откройте меню браузера (⋮ в Chrome или Поделиться в Safari) и нажмите «Установить приложение / Добавить на главный экран»!"
-      );
+      return;
     }
+    // Скачиваем готовый подписанный Android APK напрямую с сайта!
+    const link = document.createElement('a');
+    link.href = '/Bunker7.apk';
+    link.download = 'Бункер 7.apk';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleToggleAtmosphere = (val) => {
@@ -629,14 +629,14 @@ export default function App() {
                 </button>
               )}
 
-              {/* Install PWA App Button */}
+              {/* Install PWA / Download Android APK Button */}
               <button
                 onClick={handleInstallApp}
-                title={lang === 'uz' ? "Ilovani telefonga o'rnatish" : lang === 'en' ? 'Install App on Phone/PC' : 'Скачать и установить приложение Бункер на телефон или ПК'}
+                title={lang === 'uz' ? "Android APK ilovasini yuklab olish" : lang === 'en' ? 'Download Android APK / Install App' : 'Скачать официальный Android APK (Бункер 7.apk)'}
                 className="px-3 py-1.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500 hover:text-zinc-950 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer"
               >
                 <span>📲</span>
-                <span className="hidden sm:inline">{lang === 'uz' ? "Ilova" : lang === 'en' ? 'Get App' : 'Скачать App'}</span>
+                <span>{lang === 'uz' ? "APK Yuklash" : lang === 'en' ? 'Get APK' : 'Скачать APK'}</span>
               </button>
 
               {/* Rules Button */}

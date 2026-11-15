@@ -1,1 +1,3 @@
 node_modules
+google-play-package/signing.keystore
+google-play-package/signing-key-info.txt

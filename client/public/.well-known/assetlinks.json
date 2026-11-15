@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.vercel.bunker_six_lime.twa",
+      "sha256_cert_fingerprints": [
+        "9C:E1:72:A8:DC:A6:DA:AF:A4:78:C4:96:88:3C:7A:98:06:35:CE:D1:77:AE:51:66:08:4A:34:65:75:DF:51:5F"
+      ]
+    }
+  }
+]
