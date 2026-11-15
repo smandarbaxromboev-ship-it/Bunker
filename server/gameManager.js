@@ -168,6 +168,9 @@ class GameManager {
     };
 
     this.rooms.set(code, room);
+    if (this.io) {
+      this.io.emit('publicRoomsUpdated', this.getPublicLobbyRooms());
+    }
     return { code, playerId, room: this.getSanitizedRoomState(room, playerId) };
   }
 
@@ -254,6 +257,9 @@ class GameManager {
     if (connectedHumans.length === 0) {
       this.clearRoomTimer(room.code);
       this.rooms.delete(room.code);
+      if (this.io) {
+        this.io.emit('publicRoomsUpdated', this.getPublicLobbyRooms());
+      }
       return;
     }
 
@@ -781,9 +787,17 @@ class GameManager {
 
   // Выбор цели для одного конкретного бота
   chooseTargetForSingleBot(room, bot, botIdx = 0) {
-    const aliveTargets = room.players.filter(p => p.isAlive && !p.hasLeft && p.id !== bot.id);
+    let aliveTargets = room.players.filter(p => p.isAlive && !p.hasLeft && p.id !== bot.id);
     if (aliveTargets.length === 0) return null;
     if (aliveTargets.length === 1) return aliveTargets[0];
+
+    // Если сейчас идет переголосование после НИЧЬЕЙ (+5 минут) и есть список спорных кандидатов — боты выбирают среди них, чтобы разрешить спор!
+    if (room.isExtraTime && Array.isArray(room.tiedCandidateIds) && room.tiedCandidateIds.length > 1) {
+      const tiedTargets = aliveTargets.filter(p => room.tiedCandidateIds.includes(p.id));
+      if (tiedTargets.length > 0) {
+        aliveTargets = tiedTargets;
+      }
+    }
 
     // Считаем личный рейтинг подозрительности от лица ЭТОГО бота
     const scored = aliveTargets.map(t => ({
@@ -791,12 +805,14 @@ class GameManager {
       score: this.evaluateCandidateForBot(room, bot, t, botIdx)
     })).sort((a, b) => b.score - a.score);
 
-    // Чтобы не было хаотичной ничьей 1-1-1-1-1 при большом числе игроков, но и не было 100% одинаковых голосов:
-    // Бот выбирает между №1 и №2 подозреваемыми по его личному рейтингу (70% за №1, 30% за №2)
     const top1 = scored[0].player;
     const top2 = scored[1]?.player || top1;
 
-    // Если в комнате уже есть лидеры по голосам среди других ботов, часть ботов поддерживает одного из 2 главных кандидатов раунда, а часть голосует независимо
+    // При переголосовании после ничьей боты голосуют более решительно, чтобы выявить одного проигравшего
+    if (room.isExtraTime) {
+      return Math.random() < 0.8 ? top1 : top2;
+    }
+
     const pickSecond = (botIdx % 3 === 1) || (Math.random() < 0.28);
     return pickSecond ? top2 : top1;
   }
@@ -993,17 +1009,17 @@ class GameManager {
         };
       }
 
-      targetCard.revealed = true; // Сразу раскрываем усиленную карту всем
+      targetCard.revealed = true; // Обновленная карта видна на досье, но в чате НЕ пишется, какая именно карта была изменена и какой она была!
       specialCard.used = true;
       specialCard.revealed = true;
 
       this.addSystemMessage(room, {
-        ru: `⚡ [МАСТЕР-КОЗЫРЬ]: ${player.name} лично переписал карту [${cardTitle}]! Было: "${oldVal}" ➔ Стало: "${customValue}"!`,
-        en: `⚡ [MASTER TRUMP]: ${player.name} personally rewrote card [${cardTitle}]! Was: "${oldVal}" ➔ Now: "${customValue}"!`,
-        uz: `⚡ [USTA KOZIR]: ${player.name} [${cardTitle}] kartasini qayta yozdi! Oldin: "${oldVal}" ➔ Endi: "${customValue}"!`
+        ru: `⚡ [КОЗЫРЬ]: ${player.name} использовал свой Козырь!`,
+        en: `⚡ [TRUMP]: ${player.name} used their Trump card!`,
+        uz: `⚡ [KOZIR]: ${player.name} o'z Koziridan foydalandi!`
       });
       this.broadcastRoom(code);
-      return { success: true, message: `Карта [${cardTitle}] успешно переписана!` };
+      return { success: true, message: `Козырь применен! Карта [${cardTitle}] обновлена без оглашения в чате!` };
     }
 
     // 2. ДИПЛОМАТИЧЕСКИЙ ИММУНИТЕТ НА ТЕКУЩИЙ РАУНД
@@ -1012,9 +1028,9 @@ class GameManager {
       specialCard.used = true;
       specialCard.revealed = true;
       this.addSystemMessage(room, {
-        ru: `🛡️ [КОЗЫРЬ]: ${player.name} активировал Дипломатический Иммунитет! Его невозможно изгнать в этом раунде!`,
-        en: `🛡️ [TRUMP]: ${player.name} activated Diplomatic Immunity! They cannot be exiled this round!`,
-        uz: `🛡️ [KOZIR]: ${player.name} Diplomatik Daxlsizlikni yoqdi! Bu raundda uni haydab bo'lmaydi!`
+        ru: `⚡ [КОЗЫРЬ]: ${player.name} использовал свой Козырь!`,
+        en: `⚡ [TRUMP]: ${player.name} used their Trump card!`,
+        uz: `⚡ [KOZIR]: ${player.name} o'z Koziridan foydalandi!`
       });
       this.broadcastRoom(code);
       return { success: true, message: "Иммунитет успешно активирован!" };
@@ -1026,9 +1042,9 @@ class GameManager {
       specialCard.used = true;
       specialCard.revealed = true;
       this.addSystemMessage(room, {
-        ru: `⚡ [КОЗЫРЬ]: ${player.name} активировал Двойной голос на текущее голосование!`,
-        en: `⚡ [TRUMP]: ${player.name} activated Double Vote power for this round!`,
-        uz: `⚡ [KOZIR]: ${player.name} ushbu ovoz berish uchun Ikki barobar ovoz kuchini yoqdi!`
+        ru: `⚡ [КОЗЫРЬ]: ${player.name} использовал свой Козырь!`,
+        en: `⚡ [TRUMP]: ${player.name} used their Trump card!`,
+        uz: `⚡ [KOZIR]: ${player.name} o'z Koziridan foydalandi!`
       });
       this.broadcastRoom(code);
       return { success: true, message: "Двойной голос активирован!" };
@@ -1040,9 +1056,9 @@ class GameManager {
       specialCard.used = true;
       specialCard.revealed = true;
       this.addSystemMessage(room, {
-        ru: `⛔ [КОЗЫРЬ]: ${player.name} наложил Право ВЕТО на это голосование! Изгнания не будет.`,
-        en: `⛔ [TRUMP]: ${player.name} exercised VETO power on this voting! Exile is canceled.`,
-        uz: `⛔ [KOZIR]: ${player.name} ovoz berishga VETO qo'ydi! Hech kim haydalmaydi.`
+        ru: `⚡ [КОЗЫРЬ]: ${player.name} использовал свой Козырь!`,
+        en: `⚡ [TRUMP]: ${player.name} used their Trump card!`,
+        uz: `⚡ [KOZIR]: ${player.name} o'z Koziridan foydalandi!`
       });
       this.broadcastRoom(code);
       return { success: true, message: "Право ВЕТО применено!" };
@@ -1061,15 +1077,9 @@ class GameManager {
       specialCard.used = true;
       specialCard.revealed = true;
       this.addSystemMessage(room, {
-        ru: isMedicalOnly
-          ? `🩺 [МЕД-СКАНЕР]: ${player.name} просканировал карту Здоровья игрока ${targetPlayer.name}!`
-          : `🔍 [КОЗЫРЬ]: ${player.name} применил Сканер и тайно изучил закрытые карты игрока ${targetPlayer.name}!`,
-        en: isMedicalOnly
-          ? `🩺 [MED-SCANNER]: ${player.name} scanned the Health card of ${targetPlayer.name}!`
-          : `🔍 [TRUMP]: ${player.name} deployed Scanner and secretly inspected ${targetPlayer.name}'s hidden dossier!`,
-        uz: isMedicalOnly
-          ? `🩺 [TIBBIY SKANER]: ${player.name} ${targetPlayer.name}ning Salomatlik kartasini tekshirdi!`
-          : `🔍 [KOZIR]: ${player.name} skanerdan foydalanib, ${targetPlayer.name}ning maxfiy kartalarini ko'rib chiqdi!`
+        ru: `⚡ [КОЗЫРЬ]: ${player.name} использовал свой Козырь!`,
+        en: `⚡ [TRUMP]: ${player.name} used their Trump card!`,
+        uz: `⚡ [KOZIR]: ${player.name} o'z Koziridan foydalandi!`
       });
       this.broadcastRoom(code);
 
@@ -1092,9 +1102,9 @@ class GameManager {
       specialCard.used = true;
       specialCard.revealed = true;
       this.addSystemMessage(room, {
-        ru: `🛡️ [КОЗЫРЬ]: ${player.name} взял под личную защиту игрока ${targetPlayer.name}!`,
-        en: `🛡️ [TRUMP]: ${player.name} placed ${targetPlayer.name} under personal bodyguard protection!`,
-        uz: `🛡️ [KOZIR]: ${player.name} safdoshi ${targetPlayer.name}ni o'z himoyasiga oldi!`
+        ru: `⚡ [КОЗЫРЬ]: ${player.name} использовал свой Козырь!`,
+        en: `⚡ [TRUMP]: ${player.name} used their Trump card!`,
+        uz: `⚡ [KOZIR]: ${player.name} o'z Koziridan foydalandi!`
       });
       this.broadcastRoom(code);
       return { success: true, message: `Игрок ${targetPlayer.name} под вашей защитой!` };
@@ -1196,12 +1206,15 @@ class GameManager {
       });
     }
 
-    // НИЧЬЯ (равенство голосов) - если кандидатов несколько или все голоса равны
-    const isTie = (candidatesToExile.length > 1 && maxVotes > 0) || (totalVotesCast === 0 && !isTimeout);
+    // НИЧЬЯ (равенство голосов) — если кандидатов несколько или никто не проголосовал:
+    // ВСЕГДА добавляем +5 МИНУТ дополнительного времени до тех пор, пока НЕ БУДЕТ ВЫБРАН СТРОГО ОДИН ИГРОК!
+    const isTie = !room.vetoActive && (candidatesToExile.length !== 1 || maxVotes <= 0 || totalVotesCast === 0);
 
-    if (isTie && !room.isExtraTime) {
-      // Добавляем +5 МИНУТ экстра таймера!
+    if (isTie) {
+      // Бесконечное дополнительное время по +5 МИНУТ до тех пор, пока голосованием не выберут строго 1 игрока!
       room.isExtraTime = true;
+      room.tieCount = (room.tieCount || 0) + 1;
+      room.tiedCandidateIds = candidatesToExile.length > 1 ? candidatesToExile : alivePlayers.map(p => p.id);
       room.timerType = 'EXTRA_TIME';
       room.timerExpiresAt = Date.now() + 5 * 60 * 1000;
       room.status = 'ROUND_DISCUSSION';
@@ -1209,15 +1222,15 @@ class GameManager {
       // Сбрасываем голоса для повторного голосования
       alivePlayers.forEach(p => { p.votedFor = null; });
 
-      const tiedNames = candidatesToExile
+      const tiedNames = (candidatesToExile.length > 1 ? candidatesToExile : alivePlayers.map(p => p.id))
         .map(id => room.players.find(p => p.id === id)?.name)
         .filter(Boolean)
         .join(' vs ');
 
       this.addSystemMessage(room, {
-        ru: `⚖️ НИЧЬЯ В ГОЛОСОВАНИИ (${tiedNames} — по ${maxVotes} гол.)! Добавлено +5 МИНУТ дополнительного времени для срочных дебатов и переголосования!`,
-        en: `⚖️ TIE IN VOTING (${tiedNames} — ${maxVotes} votes each)! +5 MINUTES of extra time added for debates and revoting!`,
-        uz: `⚖️ OVOZLAR TENG KELDI (${tiedNames} — ${maxVotes} tadan ovoz)! Shoshilinch bahslar va qayta ovoz berish uchun +5 DAQIQA qo'shildi!`
+        ru: `⚖️ НИЧЬЯ В ГОЛОСОВАНИИ #${room.tieCount} (${tiedNames} — по ${Math.max(0, maxVotes)} гол.)! Добавлено еще +5 МИНУТ для переголосования. Голосование продолжается, пока не выберут строго одного кандидата!`,
+        en: `⚖️ TIE IN VOTING #${room.tieCount} (${tiedNames} — ${Math.max(0, maxVotes)} votes each)! +5 MINUTES added for revoting until strictly one player is chosen!`,
+        uz: `⚖️ OVOZLAR TENG KELDI #${room.tieCount} (${tiedNames} — ${Math.max(0, maxVotes)} tadan ovoz)! Aniq 1 ta o'yinchi tanlanguncha qayta ovoz berish uchun yana +5 DAQIQA qo'shildi!`
       });
 
       this.setRoomTimer(room.code, 5 * 60 * 1000, () => {
@@ -1238,53 +1251,35 @@ class GameManager {
         uz: `⛔ VETO FAOLLASHTIRILDI! Bu raunddagi har qanday haydash bekor qilindi!`
       });
       room.vetoActive = false;
-    } else if (totalVotesCast > 0 && maxVotes > 0) {
-      // Есть голоса: кандидат на изгнание
-      const exiledId = candidatesToExile[Math.floor(Math.random() * candidatesToExile.length)];
+    } else if (totalVotesCast > 0 && maxVotes > 0 && candidatesToExile.length === 1) {
+      // Строго один выбранный большинством кандидат на изгнание
+      const exiledId = candidatesToExile[0];
       const candidate = room.players.find(p => p.id === exiledId);
 
       if (candidate && candidate.hasImmunityThisRound) {
         this.addSystemMessage(room, {
-          ru: `🛡️ ИММУНИТЕТ! ${candidate.name} набрал большинство голосов (${maxVotes}), но защищен ДИПЛОМАТИЧЕСКИМ ИММУНИТЕТОМ! Он остается в бункере.`,
-          en: `🛡️ IMMUNITY! ${candidate.name} got majority votes (${maxVotes}), but is shielded by DIPLOMATIC IMMUNITY! They stay in the bunker.`,
-          uz: `🛡️ DAXLSIZLIK! ${candidate.name} eng ko'p ovoz oldi (${maxVotes}), lekin DIPLOMATIK DAXLSIZLIK bilan himoyalangan! U bunkerda qoladi.`
+          ru: `🛡️ ИММУНИТЕТ! ${candidate.name} набрал большинство голосов (${maxVotes}), но защищен ИММУНИТЕТОМ! Он остается в бункере.`,
+          en: `🛡️ IMMUNITY! ${candidate.name} got majority votes (${maxVotes}), but is shielded by IMMUNITY! They stay in the bunker.`,
+          uz: `🛡️ DAXLSIZLIK! ${candidate.name} eng ko'p ovoz oldi (${maxVotes}), lekin DAXLSIZLIK bilan himoyalangan! U bunkerda qoladi.`
         });
         candidate.hasImmunityThisRound = false;
       } else if (candidate) {
         exiledPlayer = candidate;
         exiledPlayer.isAlive = false;
         
-        const extraNote = room.isExtraTime ? ' [ПО ИТОГАМ ЭКСТРА-ВРЕМЕНИ +5 МИН]' : '';
+        const extraNote = room.isExtraTime ? ' [ПО ИТОГАМ ДОП. ВРЕМЕНИ]' : '';
         this.addSystemMessage(room, {
           ru: `РЕШЕНИЕМ БОЛЬШИНСТВА (${maxVotes} голосов)${extraNote}: ${exiledPlayer.name} ИЗГНАН ИЗ БУНКЕРА! Теперь он Призрак 👻.`,
           en: `BY MAJORITY VOTE (${maxVotes} votes)${extraNote}: ${exiledPlayer.name} HAS BEEN EXILED FROM THE BUNKER! Now a Ghost 👻.`,
           uz: `KO'PCHILIK OVOZI BILAN (${maxVotes} ovoz)${extraNote}: ${exiledPlayer.name} BUNKERDAN HAYDALDI! Endi u Arvoh 👻.`
         });
       }
-    } else if (isTimeout) {
-      // Никто не проголосовал или таймер истек: случайно изгоняется 1 выживший среди набравших наибольшие голоса или всех
-      const pool = candidatesToExile.length > 0 ? candidatesToExile.map(id => room.players.find(p => p.id === id)).filter(Boolean) : alivePlayers;
-      const nonImmune = pool.filter(p => !p.hasImmunityThisRound);
-      const chosen = nonImmune.length > 0 ? nonImmune : pool;
-      exiledPlayer = chosen[Math.floor(Math.random() * chosen.length)];
-      if (exiledPlayer) {
-        exiledPlayer.isAlive = false;
-        this.addSystemMessage(room, {
-          ru: `⏰ Таймер истек! По окончанию голосования изгнан: ${exiledPlayer.name}! 👻`,
-          en: `⏰ Timer expired! At the end of voting exiled: ${exiledPlayer.name}! 👻`,
-          uz: `⏰ Taymer tugadi! Ovoz berish yakunida haydaldi: ${exiledPlayer.name}! 👻`
-        });
-      }
-    } else {
-      this.addSystemMessage(room, {
-        ru: `Голоса разделились поровну, никто не был изгнан.`,
-        en: `Votes were split evenly, nobody was exiled.`,
-        uz: `Ovozlar teng bo'ldi, hech kim haydalmadi.`
-      });
     }
 
     const wasExtraTime = Boolean(room.isExtraTime);
     room.isExtraTime = false;
+    room.tieCount = 0;
+    room.tiedCandidateIds = [];
     room.timerType = null;
 
     // Начисляем +50 BunCoins всем оставшимся в живых зарегистрированным игрокам
@@ -1531,6 +1526,30 @@ class GameManager {
           hasVoted: p.votedFor !== null,
           votedFor: isSelf ? p.votedFor : null,
           deck: p.deck.map(card => {
+            // Секретность Козыря: другие живые игроки НИКОГДА не видят, какой именно Козырь был у игрока и какую карту он изменил!
+            if (card.type === 'special' && !isSelf && !isGameOver && !isSpectatorOrGhost) {
+              if (card.used || card.revealed) {
+                return {
+                  id: card.id,
+                  type: card.type,
+                  name: card.name,
+                  icon: card.icon,
+                  revealed: true,
+                  used: Boolean(card.used),
+                  value: {
+                    ru: '⚡ Козырь использован',
+                    en: '⚡ Trump Card Used',
+                    uz: '⚡ Kozir ishlatildi'
+                  },
+                  description: {
+                    ru: 'Игрок тайно применил свой козырь (эффект засекречен)',
+                    en: 'Player secretly activated their trump card (effect classified)',
+                    uz: "O'yinchi o'z kozirini maxfiy ishlatdi (ta'siri sir saqlanadi)"
+                  }
+                };
+              }
+            }
+
             // В призрачном режиме (isSpectatorOrGhost) выбывшие игроки видят абсолютно ВСЕ карты всех живых!
             if (isSelf || card.revealed || isGameOver || isSpectatorOrGhost) {
               return {
@@ -1565,6 +1584,29 @@ class GameManager {
         this.io.to(p.socketId).emit('roomStateUpdate', sanitized);
       }
     });
+
+    if (this.io) {
+      this.io.emit('publicRoomsUpdated', this.getPublicLobbyRooms());
+    }
+  }
+
+  getPublicLobbyRooms() {
+    const publicRooms = [];
+    for (const [code, room] of this.rooms.entries()) {
+      const host = room.players.find(p => p.id === room.hostId) || room.players[0];
+      publicRooms.push({
+        code: room.code,
+        status: room.status,
+        hostName: host ? host.name : 'Командир',
+        hostAvatar: host?.character?.avatar || '🥷',
+        totalPlayers: room.players.length,
+        maxPlayers: 12,
+        bunkerCapacity: room.bunkerCapacity || calculateBunkerCapacity(room.players.length),
+        disasterTitle: room.disaster ? room.disaster.title : null,
+        canJoin: room.status === 'LOBBY' && room.players.length < 12
+      });
+    }
+    return publicRooms;
   }
 
   getActiveRoomsSummary() {

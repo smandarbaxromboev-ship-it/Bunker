@@ -54,6 +54,12 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
   const [onlineRooms, setOnlineRooms] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
+  // PROMO CODES STATE
+  const [promoList, setPromoList] = useState([]);
+  const [newPromoCode, setNewPromoCode] = useState('');
+  const [newPromoReward, setNewPromoReward] = useState('5000');
+  const [newPromoMaxUses, setNewPromoMaxUses] = useState('100');
+
   const categories = [
     { key: 'ALL', label: t.allCategories || '🌟 Все категории' },
     { key: 'PROFESSIONS', label: t.adminTabProfessions || 'Профессии' },
@@ -88,11 +94,59 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
     });
   };
 
+  const loadPromoCodes = (loginVal, passVal) => {
+    socket.emit('adminGetPromos', {
+      login: (loginVal || adminLogin).trim(),
+      password: (passVal || adminPassword).trim()
+    }, (res) => {
+      if (res && res.success && Array.isArray(res.promos)) {
+        setPromoList(res.promos);
+      }
+    });
+  };
+
+  const handleCreatePromo = (e) => {
+    e.preventDefault();
+    if (!newPromoCode.trim()) return;
+    socket.emit('adminCreatePromo', {
+      login: adminLogin.trim(),
+      password: adminPassword.trim(),
+      code: newPromoCode.trim(),
+      reward: parseInt(newPromoReward, 10) || 1000,
+      maxUses: parseInt(newPromoMaxUses, 10) || 100
+    }, (res) => {
+      if (res && res.success) {
+        setPromoList(res.promos || []);
+        setNewPromoCode('');
+        setFeedback(`✓ Промокод "${res.promo?.code || newPromoCode.toUpperCase()}" (+${res.promo?.reward || newPromoReward} 🪙) успешно создан!`);
+        setTimeout(() => setFeedback(''), 4000);
+      } else if (res?.error) {
+        setFeedback(`Ошибка: ${res.error}`);
+      }
+    });
+  };
+
+  const handleDeletePromo = (code) => {
+    if (!window.confirm(`Удалить промокод ${code}?`)) return;
+    socket.emit('adminDeletePromo', {
+      login: adminLogin.trim(),
+      password: adminPassword.trim(),
+      code
+    }, (res) => {
+      if (res && res.success) {
+        setPromoList(res.promos || []);
+        setFeedback(`✓ Промокод ${code} удален!`);
+        setTimeout(() => setFeedback(''), 3000);
+      }
+    });
+  };
+
   useEffect(() => {
     if (isAdminLoggedIn && adminLogin && adminPassword) {
       loadCategoryCards(activeCategory, '');
       loadRegisteredUsers(adminLogin, adminPassword);
       loadOnlineRooms(adminLogin, adminPassword);
+      loadPromoCodes(adminLogin, adminPassword);
     }
   }, [isAdminLoggedIn]);
 
@@ -114,6 +168,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
         loadCategoryCards('PROFESSIONS', '');
         loadRegisteredUsers(adminLogin.trim(), adminPassword.trim());
         loadOnlineRooms(adminLogin.trim(), adminPassword.trim());
+        loadPromoCodes(adminLogin.trim(), adminPassword.trim());
       } else {
         setAuthError((res && res.error) || 'Доступ запрещен. Неверные учетные данные.');
       }
@@ -498,6 +553,25 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                     {onlineRooms.length}
                   </span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMainSection('PROMOS');
+                    loadPromoCodes(adminLogin, adminPassword);
+                  }}
+                  className={`px-3.5 py-2 rounded-xl transition flex items-center gap-2 cursor-pointer ${
+                    mainSection === 'PROMOS'
+                      ? 'bg-amber-500 text-zinc-950 shadow-md'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <span>🎟️</span>
+                  <span>{lang === 'uz' ? 'Promokodlar' : lang === 'en' ? 'Promo Codes' : 'Промокоды'}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${mainSection === 'PROMOS' ? 'bg-black/20 text-black' : 'bg-zinc-800 text-zinc-300'}`}>
+                    {promoList.length}
+                  </span>
+                </button>
               </div>
 
               {mainSection === 'ROOMS' && (
@@ -771,6 +845,91 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                             ))}
                           </div>
                         </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ==================================================== */}
+            {/* SECTION 2.5: PROMO CODES MANAGEMENT */}
+            {/* ==================================================== */}
+            {mainSection === 'PROMOS' && (
+              <div className="flex-1 flex flex-col min-h-0 space-y-4">
+                <form
+                  onSubmit={handleCreatePromo}
+                  className="bg-zinc-950/80 p-4 rounded-2xl border border-zinc-800 flex flex-wrap items-center gap-3"
+                >
+                  <span className="text-xs font-mono font-bold text-amber-400">
+                    🎟️ Создать промокод:
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Код (напр. SAMANDAR2026)"
+                    value={newPromoCode}
+                    onChange={(e) => setNewPromoCode(e.target.value.toUpperCase())}
+                    required
+                    className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono uppercase outline-none focus:border-amber-500 w-48"
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-mono text-zinc-400">Награда 🪙:</span>
+                    <input
+                      type="number"
+                      placeholder="5000"
+                      value={newPromoReward}
+                      onChange={(e) => setNewPromoReward(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-amber-400 font-mono font-bold outline-none focus:border-amber-500 w-24"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-mono text-zinc-400">Макс. активаций:</span>
+                    <input
+                      type="number"
+                      placeholder="100"
+                      value={newPromoMaxUses}
+                      onChange={(e) => setNewPromoMaxUses(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-cyan-400 font-mono font-bold outline-none focus:border-amber-500 w-20"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-mono font-bold text-xs transition cursor-pointer shadow"
+                  >
+                    + Создать промокод
+                  </button>
+                </form>
+
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                  {promoList.length === 0 ? (
+                    <div className="text-center py-12 text-zinc-500 font-mono text-xs">
+                      Активных промокодов пока нет. Создайте первый промокод выше!
+                    </div>
+                  ) : (
+                    promoList.map((pr) => (
+                      <div
+                        key={pr.code}
+                        className="p-3.5 rounded-2xl bg-zinc-950/80 border border-zinc-800 flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="px-3 py-1 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono font-extrabold text-sm tracking-wider select-all">
+                            {pr.code}
+                          </span>
+                          <span className="text-xs font-mono text-emerald-400 font-bold">
+                            +{pr.reward} 🪙 BunCoins
+                          </span>
+                          <span className="text-xs font-mono text-zinc-400">
+                            Использовано: <strong className="text-white">{pr.usedByCount || 0}</strong> / {pr.maxUses}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePromo(pr.code)}
+                          className="p-2 rounded-xl bg-zinc-900 hover:bg-red-950 text-zinc-400 hover:text-red-400 border border-zinc-800 transition cursor-pointer"
+                          title="Удалить промокод"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     ))
                   )}

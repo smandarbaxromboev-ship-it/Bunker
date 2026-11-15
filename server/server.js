@@ -2,7 +2,25 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const fs = require('fs');
 const path = require('path');
+
+// Загрузка переменных окружения из server/.env (если существует)
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  const envLines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+  for (const line of envLines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx > 0) {
+      const k = trimmed.slice(0, eqIdx).trim();
+      const v = trimmed.slice(eqIdx + 1).trim();
+      if (!process.env[k]) process.env[k] = v;
+    }
+  }
+}
+
 const GameManager = require('./gameManager');
 const { userManager, SHOP_ITEMS } = require('./userManager');
 const cardsManager = require('./cardsManager');
@@ -52,13 +70,16 @@ function getOnlineUsernamesSet() {
   return new Set(userSockets.keys());
 }
 
-// Проверка админских прав: login: Samandar, parol: 05052013
+// Проверка админских прав через переменные окружения (.env)
+const ADMIN_LOGIN_ENV = (process.env.ADMIN_LOGIN || 'Samandar').trim().toLowerCase();
+const ADMIN_PASSWORD_ENV = (process.env.ADMIN_PASSWORD || '05052013').trim();
+
 function checkAdminAuth(login, password) {
   return (
     login &&
     password &&
-    login.trim().toLowerCase() === 'samandar' &&
-    password.trim() === '05052013'
+    login.trim().toLowerCase() === ADMIN_LOGIN_ENV &&
+    password.trim() === ADMIN_PASSWORD_ENV
   );
 }
 
@@ -239,6 +260,59 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ===================== ЕЖЕДНЕВНЫЙ БОНУС, ПРОМОКОДЫ И ЛИЧНЫЕ СООБЩЕНИЯ =====================
+  socket.on('claimDailyCrate', ({ username }, callback) => {
+    try {
+      const res = userManager.claimDailyCrate(username);
+      if (typeof callback === 'function') callback(res);
+    } catch (e) {
+      if (typeof callback === 'function') callback({ error: 'Ошибка открытия ящика снабжения' });
+    }
+  });
+
+  socket.on('redeemPromoCode', ({ username, code }, callback) => {
+    try {
+      const res = userManager.redeemPromoCode(username, code);
+      if (typeof callback === 'function') callback(res);
+    } catch (e) {
+      if (typeof callback === 'function') callback({ error: 'Ошибка активации промокода' });
+    }
+  });
+
+  socket.on('getDirectMessages', ({ username, friendUsername }, callback) => {
+    try {
+      const messages = userManager.getDirectMessages(username, friendUsername);
+      if (typeof callback === 'function') callback({ success: true, messages });
+    } catch (e) {
+      if (typeof callback === 'function') callback({ error: 'Ошибка загрузки переписки' });
+    }
+  });
+
+  socket.on('sendDirectMessage', ({ fromUsername, toUsername, text }, callback) => {
+    try {
+      const res = userManager.sendDirectMessage(fromUsername, toUsername, text);
+      if (res.success && res.message) {
+        io.emit('directMessageReceived', {
+          from: res.message.from,
+          to: res.message.to,
+          message: res.message
+        });
+      }
+      if (typeof callback === 'function') callback(res);
+    } catch (e) {
+      if (typeof callback === 'function') callback({ error: 'Ошибка отправки сообщения' });
+    }
+  });
+
+  socket.on('getPublicRooms', (callback) => {
+    try {
+      const rooms = gameManager.getPublicLobbyRooms();
+      if (typeof callback === 'function') callback({ success: true, rooms });
+    } catch (e) {
+      if (typeof callback === 'function') callback({ success: true, rooms: [] });
+    }
+  });
+
   // ===================== МАГАЗИН И КАСТОМИЗАЦИЯ =====================
   socket.on('getShopCatalog', (callback) => {
     if (typeof callback === 'function') callback({ items: userManager.getShopCatalog() });
@@ -390,6 +464,33 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback({ success: closed });
   });
 
+  socket.on('adminGetPromos', ({ login, password }, callback) => {
+    if (!checkAdminAuth(login, password)) {
+      if (typeof callback === 'function') callback({ error: 'Доступ запрещен' });
+      return;
+    }
+    const promos = userManager.getPromoCodes();
+    if (typeof callback === 'function') callback({ success: true, promos });
+  });
+
+  socket.on('adminCreatePromo', ({ login, password, code, reward, maxUses }, callback) => {
+    if (!checkAdminAuth(login, password)) {
+      if (typeof callback === 'function') callback({ error: 'Доступ запрещен' });
+      return;
+    }
+    const res = userManager.createPromoCode(code, reward, maxUses);
+    if (typeof callback === 'function') callback(res);
+  });
+
+  socket.on('adminDeletePromo', ({ login, password, code }, callback) => {
+    if (!checkAdminAuth(login, password)) {
+      if (typeof callback === 'function') callback({ error: 'Доступ запрещен' });
+      return;
+    }
+    const res = userManager.deletePromoCode(code);
+    if (typeof callback === 'function') callback(res);
+  });
+
   socket.on('getUserProfile', ({ username }, callback) => {
     const u = userManager.getUser(username);
     if (typeof callback === 'function') callback(u);
@@ -525,6 +626,5 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`=================================================`);
   console.log(` bunker SERVER ONLINE: http://localhost:${PORT}`);
   console.log(` Терминал "Бункер: 7 Раундов Откровений" активен.`);
-  console.log(` Админ панель защищена: /admin`);
   console.log(`=================================================`);
 });

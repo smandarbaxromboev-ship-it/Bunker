@@ -5,11 +5,79 @@ const path = require('path');
 const SHOP_ITEMS = require('./shopCatalog');
 
 const USERS_FILE = path.join(__dirname, 'usersDatabase.json');
+const PROMOS_FILE = path.join(__dirname, 'promosDatabase.json');
+const DM_FILE = path.join(__dirname, 'directMessagesDatabase.json');
 
 class UserManager {
   constructor() {
     this.users = new Map();
+    this.promos = new Map();
+    this.directMessages = new Map();
     this.loadUsers();
+    this.loadPromos();
+    this.loadDirectMessages();
+  }
+
+  loadPromos() {
+    try {
+      if (fs.existsSync(PROMOS_FILE)) {
+        const raw = fs.readFileSync(PROMOS_FILE, 'utf8');
+        const data = JSON.parse(raw);
+        for (const [k, v] of Object.entries(data)) {
+          this.promos.set(k.toUpperCase(), v);
+        }
+      }
+      if (!this.promos.has('SAMANDAR2026')) {
+        this.promos.set('SAMANDAR2026', {
+          code: 'SAMANDAR2026',
+          reward: 5000,
+          maxUses: 500,
+          usedBy: [],
+          createdAt: new Date().toISOString()
+        });
+        this.savePromos();
+      }
+    } catch (e) {
+      console.error('Ошибка загрузки промокодов:', e);
+    }
+  }
+
+  savePromos() {
+    try {
+      const obj = {};
+      for (const [k, v] of this.promos.entries()) {
+        obj[k] = v;
+      }
+      fs.writeFileSync(PROMOS_FILE, JSON.stringify(obj, null, 2), 'utf8');
+    } catch (e) {
+      console.error('Ошибка сохранения промокодов:', e);
+    }
+  }
+
+  loadDirectMessages() {
+    try {
+      if (fs.existsSync(DM_FILE)) {
+        const raw = fs.readFileSync(DM_FILE, 'utf8');
+        const data = JSON.parse(raw);
+        for (const [k, v] of Object.entries(data)) {
+          if (Array.isArray(v)) this.directMessages.set(k, v);
+        }
+      }
+    } catch (e) {
+      console.error('Ошибка загрузки личных сообщений:', e);
+    }
+  }
+
+  saveDirectMessages() {
+    try {
+      const obj = {};
+      for (const [k, v] of this.directMessages.entries()) {
+        obj[k] = v;
+      }
+      fs.writeFileSync(DM_FILE, JSON.stringify(obj, null, 2), 'utf8');
+    } catch (e) {
+      console.error('Ошибка сохранения личных сообщений:', e);
+    }
   }
 
   loadUsers() {
@@ -277,7 +345,174 @@ class UserManager {
         titleColor: titleItem ? (titleItem.color || '') : ''
       },
       stats: user.stats || { gamesPlayed: 0, wins: 0 },
+      lastDailyClaim: user.lastDailyClaim || 0,
       isBlocked: Boolean(user.isBlocked)
+    };
+  }
+
+  // ===================== ЕЖЕДНЕВНЫЙ БОНУС (ВОЕННЫЙ ЯЩИК СНАБЖЕНИЯ) =====================
+  claimDailyCrate(username) {
+    const user = this.ensureUser(username);
+    if (!user) return { error: 'Сначала войдите в аккаунт!' };
+
+    const now = Date.now();
+    const cooldownMs = 24 * 60 * 60 * 1000; // 24 часа
+    const lastClaim = user.lastDailyClaim || 0;
+
+    if (now - lastClaim < cooldownMs) {
+      const remainingMs = cooldownMs - (now - lastClaim);
+      const hours = Math.floor(remainingMs / (60 * 60 * 1000));
+      const minutes = Math.ceil((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+      return {
+        error: `Военный ящик уже открыт сегодня! Следующий через ${hours} ч. ${minutes} мин.`,
+        nextAvailableAt: lastClaim + cooldownMs
+      };
+    }
+
+    // Призы из Военного Ящика (от 150 до 2500 BunCoins)
+    const prizePool = [
+      { coins: 200, weight: 28, label: { ru: 'Армейский паёк (+200 🪙)', en: 'Military Ration (+200 🪙)', uz: 'Harbiy payok (+200 🪙)' } },
+      { coins: 350, weight: 25, label: { ru: 'Аптечка Бункера (+350 🪙)', en: 'Bunker Medkit (+350 🪙)', uz: 'Bunker qutisi (+350 🪙)' } },
+      { coins: 500, weight: 20, label: { ru: 'Ящик патронов (+500 🪙)', en: 'Ammo Crate (+500 🪙)', uz: 'O\'q-dori qutisi (+500 🪙)' } },
+      { coins: 800, weight: 14, label: { ru: 'Золотой фильтр (+800 🪙)', en: 'Golden Filter (+800 🪙)', uz: 'Oltin filtr (+800 🪙)' } },
+      { coins: 1200, weight: 8, label: { ru: 'Секретный контейнер (+1200 🪙)', en: 'Secret Container (+1200 🪙)', uz: 'Maxfiy konteyner (+1200 🪙)' } },
+      { coins: 2500, weight: 5, label: { ru: '☢️ ДЖЕКПОТ ГЕНЕРАЛА (+2500 🪙)!', en: '☢️ GENERAL JACKPOT (+2500 🪙)!', uz: '☢️ GENERAL JEKPOTI (+2500 🪙)!' } }
+    ];
+
+    const totalWeight = prizePool.reduce((acc, p) => acc + p.weight, 0);
+    let rand = Math.random() * totalWeight;
+    let chosen = prizePool[0];
+    for (const p of prizePool) {
+      if (rand < p.weight) {
+        chosen = p;
+        break;
+      }
+      rand -= p.weight;
+    }
+
+    user.bunCoins = (user.bunCoins || 0) + chosen.coins;
+    user.lastDailyClaim = now;
+    this.saveUsers();
+
+    return {
+      success: true,
+      prizeCoins: chosen.coins,
+      prizeLabel: chosen.label,
+      nextAvailableAt: now + cooldownMs,
+      user: this.sanitizeUser(user)
+    };
+  }
+
+  // ===================== ПРОМОКОДЫ (АДМИНКА И АКТИВАЦИЯ) =====================
+  getPromoCodes() {
+    return Array.from(this.promos.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  }
+
+  createPromoCode(code, reward, maxUses = 100) {
+    const cleanCode = String(code || '').trim().toUpperCase();
+    if (!cleanCode || cleanCode.length < 3) {
+      return { error: 'Промокод должен содержать минимум 3 символа' };
+    }
+    const rewardNum = Math.max(10, parseInt(reward, 10) || 500);
+    const maxUsesNum = Math.max(1, parseInt(maxUses, 10) || 100);
+
+    const promo = {
+      code: cleanCode,
+      reward: rewardNum,
+      maxUses: maxUsesNum,
+      usedBy: this.promos.get(cleanCode)?.usedBy || [],
+      createdAt: new Date().toISOString()
+    };
+
+    this.promos.set(cleanCode, promo);
+    this.savePromos();
+    return { success: true, promo, promos: this.getPromoCodes() };
+  }
+
+  deletePromoCode(code) {
+    const cleanCode = String(code || '').trim().toUpperCase();
+    this.promos.delete(cleanCode);
+    this.savePromos();
+    return { success: true, promos: this.getPromoCodes() };
+  }
+
+  redeemPromoCode(username, code) {
+    const user = this.ensureUser(username);
+    if (!user) return { error: 'Сначала войдите в аккаунт!' };
+
+    const cleanCode = String(code || '').trim().toUpperCase();
+    if (!cleanCode) return { error: 'Введите промокод!' };
+
+    const promo = this.promos.get(cleanCode);
+    if (!promo) return { error: 'Такой промокод не найден или истёк!' };
+
+    if (!Array.isArray(promo.usedBy)) promo.usedBy = [];
+    const uKey = user.username.toLowerCase();
+
+    if (promo.usedBy.includes(uKey)) {
+      return { error: 'Вы уже активировали этот промокод ранее!' };
+    }
+
+    if (promo.usedBy.length >= promo.maxUses) {
+      return { error: 'Лимит активаций этого промокода исчерпан!' };
+    }
+
+    promo.usedBy.push(uKey);
+    user.bunCoins = (user.bunCoins || 0) + promo.reward;
+    this.savePromos();
+    this.saveUsers();
+
+    return {
+      success: true,
+      reward: promo.reward,
+      code: cleanCode,
+      user: this.sanitizeUser(user),
+      message: `🎉 Промокод ${cleanCode} активирован! Начислено +${promo.reward} BunCoins!`
+    };
+  }
+
+  // ===================== ЛИЧНЫЙ ЧАТ С ДРУЗЬЯМИ =====================
+  getDmKey(userA, userB) {
+    return [String(userA || '').trim().toLowerCase(), String(userB || '').trim().toLowerCase()].sort().join('::');
+  }
+
+  getDirectMessages(userA, userB) {
+    if (!userA || !userB) return [];
+    const key = this.getDmKey(userA, userB);
+    return this.directMessages.get(key) || [];
+  }
+
+  sendDirectMessage(fromUsername, toUsername, text) {
+    const sender = this.ensureUser(fromUsername);
+    const target = this.findUserByIdOrName(toUsername);
+    if (!sender || !target) return { error: 'Игрок не найден' };
+
+    const cleanText = String(text || '').trim().substring(0, 400);
+    if (!cleanText) return { error: 'Введите текст сообщения' };
+
+    const key = this.getDmKey(sender.username, target.username);
+    const list = this.directMessages.get(key) || [];
+
+    const msg = {
+      id: 'dm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      from: sender.username,
+      fromAvatar: sender.avatarUrl || null,
+      to: target.username,
+      text: cleanText,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      createdAt: Date.now()
+    };
+
+    list.push(msg);
+    if (list.length > 100) list.shift();
+    this.directMessages.set(key, list);
+    this.saveDirectMessages();
+
+    return {
+      success: true,
+      message: msg,
+      messages: list,
+      targetUsername: target.username
     };
   }
 

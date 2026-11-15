@@ -27,6 +27,9 @@ import AtmosphereEffects from './components/AtmosphereEffects';
 import RulesModal from './components/RulesModal';
 import ProfileModal from './components/ProfileModal';
 import FriendsModal from './components/FriendsModal';
+import DailyCrateModal from './components/DailyCrateModal';
+
+const SECRET_ADMIN_PATH = import.meta.env.VITE_ADMIN_SECRET_PATH || '/samandar-bunker-hq-0505';
 
 const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
   ? undefined 
@@ -69,6 +72,8 @@ export default function App() {
   const [showShopModal, setShowShopModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showFriendsModal, setShowFriendsModal] = useState(false);
+  const [showDailyModal, setShowDailyModal] = useState(false);
+  const [publicRooms, setPublicRooms] = useState([]);
   const [pendingInvite, setPendingInvite] = useState(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isRulesMandatory, setIsRulesMandatory] = useState(false);
@@ -175,8 +180,19 @@ export default function App() {
   };
 
   useEffect(() => {
+    const fetchPublicRooms = () => {
+      socket.emit('getPublicRooms', {}, (res) => {
+        if (res && res.success && Array.isArray(res.rooms)) {
+          setPublicRooms(res.rooms);
+        }
+      });
+    };
+
+    fetchPublicRooms();
+
     socket.on('connect', () => {
       console.log('Подключено к серверу:', socket.id);
+      fetchPublicRooms();
       const savedCode = localStorage.getItem('bunker_room_code');
       const savedId = localStorage.getItem('bunker_player_id');
       if (savedCode && savedId) {
@@ -187,6 +203,12 @@ export default function App() {
             setInRoom(true);
           }
         });
+      }
+    });
+
+    socket.on('publicRoomsUpdated', (rooms) => {
+      if (Array.isArray(rooms)) {
+        setPublicRooms(rooms);
       }
     });
 
@@ -270,6 +292,7 @@ export default function App() {
 
     return () => {
       socket.off('connect');
+      socket.off('publicRoomsUpdated');
       socket.off('roomStateUpdate');
       socket.off('chatMessage');
       socket.off('userProfileUpdated');
@@ -533,8 +556,8 @@ export default function App() {
     );
   };
 
-  // DEDICATED /admin ROUTE
-  if (currentPath === '/admin') {
+  // SECRET HIDDEN ADMIN ROUTE (Configured via .env, /admin is disabled)
+  if (currentPath === SECRET_ADMIN_PATH) {
     return (
       <AdminPageView
         socket={socket}
@@ -612,8 +635,20 @@ export default function App() {
               )}
             </div>
 
-            {/* Right: Friends, Rules, Atmosphere, Shop, Theme & Language */}
+            {/* Right: Friends, Daily Crate / Promo, Rules, Atmosphere, Shop, Theme & Language */}
             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              {/* Daily Bonus Crate & Promo Code Button */}
+              {user && (
+                <button
+                  onClick={() => setShowDailyModal(true)}
+                  title={lang === 'uz' ? 'Kunlik quti va Promokod' : lang === 'en' ? 'Daily Supply Crate & Promo Code' : 'Ежедневный ящик снабжения и Промокоды'}
+                  className="px-3 py-1.5 rounded-2xl bg-amber-500/15 hover:bg-amber-500 hover:text-zinc-950 border border-amber-500/50 text-amber-600 dark:text-amber-300 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <span>🎁</span>
+                  <span>{lang === 'uz' ? 'Bonus / Kod' : lang === 'en' ? 'Bonus / Promo' : 'Ящик / Промокод'}</span>
+                </button>
+              )}
+
               {/* Friends by ID Button */}
               {user && (
                 <button
@@ -846,6 +881,83 @@ export default function App() {
             </div>
           </div>
 
+          {/* Public Open Rooms Browser (Список открытых комнат на главной странице) */}
+          <div className="mt-6 sm:mt-8 p-4 sm:p-5 rounded-3xl bg-white dark:bg-zinc-900/90 border-2 border-cyan-500/40 max-w-3xl mx-auto shadow-lg">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
+                <h3 className="text-xs sm:text-sm font-display font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                  {lang === 'uz'
+                    ? `OCHIQ XONALAR RO'YXATI (${publicRooms.length})`
+                    : lang === 'en'
+                    ? `OPEN PUBLIC ROOMS (${publicRooms.length})`
+                    : `🌐 СПИСОК ОТКРЫТЫХ КОМНАТ (${publicRooms.length})`}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  socket.emit('getPublicRooms', {}, (res) => {
+                    if (res && res.success) setPublicRooms(res.rooms || []);
+                  });
+                }}
+                className="text-[11px] font-mono text-cyan-500 hover:underline cursor-pointer"
+              >
+                {lang === 'uz' ? '↻ Yangilash' : lang === 'en' ? '↻ Refresh' : '↻ Обновить'}
+              </button>
+            </div>
+
+            {publicRooms.length === 0 ? (
+              <div className="text-center py-4 px-3 rounded-2xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-xs font-mono text-slate-500 dark:text-zinc-400">
+                {lang === 'uz'
+                  ? "Hozircha ochiq xonalar yo'q. «Yangi xona yaratish» tugmasini bosing va birinchi bo'ling!"
+                  : lang === 'en'
+                  ? 'No open lobby rooms right now. Click "Create Room" above to host one!'
+                  : 'Сейчас нет ожидающих комнат. Нажмите «Создать бункер» выше — ваша комната сразу появится здесь!'}
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {publicRooms.map((rm) => (
+                  <div
+                    key={rm.code}
+                    className="p-3 rounded-2xl bg-slate-50 dark:bg-zinc-950/80 border border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3 hover:border-cyan-500/50 transition"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/40 flex items-center justify-center text-lg shrink-0">
+                        {rm.hostAvatar || '🥷'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs sm:text-sm font-display font-bold text-slate-900 dark:text-white truncate">
+                          {lang === 'uz'
+                            ? `Xona ${rm.hostName} (#${rm.code})`
+                            : lang === 'en'
+                            ? `Room ${rm.hostName} (#${rm.code})`
+                            : `Комната ${rm.hostName} (#${rm.code})`}
+                        </div>
+                        <div className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 flex items-center gap-2">
+                          <span className="text-emerald-500 font-bold">
+                            👥 {rm.playersCount}/{rm.maxPlayers} {lang === 'uz' ? "o'yinchi" : lang === 'en' ? 'players' : 'игроков'}
+                          </span>
+                          <span>•</span>
+                          <span className="text-amber-500">Ожидание в лобби</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleJoinRoomByCode(rm.code)}
+                      className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-md shadow-cyan-500/20"
+                    >
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>{lang === 'uz' ? 'Kirish' : lang === 'en' ? 'Join' : 'Войти'}</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Rules Summary */}
           <div className="mt-6 sm:mt-8 p-4 sm:p-5 rounded-2xl bg-white/70 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 max-w-3xl mx-auto text-xs text-slate-600 dark:text-zinc-400 font-mono space-y-1.5 shadow-sm">
             <div className="text-slate-900 dark:text-zinc-200 font-bold flex items-center justify-between uppercase">
@@ -918,6 +1030,17 @@ export default function App() {
           lang={lang}
           setLang={handleSetLang}
         />
+
+        {/* Daily Supply Crate & Promo Codes Modal */}
+        {showDailyModal && user && (
+          <DailyCrateModal
+            user={user}
+            socket={socket}
+            lang={lang}
+            onClose={() => setShowDailyModal(false)}
+            onUserUpdated={handleUserUpdated}
+          />
+        )}
 
         {/* Friends by ID Modal */}
         {showFriendsModal && user && (

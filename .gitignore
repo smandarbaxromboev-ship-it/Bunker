@@ -1,3 +1,6 @@
 node_modules
+.env
+server/.env
+client/.env
 google-play-package/signing.keystore
 google-play-package/signing-key-info.txt
