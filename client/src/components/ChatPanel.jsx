@@ -147,9 +147,9 @@ export default function ChatPanel({
                 <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                 <div className="min-w-0">
                   <span className="font-bold text-amber-400 uppercase tracking-wide mr-1">
-                    [{getLocalized(msg.senderName, lang) || msg.senderName}]:
+                    [{getLocalized(msg.senderName, lang)}]:
                   </span>
-                  <span>{getLocalized(msg.text, lang) || msg.text}</span>
+                  <span>{getLocalized(msg.text, lang)}</span>
                 </div>
               </div>
             );
@@ -171,7 +171,7 @@ export default function ChatPanel({
                   </span>
                 )}
                 <span className={isMe ? (isGhostMsg ? 'text-purple-400 font-bold' : 'text-amber-400 font-bold') : (isGhostMsg ? 'text-purple-300 font-semibold' : 'text-zinc-300 font-medium')}>
-                  {msg.senderName} {isMe ? t.you : ''}
+                  {getLocalized(msg.senderName, lang)} {isMe ? t.you : ''}
                 </span>
                 <span className="text-[9px] text-zinc-500">{msg.timestamp}</span>
               </div>
@@ -193,7 +193,7 @@ export default function ChatPanel({
                     {msg.sticker.emoji || '☢️'}
                   </span>
                   <div className="font-display font-extrabold text-xs sm:text-sm uppercase tracking-wide">
-                    {getLocalized(msg.sticker.label, lang) || msg.sticker.label || msg.text}
+                    {getLocalized(msg.sticker.label, lang) || getLocalized(msg.text, lang)}
                   </div>
                 </div>
               ) : (
@@ -208,7 +208,7 @@ export default function ChatPanel({
                       : 'bg-zinc-800 border border-zinc-700/60 text-zinc-100 rounded-tl-none'
                   }`}
                 >
-                  {msg.text}
+                  {getLocalized(msg.text, lang)}
                 </div>
               )}
             </div>

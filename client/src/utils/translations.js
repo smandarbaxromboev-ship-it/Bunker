@@ -925,7 +925,11 @@ export const translations = {
 };
 
 export function getLocalized(obj, lang = 'ru') {
-  if (!obj) return '';
-  if (typeof obj === 'string') return obj;
-  return obj[lang] || obj['ru'] || obj['en'] || '';
+  if (obj === null || obj === undefined) return '';
+  if (typeof obj === 'string' || typeof obj === 'number') return String(obj);
+  if (typeof obj === 'object') {
+    const val = obj[lang] ?? obj['ru'] ?? obj['en'] ?? obj['uz'] ?? '';
+    return typeof val === 'object' ? JSON.stringify(val) : String(val);
+  }
+  return String(obj);
 }
