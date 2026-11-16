@@ -1,7 +1,7 @@
 import React from 'react';
 import { translations } from '../utils/translations';
 
-export default function BunkerLogo({ size = 'md', animated = true, className = '', lang = 'ru', hideTextOnMobile = false }) {
+export default function BunkerLogo({ size = 'md', animated = true, className = '', lang = 'ru', hideTextOnMobile = false, compact = false }) {
   const t = translations[lang] || translations.ru;
   const isSm = size === 'sm';
   const isLg = size === 'lg';
@@ -29,7 +29,7 @@ export default function BunkerLogo({ size = 'md', animated = true, className = '
   }[size] || 'text-[10px]';
 
   return (
-    <div className={`inline-flex items-center gap-2.5 sm:gap-3.5 select-none group ${className}`}>
+    <div className={`inline-flex items-center gap-2 sm:gap-3 select-none group shrink-0 ${className}`}>
       {/* Animated Bunker Biohazard Emblem */}
       <div className={`relative ${iconSizes} shrink-0`}>
         {/* Outer Biohazard Ambient Glow */}
@@ -63,21 +63,23 @@ export default function BunkerLogo({ size = 'md', animated = true, className = '
       </div>
 
       {/* Typography */}
-      <div className={`flex flex-col text-left ${hideTextOnMobile ? 'hidden md:flex' : ''}`}>
-        <div className="flex items-center gap-1.5 leading-none">
-          <span className={`font-display font-black tracking-widest uppercase text-slate-900 dark:text-white drop-shadow-[0_2px_12px_rgba(245,158,11,0.35)] ${titleSizes}`}>
-            {t.logoTitle || 'БУНКЕР'}
-          </span>
-          <span className={`font-display font-black text-amber-500 drop-shadow-[0_0_14px_rgba(245,158,11,0.8)] animate-pulse ${titleSizes}`}>
-            :7
-          </span>
-        </div>
+      {!compact && (
+        <div className={`flex flex-col text-left ${hideTextOnMobile ? 'hidden xl:flex' : ''}`}>
+          <div className="flex items-center gap-1.5 leading-none">
+            <span className={`font-display font-black tracking-widest uppercase text-slate-900 dark:text-white drop-shadow-[0_2px_12px_rgba(245,158,11,0.35)] ${titleSizes}`}>
+              {t.logoTitle || 'БУНКЕР'}
+            </span>
+            <span className={`font-display font-black text-amber-500 drop-shadow-[0_0_14px_rgba(245,158,11,0.8)] animate-pulse ${titleSizes}`}>
+              :7
+            </span>
+          </div>
 
-        <div className={`font-mono font-bold tracking-widest uppercase text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mt-0.5 ${subSizes}`}>
-          <span className="w-1.5 h-1.5 rounded-full bg-lime-500 shadow-[0_0_8px_#84cc16] animate-ping" />
-          <span>{t.logoSub || 'РАУНДОВ ОТКРОВЕНИЙ'}</span>
+          <div className={`font-mono font-bold tracking-widest uppercase text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mt-0.5 ${subSizes}`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-lime-500 shadow-[0_0_8px_#84cc16] animate-ping" />
+            <span>{t.logoSub || 'РАУНДОВ ОТКРОВЕНИЙ'}</span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

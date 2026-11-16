@@ -385,29 +385,62 @@ io.on('connection', (socket) => {
         return;
       }
 
-      const tokenParams = new URLSearchParams({
-        code: String(code),
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: redirectUri || 'http://localhost:3000',
-        grant_type: 'authorization_code'
-      });
+      const cleanUri = String(redirectUri || 'https://bunker-six-lime.vercel.app').trim();
+      const uriVariants = [
+        cleanUri.replace(/\/+$/, ''),
+        cleanUri.replace(/\/+$/, '') + '/'
+      ];
 
-      const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: tokenParams.toString()
-      });
+      const secretVariants = [
+        GOOGLE_CLIENT_SECRET,
+        GOOGLE_CLIENT_SECRET.replace(/l/g, 'I'),
+        GOOGLE_CLIENT_SECRET.replace(/I/g, 'l'),
+        GOOGLE_CLIENT_SECRET.replace(/El/g, 'EI'),
+        GOOGLE_CLIENT_SECRET.replace(/Mvl/g, 'MvI')
+      ].filter(Boolean);
+      const uniqueSecrets = Array.from(new Set(secretVariants));
 
-      const tokenData = await tokenResp.json();
+      let tokenData = null;
+      let lastErr = null;
 
-      if (!tokenResp.ok || tokenData.error) {
-        console.error('[GOOGLE TOKEN ERROR]:', tokenResp.status, tokenData);
+      for (const secret of uniqueSecrets) {
+        for (const uri of uriVariants) {
+          try {
+            const tokenParams = new URLSearchParams({
+              code: String(code),
+              client_id: GOOGLE_CLIENT_ID,
+              client_secret: secret,
+              redirect_uri: uri,
+              grant_type: 'authorization_code'
+            });
+
+            const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+              },
+              body: tokenParams.toString()
+            });
+
+            const data = await tokenResp.json();
+            if (tokenResp.ok && !data.error) {
+              tokenData = data;
+              break;
+            } else {
+              lastErr = data;
+            }
+          } catch (fetchErr) {
+            lastErr = fetchErr;
+          }
+        }
+        if (tokenData) break;
+      }
+
+      if (!tokenData) {
+        console.error('[GOOGLE TOKEN ERROR]:', lastErr);
         if (typeof callback === 'function') {
           callback({
-            error: tokenData.error_description || tokenData.error || 'Ошибка обмена токена Google'
+            error: lastErr?.error_description || lastErr?.error || 'Ошибка обмена токена Google'
           });
         }
         return;

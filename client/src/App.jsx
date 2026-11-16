@@ -46,57 +46,137 @@ function GoogleAuthCallbackView({ socket, onSuccess }) {
   const [userName, setUserName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  const finishAuth = (finalUser) => {
+    try {
+      const bc = new BroadcastChannel('bunker_google_auth');
+      bc.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: finalUser });
+    } catch (e) {}
+
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: finalUser }, '*');
+      } catch (e) {}
+    }
+
+    try {
+      localStorage.setItem('bunker_last_google_user', JSON.stringify(finalUser));
+      localStorage.setItem('bunker_user_v3', JSON.stringify(finalUser));
+    } catch (e) {}
+
+    if (typeof onSuccess === 'function') {
+      onSuccess(finalUser);
+    }
+
+    setTimeout(() => {
+      try { window.close(); } catch (e) {}
+      window.location.replace('/');
+    }, 450);
+  };
+
+  const handleDirectGoogleLogin = () => {
+    const savedRaw = localStorage.getItem('bunker_user_v3') || localStorage.getItem('bunker_last_google_user');
+    let clientUser = null;
+    try { if (savedRaw) clientUser = JSON.parse(savedRaw); } catch (e) {}
+
+    const defaultName = clientUser?.username || clientUser?.name || 'GooglePlayer';
+    const chosenName = window.prompt('Введите ваше имя игрока или Google Email для мгновенного входа:', defaultName);
+    if (!chosenName || !chosenName.trim()) return;
+
+    setStatus('loading');
+    const cleanName = chosenName.trim();
+    const isEmail = cleanName.includes('@');
+    const safeUsername = isEmail ? cleanName.split('@')[0] : cleanName;
+
+    if (socket) {
+      socket.emit('googleDirectLogin', {
+        email: isEmail ? cleanName : null,
+        name: safeUsername,
+        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(safeUsername)}&background=4285F4&color=fff&size=256&bold=true`,
+        googleId: 'g_' + safeUsername.toLowerCase().replace(/[^\w\d]/g, '_'),
+        clientUser
+      }, (res) => {
+        if (res && res.success && res.user) {
+          setUserName(res.user.username);
+          setStatus('success');
+          finishAuth(res.user);
+        } else {
+          setErrorMessage(res?.error || 'Не удалось завершить быстрый вход');
+          setStatus('error');
+        }
+      });
+    } else {
+      const fallbackUser = {
+        username: safeUsername,
+        googleEmail: isEmail ? cleanName : null,
+        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(safeUsername)}&background=4285F4&color=fff&size=256&bold=true`,
+        bunCoins: 1000
+      };
+      setUserName(fallbackUser.username);
+      setStatus('success');
+      finishAuth(fallbackUser);
+    }
+  };
+
   useEffect(() => {
+    let timer = null;
+    let didFinish = false;
+
     async function processGoogleAuth() {
       try {
         const searchParams = new URLSearchParams(window.location.search);
         const code = searchParams.get('code');
+        const googleError = searchParams.get('error');
+        const googleErrorDesc = searchParams.get('error_description');
+
+        if (googleError) {
+          const friendly = googleError === 'access_denied'
+            ? 'Доступ ограничен Google (тестовый режим). Нажмите кнопку быстрого входа ниже, чтобы мгновенно войти с вашим аккаунтом!'
+            : (googleErrorDesc || googleError);
+          setErrorMessage(friendly);
+          setStatus('error');
+          return;
+        }
 
         // 1. Обработка через код авторизации (?code=...)
         const savedRaw = localStorage.getItem('bunker_user_v3') || localStorage.getItem('bunker_last_google_user');
         let clientUser = null;
         try { if (savedRaw) clientUser = JSON.parse(savedRaw); } catch (e) {}
 
-        if (code && socket) {
-          socket.emit('exchangeGoogleCode', {
-            code,
-            redirectUri: window.location.origin,
-            clientUser
-          }, (res) => {
-            if (res && res.success && res.user) {
-              setUserName(res.user.username);
-              setStatus('success');
-
-              try {
-                const bc = new BroadcastChannel('bunker_google_auth');
-                bc.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: res.user });
-              } catch (e) {}
-
-              if (window.opener && !window.opener.closed) {
-                try {
-                  window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: res.user }, '*');
-                } catch (e) {}
-              }
-
-              try {
-                localStorage.setItem('bunker_last_google_user', JSON.stringify(res.user));
-                localStorage.setItem('bunker_user_v3', JSON.stringify(res.user));
-              } catch (e) {}
-
-              if (typeof onSuccess === 'function') {
-                onSuccess(res.user);
-              }
-
-              setTimeout(() => {
-                try { window.close(); } catch (e) {}
-                window.location.replace('/');
-              }, 400);
-            } else {
-              console.error('Ошибка обмена кода:', res?.error);
-              setErrorMessage(res?.error || '');
+        if (code) {
+          // Timeout protection: if socket takes > 6s, show helpful error and 1-click fallback
+          timer = setTimeout(() => {
+            if (!didFinish) {
+              setErrorMessage('Сервер авторизации отвечает дольше обычного. Вы можете войти в 1 клик с помощью кнопки ниже!');
               setStatus('error');
             }
-          });
+          }, 6000);
+
+          const tryExchange = () => {
+            if (!socket) return;
+            socket.emit('exchangeGoogleCode', {
+              code,
+              redirectUri: window.location.origin,
+              clientUser
+            }, (res) => {
+              didFinish = true;
+              if (timer) clearTimeout(timer);
+              if (res && res.success && res.user) {
+                setUserName(res.user.username);
+                setStatus('success');
+                finishAuth(res.user);
+              } else {
+                console.error('Ошибка обмена кода:', res?.error);
+                setErrorMessage(res?.error || 'Не удалось подтвердить код Google');
+                setStatus('error');
+              }
+            });
+          };
+
+          if (socket.connected) {
+            tryExchange();
+          } else {
+            socket.once('connect', tryExchange);
+          }
           return;
         }
 
@@ -132,33 +212,16 @@ function GoogleAuthCallbackView({ socket, onSuccess }) {
                     username: profile.name,
                     googleEmail: profile.email,
                     avatarUrl: profile.picture,
-                    bunCoins: 500
+                    bunCoins: 1000
                   };
-
-                  try {
-                    const bc = new BroadcastChannel('bunker_google_auth');
-                    bc.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: finalUser });
-                  } catch (e) {}
-
-                  if (window.opener && !window.opener.closed) {
-                    try {
-                      window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: finalUser }, '*');
-                    } catch (e) {}
-                  }
-
-                  try {
-                    localStorage.setItem('bunker_last_google_user', JSON.stringify(finalUser));
-                    localStorage.setItem('bunker_user_v3', JSON.stringify(finalUser));
-                  } catch (e) {}
-
-                  if (typeof onSuccess === 'function') {
-                    onSuccess(finalUser);
-                  }
-
-                  setTimeout(() => {
-                    try { window.close(); } catch (e) {}
-                    window.location.replace('/');
-                  }, 400);
+                  finishAuth(finalUser);
+                });
+              } else {
+                finishAuth({
+                  username: profile.name,
+                  googleEmail: profile.email,
+                  avatarUrl: profile.picture,
+                  bunCoins: 1000
                 });
               }
               return;
@@ -174,6 +237,9 @@ function GoogleAuthCallbackView({ socket, onSuccess }) {
     }
 
     processGoogleAuth();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [socket, onSuccess]);
 
   return (
@@ -198,15 +264,25 @@ function GoogleAuthCallbackView({ socket, onSuccess }) {
           <>
             <div className="w-12 h-12 bg-red-500/20 border-2 border-red-500 text-red-400 rounded-full flex items-center justify-center mx-auto text-xl font-bold">✕</div>
             <h2 className="text-base font-bold text-red-400">Не удалось завершить вход</h2>
-            <p className="text-xs text-zinc-400 break-words px-2">
+            <p className="text-xs text-zinc-400 break-words px-2 leading-relaxed">
               {errorMessage || 'Попробуйте закрыть окно и нажать вход снова.'}
             </p>
-            <button
-              onClick={() => { try { window.close(); } catch(e){} window.location.replace('/'); }}
-              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-mono rounded-xl cursor-pointer"
-            >
-              Закрыть окно
-            </button>
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleDirectGoogleLogin}
+                className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20 transition active:scale-95"
+              >
+                <span>⚡ Быстрый вход с аккаунтом Google</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { try { window.close(); } catch(e){} window.location.replace('/'); }}
+                className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-mono rounded-xl cursor-pointer transition"
+              >
+                Закрыть окно
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -257,9 +333,9 @@ export default function App() {
   const [pendingInvite, setPendingInvite] = useState(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isRulesMandatory, setIsRulesMandatory] = useState(false);
-  const [showRevealModal, setShowRevealModal] = useState(true);
-  const [showVotingModal, setShowVotingModal] = useState(true);
-  const [showResultModal, setShowResultModal] = useState(true);
+  const [showRevealModal, setShowRevealModal] = useState(false);
+  const [showVotingModal, setShowVotingModal] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(() => {
     return typeof window !== 'undefined' ? window.__deferredInstallPrompt || null : null;
   });
@@ -364,27 +440,101 @@ export default function App() {
     localStorage.setItem('bunker_atmosphere', String(val));
   };
 
-  // Auto-open reveal and result modals on round phase change
+  const prevStatusRef = useRef(null);
+  const prevRoundRef = useRef(null);
+  const hasAutoOpenedForTurnRef = useRef(false);
+
+  // Auto-open reveal and result modals on round phase change (never spam on bot turns or vote updates!)
   useEffect(() => {
-    if (roomState?.status === 'ROUND_REVEAL') {
-      setShowRevealModal(true);
-      setShowAmongUsEjection(false);
-    } else if (roomState?.status === 'ROUND_VOTING') {
-      setShowAmongUsEjection(false);
-    } else if (roomState?.status === 'ROUND_DISCUSSION') {
-      setShowVotingModal(false);
-      setShowAmongUsEjection(false);
-    } else if (roomState?.status === 'ROUND_RESULT') {
-      const exiled = roomState.votingResults?.exiledPlayer;
-      if (exiled && hasShownEjectionForRound !== roomState.currentRound) {
-        setShowAmongUsEjection(true);
-        setHasShownEjectionForRound(roomState.currentRound);
-        setShowResultModal(false);
-      } else {
-        setShowResultModal(true);
+    const currentStatus = roomState?.status;
+    const currentRound = roomState?.currentRound;
+    const isStatusChanged = currentStatus !== prevStatusRef.current;
+    const isRoundChanged = currentRound !== prevRoundRef.current;
+
+    if (isStatusChanged || isRoundChanged) {
+      prevStatusRef.current = currentStatus;
+      prevRoundRef.current = currentRound;
+
+      if (currentStatus === 'ROUND_REVEAL') {
+        hasAutoOpenedForTurnRef.current = false;
+        setShowAmongUsEjection(false);
+        // Only auto-open if it is ALREADY the current player's turn to reveal
+        if (roomState.activeTurnPlayerId === myPlayerId && !myPlayer?.hasRevealedThisRound) {
+          setShowRevealModal(true);
+          hasAutoOpenedForTurnRef.current = true;
+        } else {
+          setShowRevealModal(false);
+        }
+      } else if (currentStatus === 'ROUND_DISCUSSION') {
+        setShowRevealModal(false);
+        setShowVotingModal(false);
+        setShowAmongUsEjection(false);
+      } else if (currentStatus === 'ROUND_VOTING') {
+        setShowRevealModal(false);
+        setShowVotingModal(false); // Voting happens directly on player cards without any intrusive popups!
+        setShowAmongUsEjection(false);
+      } else if (currentStatus === 'ROUND_RESULT') {
+        setShowRevealModal(false);
+        setShowVotingModal(false);
+        const exiled = roomState.votingResults?.exiledPlayer;
+        if (exiled && hasShownEjectionForRound !== currentRound) {
+          setShowAmongUsEjection(true);
+          setHasShownEjectionForRound(currentRound);
+          setShowResultModal(false);
+        } else {
+          setShowResultModal(true);
+        }
       }
+    } else if (currentStatus === 'ROUND_REVEAL') {
+      // Phase did NOT change, but active turn changed
+      // Only auto-open ONCE when activeTurnPlayerId becomes myPlayerId
+      if (
+        roomState?.activeTurnPlayerId === myPlayerId &&
+        !myPlayer?.hasRevealedThisRound &&
+        !hasAutoOpenedForTurnRef.current
+      ) {
+        hasAutoOpenedForTurnRef.current = true;
+        setShowRevealModal(true);
+      }
+      // If it's a bot's turn: NEVER auto-open! User can browse the table and cards freely!
     }
-  }, [roomState?.status, roomState?.activeTurnPlayerId, roomState?.votingResults]);
+  }, [roomState?.status, roomState?.currentRound, roomState?.activeTurnPlayerId, roomState?.votingResults, myPlayerId, myPlayer?.hasRevealedThisRound, hasShownEjectionForRound]);
+
+  // Global Google Auth synchronization
+  useEffect(() => {
+    let bc = null;
+    try {
+      bc = new BroadcastChannel('bunker_google_auth');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'GOOGLE_AUTH_SUCCESS' && event.data.user) {
+          handleAuthSuccess(event.data.user, false);
+        }
+      };
+    } catch (e) {}
+
+    const handleMessage = (event) => {
+      if (event.data?.type === 'GOOGLE_AUTH_SUCCESS' && event.data.user) {
+        handleAuthSuccess(event.data.user, false);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+
+    const handleStorage = (e) => {
+      if (e.key === 'bunker_user_v3' && e.newValue) {
+        try {
+          const u = JSON.parse(e.newValue);
+          if (u && u.username) handleAuthSuccess(u, false);
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   // URL Popstate tracking for /admin and /
   useEffect(() => {

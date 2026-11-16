@@ -48,10 +48,10 @@ export default function HeaderTerminal({
   const aliveCount = roomState?.players ? roomState.players.filter(p => p.isAlive).length : 0;
 
   return (
-    <header className="border-b border-slate-200 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md sticky top-0 z-40 px-2.5 sm:px-6 py-2 transition-colors duration-200 shadow-sm">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+    <header className="border-b border-slate-200 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md sticky top-0 z-40 px-2.5 sm:px-4 py-2 transition-colors duration-200 shadow-sm overflow-hidden">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
         {/* Left: Brand & Room code & Back button */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {onLeaveRoom && (
             <button
               onClick={() => {
@@ -73,15 +73,15 @@ export default function HeaderTerminal({
           {!isAlive && roomState?.status !== 'GAME_OVER' && (
             <div
               title={lang === 'uz' ? 'Siz Arvoh rejimidasiz (istalgan vaqtda chiqishingiz mumkin)' : lang === 'en' ? 'You are in Ghost mode (you can leave anytime)' : 'Вы в режиме Призрака (можете наблюдать или выйти в любой момент)'}
-              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-purple-950/60 border border-purple-800/80 text-purple-300 text-xs font-mono font-bold flex items-center gap-1 shadow-sm shrink-0 select-none"
+              className="p-1.5 sm:px-2 sm:py-1 rounded-xl bg-purple-950/60 border border-purple-800/80 text-purple-300 text-xs font-mono font-bold flex items-center gap-1 shadow-sm shrink-0 select-none"
             >
               <span className="text-sm">👻</span>
               <span className="hidden sm:inline text-[11px]">{lang === 'uz' ? 'Arvoh' : lang === 'en' ? 'Ghost' : 'Призрак'}</span>
             </div>
           )}
 
-          <BunkerLogo size="sm" lang={lang} hideTextOnMobile={true} />
-          <div className="min-w-0 hidden md:block">
+          <BunkerLogo size="sm" lang={lang} hideTextOnMobile={true} compact={true} />
+          <div className="hidden lg:block shrink-0">
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-900 text-amber-600 dark:text-amber-400 font-mono font-bold border border-slate-300 dark:border-zinc-700 shrink-0">
                 #{roomState?.code || '-----'}

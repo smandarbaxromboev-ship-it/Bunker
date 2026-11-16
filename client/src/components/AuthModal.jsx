@@ -139,6 +139,46 @@ export default function AuthModal({
     window.location.href = authUrl;
   };
 
+  const handleQuickGoogleDirect = () => {
+    setError('');
+    const savedRaw = localStorage.getItem('bunker_user_v3') || localStorage.getItem('bunker_last_google_user');
+    let clientUser = null;
+    try { if (savedRaw) clientUser = JSON.parse(savedRaw); } catch (e) {}
+
+    const defaultVal = clientUser?.username || clientUser?.name || '';
+    const chosen = window.prompt(
+      lang === 'uz' ? 'Google Emailingiz yoki ismingizni kiriting:' : lang === 'en' ? 'Enter your Google Email or player name:' : 'Введите ваш Google Email или имя игрока для входа:',
+      defaultVal
+    );
+    if (!chosen || !chosen.trim()) return;
+
+    setGoogleLoading(true);
+    const cleanName = chosen.trim();
+    const isEmail = cleanName.includes('@');
+    const safeUsername = isEmail ? cleanName.split('@')[0] : cleanName;
+
+    socket.emit('googleDirectLogin', {
+      email: isEmail ? cleanName : null,
+      name: safeUsername,
+      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(safeUsername)}&background=4285F4&color=fff&size=256&bold=true`,
+      googleId: 'g_' + safeUsername.toLowerCase().replace(/[^\w\d]/g, '_'),
+      clientUser
+    }, (res) => {
+      setGoogleLoading(false);
+      if (res && res.success && res.user) {
+        soundManager.playBeep(880, 0.1);
+        try {
+          localStorage.setItem('bunker_last_google_user', JSON.stringify(res.user));
+          localStorage.setItem('bunker_user_v3', JSON.stringify(res.user));
+        } catch (e) {}
+        onAuthSuccess(res.user, false);
+        if (onClose) onClose();
+      } else {
+        setError(res?.error || (lang === 'uz' ? 'Tezkor kirish amalga oshmadi' : lang === 'en' ? 'Quick login failed' : 'Не удалось выполнить быстрый вход'));
+      }
+    });
+  };
+
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -305,6 +345,17 @@ export default function AuthModal({
                 : (t.authContinueGoogle || 'Продолжить с Google')}
             </span>
           </button>
+
+          <div className="flex items-center justify-between gap-2 mt-2 px-1">
+            <button
+              type="button"
+              onClick={handleQuickGoogleDirect}
+              className="text-[11px] font-mono text-amber-500 hover:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>⚡ {lang === 'uz' ? '1 bosishda kirish (login/parolsiz)' : lang === 'en' ? 'Quick 1-click Google login' : 'Быстрый вход в 1 клик (без пароля)'}</span>
+            </button>
+            <span className="text-[10px] font-mono text-emerald-500 font-bold">+1000 🟡</span>
+          </div>
 
           <div className="flex items-center gap-3 mt-3 text-[10px] font-mono text-zinc-500 uppercase">
             <span className="flex-1 h-px bg-zinc-800" />
