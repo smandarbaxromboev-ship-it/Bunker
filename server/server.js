@@ -27,12 +27,9 @@ const GameManager = require('./gameManager');
 const { userManager, SHOP_ITEMS } = require('./userManager');
 const cardsManager = require('./cardsManager');
 
-// Google OAuth 2.0 Credentials (официальный Google Auth Library Installed Client)
-const GOOGLE_CLIENT_ID =
-  process.env.GOOGLE_CLIENT_ID ||
-  '764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com';
-const GOOGLE_CLIENT_SECRET =
-  process.env.GOOGLE_CLIENT_SECRET || 'd-FL95Q19q7MQmFpd7hHD0Ty';
+// Google OAuth 2.0 Credentials (загружаются из переменных окружения или server/.env)
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
+const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
 
 function httpsRequestJson(options, postBody = null) {
   return new Promise((resolve, reject) => {

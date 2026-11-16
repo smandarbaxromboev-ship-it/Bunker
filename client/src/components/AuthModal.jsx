@@ -20,6 +20,20 @@ export default function AuthModal({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState(
+    import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+    '621738199730-nf6ljqm51m0doo4c30ino66u664asb9t.apps.googleusercontent.com'
+  );
+
+  useEffect(() => {
+    if (socket) {
+      socket.emit('getGoogleConfig', {}, (res) => {
+        if (res && res.clientId) {
+          setGoogleClientId(res.clientId);
+        }
+      });
+    }
+  }, [socket]);
   const fileInputRef = useRef(null);
 
   // Слушаем успешную авторизацию от настоящего окна Google OAuth
@@ -82,13 +96,16 @@ export default function AuthModal({
     const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
     const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
 
-    const googleClientId = '764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com';
+    const effectiveClientId =
+      googleClientId ||
+      import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+      '621738199730-nf6ljqm51m0doo4c30ino66u664asb9t.apps.googleusercontent.com';
     const redirectUri = window.location.origin;
 
     const authUrl =
       'https://accounts.google.com/o/oauth2/v2/auth?' +
       new URLSearchParams({
-        client_id: googleClientId,
+        client_id: effectiveClientId,
         redirect_uri: redirectUri,
         response_type: 'code',
         scope: 'openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
