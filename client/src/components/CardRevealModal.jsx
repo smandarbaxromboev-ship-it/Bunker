@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Eye, Lock, ShieldAlert, HeartPulse, Briefcase, Calendar, 
-  Sparkles, Backpack, FileText, CheckCircle2, Clock, User 
+  Sparkles, Backpack, FileText, CheckCircle2, Clock, User, X, MessageSquare 
 } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 import { translations, getLocalized } from '../utils/translations';
@@ -20,7 +20,9 @@ const ICON_MAP = {
 export default function CardRevealModal({ 
   myPlayer, 
   currentRound, 
-  onRevealCard, 
+  onRevealCard,
+  onUseTrump,
+  onClose,
   expiresAt, 
   activeTurnPlayer,
   isMyTurn,
@@ -34,6 +36,7 @@ export default function CardRevealModal({
   const hasRevealedThisRound = myPlayer.hasRevealedThisRound;
   const deck = myPlayer.deck || [];
   const profCard = deck.find(c => (c.id === 'profession' || c.type === 'profession') && !c.revealed);
+  const specialCard = deck.find(c => c.type === 'special' && !c.used);
   const isRoundOneProfessionMandate = currentRound === 1 && Boolean(profCard);
   const effectiveSelectedId = isRoundOneProfessionMandate ? profCard.id : selectedCardId;
 
@@ -50,16 +53,34 @@ export default function CardRevealModal({
       <div className="bg-white dark:bg-zinc-950 border-2 border-amber-500/60 rounded-3xl max-w-xl w-full p-4 sm:p-6 shadow-[0_0_40px_rgba(245,158,11,0.2)] max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="border-b border-slate-100 dark:border-zinc-850 pb-3 mb-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <span className="text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-bold flex items-center gap-1.5 font-mono">
               <Lock className="w-3.5 h-3.5 text-amber-500" />
               {t.round} {currentRound} / 7
             </span>
 
-            {/* 60-Second Countdown Timer */}
-            {expiresAt && (
-              <CountdownTimer expiresAt={expiresAt} timerType="REVEAL" lang={lang} />
-            )}
+            <div className="flex items-center gap-2">
+              {/* 60-Second Countdown Timer */}
+              {expiresAt && (
+                <CountdownTimer expiresAt={expiresAt} timerType="REVEAL" lang={lang} />
+              )}
+
+              {onClose && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundManager.playBeep(700, 0.05);
+                    onClose();
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold transition flex items-center gap-1 cursor-pointer"
+                  title="Свернуть окно, чтобы смотреть карты игроков и писать в чат"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="hidden sm:inline">{t.btnMinimizeVoting || 'Свернуть / Чат'}</span>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Turn Announcement */}
@@ -186,13 +207,23 @@ export default function CardRevealModal({
           )}
         </div>
 
-        {/* Footer Submit */}
-        {!hasRevealedThisRound && isMyTurn && (
-          <div className="pt-3 mt-2 border-t border-slate-100 dark:border-zinc-850 flex justify-end">
+        {/* Footer Submit & Trump Trigger */}
+        <div className="pt-3 mt-2 border-t border-slate-100 dark:border-zinc-850 flex flex-wrap items-center justify-between gap-2">
+          {specialCard && onUseTrump && (
+            <button
+              type="button"
+              onClick={() => onUseTrump(specialCard)}
+              className="px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500 hover:text-black border border-amber-500/50 text-amber-500 font-display font-bold text-xs transition cursor-pointer flex items-center gap-1.5"
+            >
+              <span>{t.btnUseTrump || '⚡ Использовать Козырь'}</span>
+            </button>
+          )}
+
+          {!hasRevealedThisRound && isMyTurn && (
             <button
               onClick={() => handleConfirmReveal(effectiveSelectedId)}
               disabled={!effectiveSelectedId}
-              className={`w-full sm:w-auto px-6 py-2.5 rounded-xl font-display font-bold text-sm tracking-wide flex items-center justify-center gap-2 transition ${
+              className={`w-full sm:w-auto ml-auto px-6 py-2.5 rounded-xl font-display font-bold text-sm tracking-wide flex items-center justify-center gap-2 transition ${
                 effectiveSelectedId
                   ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-lg shadow-amber-500/20 cursor-pointer animate-pulse'
                   : 'bg-slate-200 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 cursor-not-allowed'
@@ -201,8 +232,8 @@ export default function CardRevealModal({
               <Eye className="w-4 h-4" />
               {t.btnReveal}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

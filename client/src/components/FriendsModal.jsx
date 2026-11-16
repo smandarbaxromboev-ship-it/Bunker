@@ -2,10 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Users, UserPlus, Copy, Check, Send, Trash2, X, LogIn, Hash, MessageSquare, ArrowLeft } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 
+function formatLocalTime(msg) {
+  if (msg?.createdAt) {
+    try {
+      return new Date(msg.createdAt).toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } catch (e) {}
+  }
+  return msg?.timestamp || '';
+}
+
 export default function FriendsModal({
   user,
   socket,
   currentRoomCode,
+  initialChatFriend = null,
   onJoinFriendRoom,
   onClose,
   onUserUpdated,
@@ -21,26 +35,49 @@ export default function FriendsModal({
   const [loading, setLoading] = useState(false);
 
   // Direct Chat State
-  const [activeChatFriend, setActiveChatFriend] = useState(null);
+  const [activeChatFriend, setActiveChatFriend] = useState(initialChatFriend || null);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [unreadMap, setUnreadMap] = useState({});
   const chatEndRef = useRef(null);
 
-  const loadFriends = () => {
+  const loadFriends = (silent = false) => {
     if (!user?.username) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     socket.emit('getFriends', { username: user.username }, (res) => {
-      setLoading(false);
+      if (!silent) setLoading(false);
       if (res && res.success) {
         if (res.userId) setMyUserId(res.userId);
-        setFriends(res.friends || []);
+        const list = res.friends || [];
+        setFriends(list);
+        if (initialChatFriend) {
+          const found = list.find(
+            (f) => f.username.toLowerCase() === String(initialChatFriend.username || initialChatFriend).toLowerCase()
+          );
+          if (found) {
+            setActiveChatFriend((prev) => prev || found);
+          }
+        }
       }
     });
   };
 
   useEffect(() => {
-    loadFriends();
+    loadFriends(false);
+    const pollInterval = setInterval(() => loadFriends(true), 5000);
+
+    if (initialChatFriend) {
+      const fName = initialChatFriend.username || initialChatFriend;
+      socket.emit(
+        'getDirectMessages',
+        { username: user?.username, friendUsername: fName },
+        (res) => {
+          if (res && res.success) {
+            setChatMessages(res.messages || []);
+          }
+        }
+      );
+    }
 
     const handleFriendsUpdated = (data) => {
       if (data && data.targetUsername && user?.username && data.targetUsername.toLowerCase() === user.username.toLowerCase()) {
@@ -59,7 +96,7 @@ export default function FriendsModal({
       const partner = fromLow === myLow ? toLow : fromLow;
 
       setActiveChatFriend((currFriend) => {
-        if (currFriend && currFriend.username.toLowerCase() === partner) {
+        if (currFriend && (currFriend.username || '').toLowerCase() === partner) {
           setChatMessages((prev) => {
             if (prev.some((m) => m.id === msg.id)) return prev;
             return [...prev, msg];
@@ -75,6 +112,7 @@ export default function FriendsModal({
     socket.on('friendsUpdated', handleFriendsUpdated);
     socket.on('directMessageReceived', handleDirectMessage);
     return () => {
+      clearInterval(pollInterval);
       socket.off('friendsUpdated', handleFriendsUpdated);
       socket.off('directMessageReceived', handleDirectMessage);
     };
@@ -225,13 +263,19 @@ export default function FriendsModal({
     );
   };
 
+  const liveChatFriend = activeChatFriend
+    ? friends.find(
+        (f) => f.username.toLowerCase() === (activeChatFriend.username || '').toLowerCase()
+      ) || activeChatFriend
+    : null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div className="bg-zinc-950 border-2 border-cyan-500/60 rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-[0_0_50px_rgba(6,182,212,0.25)] flex flex-col max-h-[90vh] overflow-hidden text-white">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4 shrink-0">
           <div className="flex items-center gap-2.5">
-            {activeChatFriend ? (
+            {liveChatFriend ? (
               <button
                 type="button"
                 onClick={() => setActiveChatFriend(null)}
@@ -246,8 +290,8 @@ export default function FriendsModal({
             )}
             <div>
               <h2 className="text-base sm:text-lg font-display font-bold text-white tracking-wide">
-                {activeChatFriend
-                  ? `💬 Чат с ${activeChatFriend.username}`
+                {liveChatFriend
+                  ? `💬 Чат с ${liveChatFriend.username}`
                   : lang === 'uz'
                   ? "DO'STLAR, CHAT VA ID"
                   : lang === 'en'
@@ -255,8 +299,8 @@ export default function FriendsModal({
                   : 'ДРУЗЬЯ ПО ID И ЛИЧНЫЙ ЧАТ'}
               </h2>
               <p className="text-[11px] text-zinc-400 font-mono">
-                {activeChatFriend
-                  ? `ID: #${activeChatFriend.userId} • ${activeChatFriend.isOnline ? '🟢 Онлайн' : '⚫ Оффлайн'}`
+                {liveChatFriend
+                  ? `ID: #${liveChatFriend.userId || '------'} • ${liveChatFriend.isOnline ? '🟢 Онлайн' : '⚫ Оффлайн'}`
                   : lang === 'uz'
                   ? "ID orqali do'st qo'shing, yozishing va birga o'ynang"
                   : lang === 'en'
@@ -275,12 +319,12 @@ export default function FriendsModal({
         </div>
 
         {/* DIRECT CHAT VIEW WITH A FRIEND */}
-        {activeChatFriend ? (
+        {liveChatFriend ? (
           <div className="flex-1 flex flex-col min-h-[340px] max-h-[65vh]">
             <div className="flex-1 overflow-y-auto space-y-2.5 p-3 rounded-2xl bg-zinc-900/70 border border-zinc-800 mb-3">
               {chatMessages.length === 0 ? (
                 <div className="text-center py-12 text-zinc-500 font-mono text-xs">
-                  Напишите первое сообщение другу <strong className="text-cyan-400">{activeChatFriend.username}</strong>!
+                  Напишите первое сообщение другу <strong className="text-cyan-400">{liveChatFriend.username}</strong>!
                 </div>
               ) : (
                 chatMessages.map((m) => {
@@ -299,7 +343,7 @@ export default function FriendsModal({
                       >
                         <div>{m.text}</div>
                         <div className={`text-[9px] mt-0.5 ${isMine ? 'text-black/70 text-right' : 'text-zinc-400'}`}>
-                          {m.timestamp}
+                          {formatLocalTime(m)}
                         </div>
                       </div>
                     </div>

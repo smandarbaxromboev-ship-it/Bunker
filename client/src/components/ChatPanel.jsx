@@ -173,7 +173,11 @@ export default function ChatPanel({
                 <span className={isMe ? (isGhostMsg ? 'text-purple-400 font-bold' : 'text-amber-400 font-bold') : (isGhostMsg ? 'text-purple-300 font-semibold' : 'text-zinc-300 font-medium')}>
                   {getLocalized(msg.senderName, lang)} {isMe ? t.you : ''}
                 </span>
-                <span className="text-[9px] text-zinc-500">{msg.timestamp}</span>
+                <span className="text-[9px] text-zinc-500">
+                  {msg.createdAt
+                    ? new Date(msg.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false })
+                    : msg.timestamp}
+                </span>
               </div>
 
               {/* Message Bubble: either Sticker or Plain Text */}

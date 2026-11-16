@@ -493,14 +493,20 @@ class UserManager {
     const key = this.getDmKey(sender.username, target.username);
     const list = this.directMessages.get(key) || [];
 
+    const nowMs = Date.now();
     const msg = {
-      id: 'dm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      id: 'dm_' + nowMs + '_' + Math.random().toString(36).substring(2, 6),
       from: sender.username,
       fromAvatar: sender.avatarUrl || null,
       to: target.username,
       text: cleanText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      createdAt: Date.now()
+      timestamp: new Date(nowMs).toLocaleTimeString('ru-RU', {
+        timeZone: 'Asia/Tashkent',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }),
+      createdAt: nowMs
     };
 
     list.push(msg);

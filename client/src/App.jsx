@@ -72,17 +72,36 @@ export default function App() {
   const [showShopModal, setShowShopModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showFriendsModal, setShowFriendsModal] = useState(false);
+  const [initialChatFriend, setInitialChatFriend] = useState(null);
+  const [unreadDmCount, setUnreadDmCount] = useState(0);
+  const [pendingDmNotice, setPendingDmNotice] = useState(null);
   const [showDailyModal, setShowDailyModal] = useState(false);
   const [publicRooms, setPublicRooms] = useState([]);
   const [pendingInvite, setPendingInvite] = useState(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isRulesMandatory, setIsRulesMandatory] = useState(false);
+  const [showRevealModal, setShowRevealModal] = useState(true);
   const [showVotingModal, setShowVotingModal] = useState(true);
   const [showResultModal, setShowResultModal] = useState(true);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
   const [atmosphereEnabled, setAtmosphereEnabled] = useState(() => {
     return localStorage.getItem('bunker_atmosphere') !== 'false';
   });
+
+  const applyNormalizedRoomState = (newState) => {
+    if (!newState) {
+      setRoomState(null);
+      return;
+    }
+    const normalized = {
+      ...newState,
+      timerExpiresAt:
+        newState.timerRemainingMs != null
+          ? Date.now() + Number(newState.timerRemainingMs)
+          : newState.timerExpiresAt
+    };
+    setRoomState(normalized);
+  };
 
   useEffect(() => {
     const onBeforeInstallPrompt = (e) => {
@@ -117,16 +136,18 @@ export default function App() {
     localStorage.setItem('bunker_atmosphere', String(val));
   };
 
-  // Auto-open voting and result modals on round phase change
+  // Auto-open reveal, voting and result modals on round phase change
   useEffect(() => {
-    if (roomState?.status === 'ROUND_VOTING') {
+    if (roomState?.status === 'ROUND_REVEAL') {
+      setShowRevealModal(true);
+    } else if (roomState?.status === 'ROUND_VOTING') {
       setShowVotingModal(true);
     } else if (roomState?.status === 'ROUND_DISCUSSION') {
       setShowVotingModal(false);
     } else if (roomState?.status === 'ROUND_RESULT') {
       setShowResultModal(true);
     }
-  }, [roomState?.status]);
+  }, [roomState?.status, roomState?.activeTurnPlayerId]);
 
   // URL Popstate tracking for /admin and /
   useEffect(() => {
@@ -193,12 +214,21 @@ export default function App() {
     socket.on('connect', () => {
       console.log('Подключено к серверу:', socket.id);
       fetchPublicRooms();
+      const mySavedUser = localStorage.getItem('bunker_user_v3');
+      if (mySavedUser) {
+        try {
+          const parsedUser = JSON.parse(mySavedUser);
+          if (parsedUser?.username) {
+            socket.emit('getProfile', { username: parsedUser.username, fallbackUser: parsedUser });
+          }
+        } catch (e) {}
+      }
       const savedCode = localStorage.getItem('bunker_room_code');
       const savedId = localStorage.getItem('bunker_player_id');
       if (savedCode && savedId) {
         socket.emit('reconnectSession', { roomCode: savedCode, playerId: savedId }, (res) => {
           if (res && !res.error && res.room) {
-            setRoomState(res.room);
+            applyNormalizedRoomState(res.room);
             setMyPlayerId(res.playerId);
             setInRoom(true);
           }
@@ -218,8 +248,22 @@ export default function App() {
       if (!savedCode || (newState?.code && savedCode !== newState.code)) {
         return;
       }
-      setRoomState(newState);
+      applyNormalizedRoomState(newState);
       setInRoom(true);
+    });
+
+    socket.on('directMessageReceived', (msg) => {
+      if (!msg || !msg.to || !msg.from) return;
+      const mySaved = localStorage.getItem('bunker_user_v3');
+      if (!mySaved) return;
+      try {
+        const parsed = JSON.parse(mySaved);
+        if (parsed.username && parsed.username.toLowerCase() === msg.to.toLowerCase() && parsed.username.toLowerCase() !== msg.from.toLowerCase()) {
+          soundManager.playBeep(1080, 0.1);
+          setUnreadDmCount((c) => c + 1);
+          setPendingDmNotice(msg);
+        }
+      } catch (e) {}
     });
 
     socket.on('chatMessage', (msg) => {
@@ -294,6 +338,7 @@ export default function App() {
       socket.off('connect');
       socket.off('publicRoomsUpdated');
       socket.off('roomStateUpdate');
+      socket.off('directMessageReceived');
       socket.off('chatMessage');
       socket.off('userProfileUpdated');
       socket.off('userBlocked');
@@ -384,7 +429,7 @@ export default function App() {
       setMyPlayerId(res.playerId);
       localStorage.setItem('bunker_player_id', res.playerId);
       localStorage.setItem('bunker_room_code', res.code);
-      setRoomState(res.room);
+      applyNormalizedRoomState(res.room);
       setInRoom(true);
     });
   };
@@ -419,7 +464,7 @@ export default function App() {
       setMyPlayerId(res.playerId);
       localStorage.setItem('bunker_player_id', res.playerId);
       localStorage.setItem('bunker_room_code', res.code);
-      setRoomState(res.room);
+      applyNormalizedRoomState(res.room);
       setInRoom(true);
     });
   };
@@ -461,7 +506,7 @@ export default function App() {
       setMyPlayerId(res.playerId);
       localStorage.setItem('bunker_player_id', res.playerId);
       localStorage.setItem('bunker_room_code', res.code);
-      setRoomState(res.room);
+      applyNormalizedRoomState(res.room);
       setInRoom(true);
     });
   };
@@ -533,39 +578,76 @@ export default function App() {
   const isChatLocked = false; // Чат теперь доступен всегда, даже во время и после голосования!
 
   const renderInviteBanner = () => {
-    if (!pendingInvite) return null;
     return (
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[70] w-[94vw] max-w-md bg-zinc-950/95 border-2 border-cyan-400 rounded-2xl p-4 shadow-[0_0_40px_rgba(6,182,212,0.45)] animate-bounce text-white">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-xl shrink-0">
-              {pendingInvite.fromAvatar || '🥷'}
-            </div>
-            <div className="min-w-0">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-bold">
-                {lang === 'uz' ? "DO'STDAN TAKLIF!" : lang === 'en' ? 'FRIEND ROOM INVITE!' : '📨 ПРИГЛАШЕНИЕ ОТ ДРУГА!'}
+      <>
+        {pendingInvite && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[70] w-[94vw] max-w-md bg-zinc-950/95 border-2 border-cyan-400 rounded-2xl p-4 shadow-[0_0_40px_rgba(6,182,212,0.45)] animate-bounce text-white">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-xl shrink-0">
+                  {pendingInvite.fromAvatar || '🥷'}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-bold">
+                    {lang === 'uz' ? "DO'STDAN TAKLIF!" : lang === 'en' ? 'FRIEND ROOM INVITE!' : '📨 ПРИГЛАШЕНИЕ ОТ ДРУГА!'}
+                  </div>
+                  <div className="text-xs sm:text-sm font-display font-bold text-white truncate">
+                    {pendingInvite.fromUsername} {lang === 'uz' ? `sizni #${pendingInvite.roomCode} xonasiga chaqiryapti!` : lang === 'en' ? `invites you to Bunker #${pendingInvite.roomCode}!` : `зовёт вас в Бункер #${pendingInvite.roomCode}!`}
+                  </div>
+                </div>
               </div>
-              <div className="text-xs sm:text-sm font-display font-bold text-white truncate">
-                {pendingInvite.fromUsername} {lang === 'uz' ? `sizni #${pendingInvite.roomCode} xonasiga chaqiryapti!` : lang === 'en' ? `invites you to Bunker #${pendingInvite.roomCode}!` : `зовёт вас в Бункер #${pendingInvite.roomCode}!`}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => handleJoinRoomByCode(pendingInvite.roomCode)}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-display font-bold text-xs transition cursor-pointer shadow-lg"
+                >
+                  {lang === 'uz' ? 'Kirish' : lang === 'en' ? 'Join' : 'Войти'}
+                </button>
+                <button
+                  onClick={() => setPendingInvite(null)}
+                  className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700 text-xs transition cursor-pointer"
+                >
+                  ✕
+                </button>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={() => handleJoinRoomByCode(pendingInvite.roomCode)}
-              className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-display font-bold text-xs transition cursor-pointer shadow-lg"
-            >
-              {lang === 'uz' ? 'Kirish' : lang === 'en' ? 'Join' : 'Войти'}
-            </button>
-            <button
-              onClick={() => setPendingInvite(null)}
-              className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700 text-xs transition cursor-pointer"
-            >
-              ✕
-            </button>
+        )}
+
+        {pendingDmNotice && !showFriendsModal && (
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[69] w-[94vw] max-w-md bg-zinc-950/95 border-2 border-amber-400 rounded-2xl p-3.5 shadow-[0_0_35px_rgba(245,158,11,0.4)] animate-fadeIn text-white">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold">
+                  💬 Сообщение от друга {pendingDmNotice.from}:
+                </div>
+                <div className="text-xs font-mono text-zinc-100 truncate mt-0.5">
+                  «{pendingDmNotice.text}»
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => {
+                    setInitialChatFriend({ username: pendingDmNotice.from });
+                    setPendingDmNotice(null);
+                    setUnreadDmCount(0);
+                    setShowFriendsModal(true);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs transition cursor-pointer"
+                >
+                  Ответить
+                </button>
+                <button
+                  onClick={() => setPendingDmNotice(null)}
+                  className="p-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700 text-xs transition cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        )}
+      </>
     );
   };
 
@@ -665,14 +747,24 @@ export default function App() {
               {/* Friends by ID Button */}
               {user && (
                 <button
-                  onClick={() => setShowFriendsModal(true)}
+                  onClick={() => {
+                    setInitialChatFriend(null);
+                    setUnreadDmCount(0);
+                    setPendingDmNotice(null);
+                    setShowFriendsModal(true);
+                  }}
                   title={lang === 'uz' ? "Do'stlar (ID orqali)" : lang === 'en' ? 'Friends (by ID)' : 'Добавить друзей по ID и играть вместе'}
-                  className="px-3 py-1.5 rounded-2xl bg-cyan-500/15 hover:bg-cyan-500 hover:text-zinc-950 border border-cyan-500/40 text-cyan-600 dark:text-cyan-300 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1.5 cursor-pointer"
+                  className="px-3 py-1.5 rounded-2xl bg-cyan-500/15 hover:bg-cyan-500 hover:text-zinc-950 border border-cyan-500/40 text-cyan-600 dark:text-cyan-300 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1.5 cursor-pointer relative"
                 >
                   <span>👥</span>
                   <span>{lang === 'uz' ? "Do'stlar" : lang === 'en' ? 'Friends' : 'Друзья'}</span>
                   {user.userId && (
                     <span className="hidden sm:inline text-[10px] opacity-80">#{user.userId}</span>
+                  )}
+                  {unreadDmCount > 0 && (
+                    <span className="ml-1 px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[9px] font-bold animate-bounce">
+                      💬 {unreadDmCount}
+                    </span>
                   )}
                 </button>
               )}
@@ -1074,8 +1166,12 @@ export default function App() {
             user={user}
             socket={socket}
             currentRoomCode={roomState?.code || null}
+            initialChatFriend={initialChatFriend}
             onJoinFriendRoom={handleJoinRoomByCode}
-            onClose={() => setShowFriendsModal(false)}
+            onClose={() => {
+              setShowFriendsModal(false);
+              setInitialChatFriend(null);
+            }}
             onUserUpdated={handleUserUpdated}
             lang={lang}
           />
@@ -1135,8 +1231,12 @@ export default function App() {
             user={user}
             socket={socket}
             currentRoomCode={roomState?.code || null}
+            initialChatFriend={initialChatFriend}
             onJoinFriendRoom={handleJoinRoomByCode}
-            onClose={() => setShowFriendsModal(false)}
+            onClose={() => {
+              setShowFriendsModal(false);
+              setInitialChatFriend(null);
+            }}
             onUserUpdated={handleUserUpdated}
             lang={lang}
           />
@@ -1206,8 +1306,12 @@ export default function App() {
             user={user}
             socket={socket}
             currentRoomCode={roomState?.code || null}
+            initialChatFriend={initialChatFriend}
             onJoinFriendRoom={handleJoinRoomByCode}
-            onClose={() => setShowFriendsModal(false)}
+            onClose={() => {
+              setShowFriendsModal(false);
+              setInitialChatFriend(null);
+            }}
             onUserUpdated={handleUserUpdated}
             lang={lang}
           />
@@ -1289,7 +1393,10 @@ export default function App() {
             {/* Quick Trigger Button for Card Reveal */}
             {roomState?.status === 'ROUND_REVEAL' && isAlive && !myPlayer?.hasRevealedThisRound && (
               <button
-                onClick={() => soundManager.playBeep(750, 0.05)}
+                onClick={() => {
+                  soundManager.playBeep(750, 0.05);
+                  setShowRevealModal(true);
+                }}
                 className="px-3 sm:px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-display font-bold shadow-md shadow-amber-500/20 animate-bounce cursor-pointer shrink-0"
               >
                 {t.btnChooseCard}
@@ -1334,10 +1441,13 @@ export default function App() {
       </main>
 
       {/* Floating Action Button (FAB) on Mobile when it's time to reveal card */}
-      {roomState?.status === 'ROUND_REVEAL' && isAlive && !myPlayer?.hasRevealedThisRound && (
+      {roomState?.status === 'ROUND_REVEAL' && isAlive && (!showRevealModal || !myPlayer?.hasRevealedThisRound) && (
         <div className="md:hidden fixed bottom-18 right-4 z-40 animate-bounce">
           <button
-            onClick={() => soundManager.playBeep(750, 0.05)}
+            onClick={() => {
+              soundManager.playBeep(750, 0.05);
+              setShowRevealModal(true);
+            }}
             className="px-4 py-2.5 rounded-2xl bg-amber-500 text-black font-display font-bold text-xs shadow-2xl flex items-center gap-1.5 border-2 border-white/20"
           >
             <Sparkles className="w-4 h-4" />
@@ -1382,7 +1492,7 @@ export default function App() {
 
       {/* MODALS */}
       {/* 1. Tactical Card Reveal Modal */}
-      {roomState?.status === 'ROUND_REVEAL' && isAlive && (
+      {roomState?.status === 'ROUND_REVEAL' && isAlive && showRevealModal && (
         <CardRevealModal
           myPlayer={myPlayer}
           currentRound={roomState.currentRound}
@@ -1396,6 +1506,7 @@ export default function App() {
             }
           }}
           onUseTrump={(card) => setActiveTrumpCard(card)}
+          onClose={() => setShowRevealModal(false)}
           expiresAt={roomState?.timerExpiresAt}
           activeTurnPlayer={roomState?.players?.find(p => p.id === roomState.activeTurnPlayerId)}
           isMyTurn={roomState?.activeTurnPlayerId === myPlayerId}
@@ -1409,6 +1520,7 @@ export default function App() {
           roomState={roomState}
           myPlayerId={myPlayerId}
           onCastVote={handleCastVote}
+          onUseTrump={(card) => setActiveTrumpCard(card)}
           onClose={() => setShowVotingModal(false)}
           onLeaveRoom={handleLeaveRoom}
           lang={lang}
@@ -1523,8 +1635,12 @@ export default function App() {
           user={user}
           socket={socket}
           currentRoomCode={roomState?.code || null}
+          initialChatFriend={initialChatFriend}
           onJoinFriendRoom={handleJoinRoomByCode}
-          onClose={() => setShowFriendsModal(false)}
+          onClose={() => {
+            setShowFriendsModal(false);
+            setInitialChatFriend(null);
+          }}
           onUserUpdated={handleUserUpdated}
           lang={lang}
         />

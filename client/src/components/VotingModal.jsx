@@ -7,7 +7,8 @@ import GhostVisionHUD from './GhostVisionHUD';
 export default function VotingModal({ 
   roomState, 
   myPlayerId, 
-  onCastVote, 
+  onCastVote,
+  onUseTrump,
   onClose,
   onLeaveRoom,
   lang = 'ru' 
@@ -18,6 +19,7 @@ export default function VotingModal({
   const isAlive = myPlayer?.isAlive;
   const hasVoted = myPlayer?.hasVoted;
   const ghostVotes = roomState?.ghostVotes;
+  const specialCard = (myPlayer?.deck || []).find(c => c.type === 'special' && !c.used);
 
   const eligibleTargets = (roomState?.players || []).filter(
     p => p.isAlive && p.id !== myPlayerId
@@ -178,31 +180,45 @@ export default function VotingModal({
           )}
         </div>
 
-        {/* Footer Submit */}
-        {isAlive && !hasVoted && (
-          <div className="mt-3 pt-3 border-t border-zinc-800 flex items-center justify-between gap-2 shrink-0">
-            {onClose && (
+        {/* Footer Submit & Trump Trigger */}
+        {isAlive && (
+          <div className="mt-3 pt-3 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-2">
+              {onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 text-xs font-mono font-bold transition cursor-pointer"
+                >
+                  {t.btnCancel || 'Свернуть'}
+                </button>
+              )}
+
+              {specialCard && onUseTrump && (
+                <button
+                  type="button"
+                  onClick={() => onUseTrump(specialCard)}
+                  className="px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500 hover:text-black border border-amber-500/50 text-amber-400 font-display font-bold text-xs transition cursor-pointer flex items-center gap-1"
+                >
+                  <span>{t.btnUseTrump || '⚡ Использовать Козырь'}</span>
+                </button>
+              )}
+            </div>
+
+            {!hasVoted && (
               <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 text-xs font-mono font-bold transition cursor-pointer"
+                onClick={handleVoteSubmit}
+                disabled={!selectedTargetId}
+                className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-display font-bold text-sm tracking-wide flex items-center justify-center gap-2 transition ${
+                  selectedTargetId
+                    ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/30 cursor-pointer animate-pulse'
+                    : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                }`}
               >
-                {t.btnCancel || 'Свернуть'}
+                <Vote className="w-4 h-4" />
+                {t.btnVote}
               </button>
             )}
-
-            <button
-              onClick={handleVoteSubmit}
-              disabled={!selectedTargetId}
-              className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-display font-bold text-sm tracking-wide flex items-center justify-center gap-2 transition ${
-                selectedTargetId
-                  ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/30 cursor-pointer animate-pulse'
-                  : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-              }`}
-            >
-              <Vote className="w-4 h-4" />
-              {t.btnVote}
-            </button>
           </div>
         )}
       </div>

@@ -25,6 +25,19 @@ function calculateBunkerCapacity(playerCount) {
   return 2;
 }
 
+function formatServerTime(nowMs = Date.now()) {
+  try {
+    return new Date(nowMs).toLocaleTimeString('ru-RU', {
+      timeZone: 'Asia/Tashkent',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  } catch (e) {
+    return new Date(nowMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+}
+
 function resolvePlayerCharacter(userProfile) {
   if (userProfile && userProfile.characterDetails) {
     return {
@@ -160,7 +173,8 @@ class GameManager {
             en: `Room #${code} is ready. Waiting for players (from 3 to 12 players).`,
             uz: `#${code} xona tayyor. O'yinchilar kutilmoqda (3 dan 12 tagacha o'yinchi).`
           },
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: formatServerTime(),
+          createdAt: Date.now(),
           isSystem: true
         }
       ],
@@ -507,11 +521,19 @@ class GameManager {
       const valEn = typeof chosen.value === 'object' ? (chosen.value.en || chosen.value.ru) : chosen.value;
       const valUz = typeof chosen.value === 'object' ? (chosen.value.uz || chosen.value.ru) : chosen.value;
 
-      this.addSystemMessage(room, {
-        ru: `🤖 ${bot.name} по очереди вскрыл: [${nameRu}] — "${valRu}"`,
-        en: `🤖 ${bot.name} revealed in turn: [${nameEn}] — "${valEn}"`,
-        uz: `🤖 ${bot.name} navbat bilan ochdi: [${nameUz}] — "${valUz}"`
-      });
+      if (chosen.type === 'special') {
+        this.addSystemMessage(room, {
+          ru: `⚡ [КОЗЫРЬ]: ${bot.name} использовал свой Козырь!`,
+          en: `⚡ [TRUMP]: ${bot.name} used their Trump card!`,
+          uz: `⚡ [KOZIR]: ${bot.name} o'z Koziridan foydalandi!`
+        });
+      } else {
+        this.addSystemMessage(room, {
+          ru: `🤖 ${bot.name} по очереди вскрыл: [${nameRu}] — "${valRu}"`,
+          en: `🤖 ${bot.name} revealed in turn: [${nameEn}] — "${valEn}"`,
+          uz: `🤖 ${bot.name} navbat bilan ochdi: [${nameUz}] — "${valUz}"`
+        });
+      }
     }
 
     room.currentRevealingPlayerIndex++;
@@ -527,9 +549,11 @@ class GameManager {
       const unrevealed = player.deck.filter(c => !c.revealed);
       if (unrevealed.length > 0) {
         const profCard = unrevealed.find(c => c.id === 'profession' || c.type === 'profession');
+        const regularUnrevealed = unrevealed.filter(c => c.type !== 'special');
+        const pool = regularUnrevealed.length > 0 ? regularUnrevealed : unrevealed;
         const randomCard = (room.currentRound === 1 && profCard)
           ? profCard
-          : unrevealed[Math.floor(Math.random() * unrevealed.length)];
+          : pool[Math.floor(Math.random() * pool.length)];
         randomCard.revealed = true;
         randomCard.revealedInRound = room.currentRound;
         player.revealedCardId = randomCard.id;
@@ -542,11 +566,19 @@ class GameManager {
         const valEn = typeof randomCard.value === 'object' ? (randomCard.value.en || randomCard.value.ru) : randomCard.value;
         const valUz = typeof randomCard.value === 'object' ? (randomCard.value.uz || randomCard.value.ru) : randomCard.value;
 
-        this.addSystemMessage(room, {
-          ru: `⏱️ Время 1 минута истекло! У ${player.name} открыта карта: [${nameRu}] — "${valRu}"`,
-          en: `⏱️ 1 minute expired! A card was revealed for ${player.name}: [${nameEn}] — "${valEn}"`,
-          uz: `⏱️ 1 daqiqa vaqt tugadi! ${player.name} uchun karta ochildi: [${nameUz}] — "${valUz}"`
-        });
+        if (randomCard.type === 'special') {
+          this.addSystemMessage(room, {
+            ru: `⏱️ Время 1 минута истекло! У ${player.name} открыт Козырь!`,
+            en: `⏱️ 1 minute expired! Trump card revealed for ${player.name}!`,
+            uz: `⏱️ 1 daqiqa vaqt tugadi! ${player.name}ning Koziri ochildi!`
+          });
+        } else {
+          this.addSystemMessage(room, {
+            ru: `⏱️ Время 1 минута истекло! У ${player.name} открыта карта: [${nameRu}] — "${valRu}"`,
+            en: `⏱️ 1 minute expired! A card was revealed for ${player.name}: [${nameEn}] — "${valEn}"`,
+            uz: `⏱️ 1 daqiqa vaqt tugadi! ${player.name} uchun karta ochildi: [${nameUz}] — "${valUz}"`
+          });
+        }
       }
     }
 
@@ -585,11 +617,19 @@ class GameManager {
     const valEn = typeof card.value === 'object' ? (card.value.en || card.value.ru) : card.value;
     const valUz = typeof card.value === 'object' ? (card.value.uz || card.value.ru) : card.value;
 
-    this.addSystemMessage(room, {
-      ru: `👤 ${currentPlayer.name} по очереди открыл: [${nameRu}] — "${valRu}"`,
-      en: `👤 ${currentPlayer.name} revealed in turn: [${nameEn}] — "${valEn}"`,
-      uz: `👤 ${currentPlayer.name} navbat bilan ochdi: [${nameUz}] — "${valUz}"`
-    });
+    if (card.type === 'special') {
+      this.addSystemMessage(room, {
+        ru: `⚡ [КОЗЫРЬ]: ${currentPlayer.name} открыл свой Козырь!`,
+        en: `⚡ [TRUMP]: ${currentPlayer.name} revealed their Trump card!`,
+        uz: `⚡ [KOZIR]: ${currentPlayer.name} o'z Kozirini ochdi!`
+      });
+    } else {
+      this.addSystemMessage(room, {
+        ru: `👤 ${currentPlayer.name} по очереди открыл: [${nameRu}] — "${valRu}"`,
+        en: `👤 ${currentPlayer.name} revealed in turn: [${nameEn}] — "${valEn}"`,
+        uz: `👤 ${currentPlayer.name} navbat bilan ochdi: [${nameUz}] — "${valUz}"`
+      });
+    }
 
     // Передаем ход следующему игроку
     room.currentRevealingPlayerIndex++;
@@ -894,7 +934,8 @@ class GameManager {
               en: phrasesEn[pIdx],
               uz: phrasesUz[pIdx]
             },
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: formatServerTime(),
+            createdAt: Date.now(),
             isSystem: false,
             isGhost: false
           });
@@ -1022,7 +1063,7 @@ class GameManager {
         };
       }
 
-      targetCard.revealed = true; // Обновленная карта видна на досье, но в чате НЕ пишется, какая именно карта была изменена и какой она была!
+      // Если карта уже была открыта ранее — все видят новое значение без сообщения в чате; если была закрыта — она остаётся закрытой до вашего хода, чтобы никто не узнал, какую карту вы поменяли!
       specialCard.used = true;
       specialCard.revealed = true;
 
@@ -1421,7 +1462,8 @@ class GameManager {
           en: `Room reset. Ready for a new game!`,
           uz: `Xona yangilandi. Yangi o'yinga tayyormiz!`
         },
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: formatServerTime(),
+        createdAt: Date.now(),
         isSystem: true
       }
     ];
@@ -1439,6 +1481,7 @@ class GameManager {
     // Если игрок выбыл, сообщение отправляется в закрытый "Призрачный чат" (видят только мертвые)
     const isGhostMessage = !sender.isAlive;
 
+    const nowMs = Date.now();
     const msg = {
       id: 'msg_' + Math.random().toString(36).substring(2, 9),
       senderId: sender.id,
@@ -1447,7 +1490,8 @@ class GameManager {
       text: (text || '').trim().substring(0, 300),
       sticker: sticker || null,
       isGhost: isGhostMessage,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: formatServerTime(nowMs),
+      createdAt: nowMs,
       isSystem: false
     };
 
@@ -1469,12 +1513,14 @@ class GameManager {
     if (typeof textObj === 'string') {
       text = { ru: textObj, en: textObj, uz: textObj };
     }
+    const nowMs = Date.now();
     const msg = {
-      id: 'sys_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      id: 'sys_' + nowMs + '_' + Math.random().toString(36).substring(2, 6),
       senderId: 'SYSTEM',
       senderName: { ru: 'СИСТЕМА', en: 'SYSTEM', uz: 'TIZIM' },
       text,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: formatServerTime(nowMs),
+      createdAt: nowMs,
       isSystem: true
     };
     room.messages.push(msg);
@@ -1502,6 +1548,9 @@ class GameManager {
         });
     }
 
+    const serverNow = Date.now();
+    const timerRemainingMs = room.timerExpiresAt ? Math.max(0, room.timerExpiresAt - serverNow) : null;
+
     return {
       code: room.code,
       hostId: room.hostId,
@@ -1512,6 +1561,8 @@ class GameManager {
       bunkerCapacity: room.bunkerCapacity || calculateBunkerCapacity(room.players.length),
       votingResults: room.votingResults,
       ghostVotes,
+      serverNow,
+      timerRemainingMs,
       timerExpiresAt: room.timerExpiresAt,
       timerType: room.timerType,
       isExtraTime: Boolean(room.isExtraTime),

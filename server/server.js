@@ -508,6 +508,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('getUserProfile', ({ username }, callback) => {
+    if (username) bindUserSocket(username, socket.id);
     const u = userManager.getUser(username);
     if (typeof callback === 'function') callback(u);
   });
@@ -516,6 +517,7 @@ io.on('connection', (socket) => {
   // Создание новой комнаты
   socket.on('createRoom', ({ playerName, userProfile }, callback) => {
     try {
+      if (userProfile?.username) bindUserSocket(userProfile.username, socket.id);
       const res = gameManager.createRoom(playerName || 'Командир', socket.id, userProfile);
       socket.join(res.code);
       if (typeof callback === 'function') callback(res);
@@ -528,6 +530,7 @@ io.on('connection', (socket) => {
   // Вход в существующую комнату
   socket.on('joinRoom', ({ roomCode, playerName, userProfile }, callback) => {
     try {
+      if (userProfile?.username) bindUserSocket(userProfile.username, socket.id);
       const cleanCode = (roomCode || '').trim();
       const res = gameManager.joinRoom(cleanCode, playerName || 'Выживший', socket.id, userProfile);
       if (res.error) {
