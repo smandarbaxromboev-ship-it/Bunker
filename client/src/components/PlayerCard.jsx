@@ -22,6 +22,7 @@ export default function PlayerCard({
   isVoting, 
   onVoteTarget, 
   hasVotedForThis, 
+  myHasVoted = false,
   onInspectCard,
   onUseTrump,
   lang = 'ru' 
@@ -108,6 +109,17 @@ export default function PlayerCard({
                   {t.exiled}
                 </span>
               )}
+
+              {/* Voting status badge */}
+              {isVoting && isAlive && (
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${
+                  player.hasVoted
+                    ? 'bg-emerald-950/70 border border-emerald-500/50 text-emerald-400 font-bold'
+                    : 'bg-amber-950/60 border border-amber-500/40 text-amber-400 animate-pulse'
+                }`}>
+                  {player.hasVoted ? '✓ Проголосовал' : '⏳ Думает...'}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -115,15 +127,19 @@ export default function PlayerCard({
         {/* Voting Button during voting phase */}
         {isVoting && isAlive && !isSelf && (
           <button
-            onClick={() => onVoteTarget(player.id)}
+            onClick={() => !myHasVoted && onVoteTarget(player.id)}
+            disabled={myHasVoted}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition flex items-center gap-1 shrink-0 ${
               hasVotedForThis
-                ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
-                : 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 dark:bg-red-950/60 dark:hover:bg-red-900 dark:text-red-300 dark:border-red-800'
+                ? 'bg-red-600 text-white shadow-md shadow-red-600/30 cursor-default ring-2 ring-red-400'
+                : myHasVoted
+                ? 'bg-zinc-800 text-zinc-500 border border-zinc-700 opacity-40 cursor-not-allowed'
+                : 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 dark:bg-red-950/60 dark:hover:bg-red-900 dark:text-red-300 dark:border-red-800 cursor-pointer'
             }`}
+            title={myHasVoted ? (hasVotedForThis ? "Ваш голос уже отдан" : "Вы уже проголосовали (переключиться нельзя)") : "Голосовать"}
           >
             {hasVotedForThis && <Check className="w-3.5 h-3.5" />}
-            <span>{hasVotedForThis ? t.selectedTarget : t.btnVote}</span>
+            <span>{hasVotedForThis ? (lang === 'uz' ? "Ovozingiz" : lang === 'en' ? "Your Vote" : "Ваш голос") : t.btnVote}</span>
           </button>
         )}
       </div>

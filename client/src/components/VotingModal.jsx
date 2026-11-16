@@ -180,6 +180,44 @@ export default function VotingModal({
           )}
         </div>
 
+        {/* Таблица: Кто проголосовал / Кто ещё думает */}
+        <div className="mt-2.5 p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 shrink-0">
+          <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-2 font-bold">
+            <span className="flex items-center gap-1.5 text-zinc-300">
+              <Vote className="w-3.5 h-3.5 text-amber-500" />
+              <span>{lang === 'uz' ? "Ovoz berish holati" : lang === 'en' ? "Voting Status" : "Статус участников голосования"}</span>
+            </span>
+            <span className="text-amber-400 font-mono font-bold">{votedCount} / {alivePlayers.length}</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-32 overflow-y-auto pr-1">
+            {alivePlayers.map(p => (
+              <div
+                key={p.id}
+                className={`px-2.5 py-1.5 rounded-xl border text-xs flex items-center justify-between transition ${
+                  p.hasVoted
+                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                    : 'bg-zinc-950/60 border-zinc-800 text-zinc-300'
+                }`}
+              >
+                <span className="truncate max-w-[120px] font-medium">
+                  {p.name} {p.id === myPlayerId ? `(${t.you || 'Вы'})` : ''}
+                </span>
+                {p.hasVoted ? (
+                  <span className="text-emerald-400 font-mono text-[11px] font-bold flex items-center gap-1 shrink-0">
+                    <CheckCircle className="w-3 h-3 text-emerald-400" />
+                    <span>{lang === 'uz' ? "Ovoz berdi" : lang === 'en' ? "Voted" : "Проголосовал"}</span>
+                  </span>
+                ) : (
+                  <span className="text-amber-400/90 font-mono text-[11px] flex items-center gap-1 shrink-0 animate-pulse">
+                    <span>⏳</span>
+                    <span>{lang === 'uz' ? "O'ylamoqda..." : lang === 'en' ? "Thinking..." : "Ещё думает..."}</span>
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Footer Submit & Trump Trigger */}
         {isAlive && (
           <div className="mt-3 pt-3 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-2 shrink-0">

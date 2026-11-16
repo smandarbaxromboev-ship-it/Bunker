@@ -1678,9 +1678,10 @@ export default function App() {
                 key={player.id}
                 player={player}
                 isSelf={player.id === myPlayerId}
-                isVoting={(roomState.status === 'ROUND_VOTING' || roomState.status === 'ROUND_DISCUSSION') && isAlive}
+                isVoting={(roomState.status === 'ROUND_VOTING' || roomState.status === 'ROUND_DISCUSSION') && isAlive && roomState.isExileRound !== false}
                 onVoteTarget={handleCastVote}
                 hasVotedForThis={myPlayer?.votedFor === player.id}
+                myHasVoted={Boolean(myPlayer?.hasVoted)}
                 onInspectCard={(data) => setInspectCardData(data)}
                 onUseTrump={(card) => setActiveTrumpCard(card)}
                 lang={lang}

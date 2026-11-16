@@ -13,16 +13,18 @@ const BOT_CHARACTERS = [
   { avatar: '🎯', name: { ru: 'Неоновый Снайпер', en: 'Neon Sniper', uz: 'Neon Mergan' }, borderClass: 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)]', glowClass: 'ring-2 ring-yellow-400', title: { ru: 'Легенда Пустошей', en: 'Wasteland Legend', uz: 'Sahro Afsonasi' }, titleColor: 'text-yellow-400 font-bold' }
 ];
 
-// Динамический расчет призовых мест:
-// 3..9 игроков -> 2 места
-// 10 игроков -> 3 места
-// 11 игроков -> 4 места
-// 12 игроков -> 5 мест
+// Динамический расчет мест в бункере (примерно 50% от числа игроков):
+// 3..4 игрока -> 2 места
+// 5..7 игроков -> 3 места (для 7 игроков: ровно 3 победителя в бункере!)
+// 8..9 игроков -> 4 места
+// 10..11 игроков -> 5 мест
+// 12 игроков -> 6 мест
 function calculateBunkerCapacity(playerCount) {
-  if (playerCount >= 12) return 5;
-  if (playerCount === 11) return 4;
-  if (playerCount === 10) return 3;
-  return 2;
+  if (playerCount <= 4) return 2;
+  if (playerCount <= 7) return 3;
+  if (playerCount <= 9) return 4;
+  if (playerCount <= 11) return 5;
+  return 6;
 }
 
 function formatServerTime(nowMs = Date.now()) {
@@ -414,6 +416,37 @@ class GameManager {
     return { success: true };
   }
 
+  // Определение раундов с изгнанием:
+  // Раунд 1 — ВСЕГДА раунд знакомства (0 изгнаний, все открывают Профессию).
+  // Изгнания распределяются так, чтобы игра длилась ВСЕ 7 РАУНДОВ и вскрылись ВСЕ 7 КАРТ!
+  isExileRound(room) {
+    if (!room) return false;
+    // 1 раунд — ВСЕГДА знакомство без изгнаний!
+    if (room.currentRound <= 1) return false;
+
+    const alivePlayers = room.players.filter(p => p.isAlive && !p.hasLeft);
+    const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
+
+    // Если мест в бункере уже хватает на всех оставшихся выживших — изгнаний больше нет!
+    if (alivePlayers.length <= capacity) {
+      return false;
+    }
+
+    const exilesNeeded = alivePlayers.length - capacity;
+    const roundsLeftIncludingThis = Math.max(1, 8 - room.currentRound);
+
+    // Если оставшихся раундов столько же, сколько нужно изгнать (или меньше) — изгнание обязательно в этом раунде!
+    if (exilesNeeded >= roundsLeftIncludingThis) {
+      return true;
+    }
+
+    // В 7 раунде всегда финальный отбор в бункер!
+    if (room.currentRound === 7) return true;
+
+    // В остальных раундах изгнания проводятся в четных раундах (2, 4, 6...)
+    return room.currentRound % 2 === 0;
+  }
+
   // ФАЗА 1: ПООЧЕРЕДНОЕ ВСКРЫТИЕ КАРТ (ПО 60 СЕКУНД НА ИГРОКА)
   startRevealPhase(room) {
     this.clearRoomTimer(room.code);
@@ -636,7 +669,7 @@ class GameManager {
     this.promptNextPlayerReveal(room);
   }
 
-  // ФАЗА 2: ДЕБАТЫ И ГОЛОСОВАНИЕ — ТАЙМЕР РОВНО 20 МИНУТ (1200 СЕКУНД)
+  // ФАЗА 2: ДЕБАТЫ И ГОЛОСОВАНИЕ
   startDiscussionPhase(room) {
     this.clearRoomTimer(room.code);
     room.status = 'ROUND_DISCUSSION';
@@ -646,11 +679,30 @@ class GameManager {
     room.timerType = 'ROUND';
     room.players.forEach(p => { p.votedFor = null; });
 
-    this.addSystemMessage(room, {
-      ru: `📢 ВСЕ КАРТЫ ВСКРЫТЫ! Любой игрок уже сейчас может голосовать на карточках игроков или открыть окно голосования (не нужно ждать создателя комнаты)!`,
-      en: `📢 ALL CARDS REVEALED! Any player can vote right now on player cards or open the voting window (no need to wait for the room host)!`,
-      uz: `📢 BARCHA KARTALAR OCHILDI! Har bir o'yinchi xona yaratuvchisini kutmasdan hoziroq ovoz berishi mumkin!`
-    });
+    const isExile = this.isExileRound(room);
+    room.isExileRound = isExile;
+
+    if (!isExile) {
+      if (room.currentRound === 1) {
+        this.addSystemMessage(room, {
+          ru: `📢 РАУНД 1 — КРУГ ЗНАКОМСТВА! Все открыли Профессию. В 1-м раунде никто не изгоняется! Обсуждайте профессии в чате и нажимайте «Следующий раунд», чтобы открыть вторую карту.`,
+          en: `📢 ROUND 1 — INTRODUCTIONS! All professions revealed. No exile in round 1! Discuss professions and proceed to Round 2.`,
+          uz: `📢 1-RAUND — TANISHUV BOSQICHI! Barcha kasbini ochdi. 1-raundda hech kim haydalmaydi! 2-raundga o'tish uchun tugmani bosing.`
+        });
+      } else {
+        this.addSystemMessage(room, {
+          ru: `📢 РАУНД ${room.currentRound} — МИРНЫЙ РАУНД (БЕЗ ИЗГНАНИЯ)! Все новые карты открыты. Никто не покидает бункер в этом раунде! Обсуждайте характеристики и переходите к следующему раунду.`,
+          en: `📢 ROUND ${room.currentRound} — PEACEFUL ROUND (NO EXILE)! All cards revealed. No one leaves the bunker this round! Discuss and proceed to the next round.`,
+          uz: `📢 ${room.currentRound}-RAUND — TINCH RAUND (HAYDASH YO'Q)! Yangi kartalar ochildi. Bu raundda hech kim haydalmaydi! Keyingi raundga o'tishingiz mumkin.`
+        });
+      }
+    } else {
+      this.addSystemMessage(room, {
+        ru: `📢 РАУНД ${room.currentRound}: РАУНД ИЗГНАНИЯ! Все карты вскрыты. Голосуйте на карточках игроков или в окне голосования, чтобы изгнать слабейшего кандидата!`,
+        en: `📢 ROUND ${room.currentRound}: EXILE ROUND! All cards revealed. Cast your votes on player cards or in the voting window to exile the weakest survivor!`,
+        uz: `📢 ${room.currentRound}-RAUND: HAYDASH RAUNDI! Barcha kartalar ochildi. Eng nomunosib o'yinchini haydash uchun ovoz bering!`
+      });
+    }
 
     this.broadcastRoom(room.code);
 
@@ -668,14 +720,21 @@ class GameManager {
       this.handleRoundTimeout(room.code);
     });
 
-    // Запускаем реалистичное поведение ботов: они думают, обсуждают новые карты в чате и голосуют по очереди!
-    this.scheduleRealisticBotVotes(room);
+    // Запускаем ботов голосовать только если это раунд изгнания!
+    if (isExile) {
+      this.scheduleRealisticBotVotes(room);
+    }
   }
 
   handleRoundTimeout(code) {
     const room = this.rooms.get(code);
     if (!room) return;
     if (room.status !== 'ROUND_DISCUSSION' && room.status !== 'ROUND_VOTING') return;
+
+    if (!this.isExileRound(room)) {
+      this.nextRoundOrEnd(code, room.hostId);
+      return;
+    }
 
     this.addSystemMessage(room, {
       ru: `⏰ 20 МИНУТ РАУНДА ИСТЕКЛИ! Терминал принудительно подводит итоги голосования.`,
@@ -688,6 +747,13 @@ class GameManager {
   startVotingPhase(code, requesterId) {
     const room = this.rooms.get(code);
     if (!room || (room.status !== 'ROUND_DISCUSSION' && room.status !== 'ROUND_VOTING')) return;
+
+    // В мирном раунде сразу переходим к следующему раунду
+    if (!this.isExileRound(room)) {
+      this.nextRoundOrEnd(code, requesterId);
+      return;
+    }
+
     if (room.status === 'ROUND_VOTING') {
       this.broadcastRoom(code);
       return;
@@ -976,11 +1042,20 @@ class GameManager {
     const room = this.rooms.get(code);
     if (!room || (room.status !== 'ROUND_VOTING' && room.status !== 'ROUND_DISCUSSION')) return;
 
+    // В мирном раунде голосования на выбывание нет!
+    if (!this.isExileRound(room)) return;
+
     const voter = room.players.find(p => p.id === voterId);
     if (!voter || !voter.isAlive) return;
 
+    // ГОЛОС ОТДАЕТСЯ ОДИН РАЗ — ПЕРЕКЛЮЧИТЬСЯ НА ДРУГОГО ИГРОКА НЕЛЬЗЯ!
+    if (voter.votedFor !== null && voter.votedFor !== undefined) {
+      return;
+    }
+
     const target = room.players.find(p => p.id === targetPlayerId);
     if (!target || !target.isAlive) return;
+    if (target.id === voter.id) return; // Нельзя голосовать против самого себя
 
     voter.votedFor = targetPlayerId;
 
@@ -1104,18 +1179,21 @@ class GameManager {
       return { success: true, message: "Двойной голос активирован!" };
     }
 
-    // 4. ПРАВО ВЕТО
+    // 4. ПРАВО ВЕТО (ОТМЕНА ИЗГНАНИЯ И ПРОПУСК ВЫБЫВАНИЯ)
     if (ability === 'veto') {
       room.vetoActive = true;
+      room.players.forEach(p => { p.votedFor = null; });
+      room.isExtraTime = false;
+      room.tieCount = 0;
       specialCard.used = true;
       specialCard.revealed = true;
       this.addSystemMessage(room, {
-        ru: `⚡ [КОЗЫРЬ]: ${player.name} использовал свой Козырь!`,
-        en: `⚡ [TRUMP]: ${player.name} used their Trump card!`,
-        uz: `⚡ [KOZIR]: ${player.name} o'z Koziridan foydalandi!`
+        ru: `⛔ [КОЗЫРЬ ВЕТО]: ${player.name} применил ПРАВО ВЕТО! Все голоса аннулированы. В этом раунде никто не покинет бункер!`,
+        en: `⛔ [VETO TRUMP]: ${player.name} used VETO POWER! All votes annulled. No one will be exiled this round!`,
+        uz: `⛔ [VETO KOZIR]: ${player.name} VETO HUQUQINI qo'lladi! Barcha ovozlar bekor qilindi. Bu raundda hech kim haydalmaydi!`
       });
       this.broadcastRoom(code);
-      return { success: true, message: "Право ВЕТО применено!" };
+      return { success: true, message: "Право ВЕТО применено! Изгнание в этом раунде отменено." };
     }
 
     // 5. ШПИОН / СКАНЕР ДОСЬЕ (ИЛИ МЕДИЦИНСКИЙ СКАНЕР ТОЛЬКО ЗДОРОВЬЯ)
@@ -1261,16 +1339,43 @@ class GameManager {
     }
 
     // НИЧЬЯ (равенство голосов) — если кандидатов несколько или никто не проголосовал:
-    // ВСЕГДА добавляем +5 МИНУТ дополнительного времени до тех пор, пока НЕ БУДЕТ ВЫБРАН СТРОГО ОДИН ИГРОК!
     const isTie = !room.vetoActive && (candidatesToExile.length !== 1 || maxVotes <= 0 || totalVotesCast === 0);
 
     if (isTie) {
-      // Бесконечное дополнительное время по +5 МИНУТ до тех пор, пока голосованием не выберут строго 1 игрока!
+      if ((room.tieCount || 0) >= 1) {
+        // Если это уже ВТОРАЯ ничья подряд — объявляем МИРНЫЙ ИСХОД! Никто не выбывает!
+        this.addSystemMessage(room, {
+          ru: `⚖️ ПОВТОРНАЯ НИЧЬЯ! Голоса разделились поровну. Бункер не смог выбрать одного кандидата. В этом раунде НИКТО НЕ ИЗГОНЯЕТСЯ! Все остаются в игре.`,
+          en: `⚖️ REPEAT TIE! Votes are split equally. Bunker reached no consensus. NO ONE IS EXILED this round! Everyone stays in the bunker.`,
+          uz: `⚖️ TAKRORIY TENG KELISH! Ovozlar teng taqsimlandi. Bu raundda HECH KIM HAYDALMAYDI! Barcha bunkerda qoladi.`
+        });
+        room.isExtraTime = false;
+        room.tieCount = 0;
+        room.tiedCandidateIds = [];
+        room.status = 'ROUND_RESULT';
+        room.votingResults = {
+          round: room.currentRound,
+          voteCounts,
+          voteBreakdown,
+          isExtraTime: true,
+          exiledPlayer: null
+        };
+        const remainingAfterTie = room.players.filter(p => p.isAlive);
+        if (room.currentRound >= 7 || remainingAfterTie.length <= 1) {
+          this.setRoomTimer(room.code, 4000, () => {
+            this.endGame(room);
+          });
+        }
+        this.broadcastRoom(room.code);
+        return;
+      }
+
+      // Первая ничья: даем +3 минуты на дополнительное переголосование
       room.isExtraTime = true;
       room.tieCount = (room.tieCount || 0) + 1;
       room.tiedCandidateIds = candidatesToExile.length > 1 ? candidatesToExile : alivePlayers.map(p => p.id);
       room.timerType = 'EXTRA_TIME';
-      room.timerExpiresAt = Date.now() + 5 * 60 * 1000;
+      room.timerExpiresAt = Date.now() + 3 * 60 * 1000;
       room.status = 'ROUND_DISCUSSION';
       room.lastTieBreakdown = voteBreakdown;
       // Сбрасываем голоса для повторного голосования
@@ -1282,12 +1387,12 @@ class GameManager {
         .join(' vs ');
 
       this.addSystemMessage(room, {
-        ru: `⚖️ НИЧЬЯ В ГОЛОСОВАНИИ #${room.tieCount} (${tiedNames} — по ${Math.max(0, maxVotes)} гол.)! Добавлено еще +5 МИНУТ для переголосования. Голосование продолжается, пока не выберут строго одного кандидата!`,
-        en: `⚖️ TIE IN VOTING #${room.tieCount} (${tiedNames} — ${Math.max(0, maxVotes)} votes each)! +5 MINUTES added for revoting until strictly one player is chosen!`,
-        uz: `⚖️ OVOZLAR TENG KELDI #${room.tieCount} (${tiedNames} — ${Math.max(0, maxVotes)} tadan ovoz)! Aniq 1 ta o'yinchi tanlanguncha qayta ovoz berish uchun yana +5 DAQIQA qo'shildi!`
+        ru: `⚖️ НИЧЬЯ В ГОЛОСОВАНИИ (${tiedNames} — по ${Math.max(0, maxVotes)} гол.)! Добавлено +3 МИНУТЫ для переголосования.`,
+        en: `⚖️ TIE IN VOTING (${tiedNames} — ${Math.max(0, maxVotes)} votes each)! +3 MINUTES added for revoting.`,
+        uz: `⚖️ OVOZLAR TENG KELDI (${tiedNames} — ${Math.max(0, maxVotes)} tadan ovoz)! Qayta ovoz berish uchun +3 DAQIQA qo'shildi.`
       });
 
-      this.setRoomTimer(room.code, 5 * 60 * 1000, () => {
+      this.setRoomTimer(room.code, 3 * 60 * 1000, () => {
         this.resolveVoting(room, true);
       });
 
@@ -1362,11 +1467,10 @@ class GameManager {
     room.status = 'ROUND_RESULT';
     room.timerExpiresAt = null;
 
-    // Проверяем: осталось ли выживших <= bunkerCapacity человек или завершен 7 раунд?
+    // Игра завершается СТРОГО в конце 7 раунда (когда открыты все 7 карт) или если остался 1 выживший!
     const remainingAlive = room.players.filter(p => p.isAlive);
-    const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
-    if (remainingAlive.length <= capacity || room.currentRound >= 7) {
-      this.setRoomTimer(room.code, 3500, () => {
+    if (room.currentRound >= 7 || remainingAlive.length <= 1) {
+      this.setRoomTimer(room.code, 4000, () => {
         this.endGame(room);
       });
     } else {
@@ -1384,14 +1488,13 @@ class GameManager {
 
   nextRoundOrEnd(code, requesterId) {
     const room = this.rooms.get(code);
-    if (!room || room.status !== 'ROUND_RESULT') return;
+    if (!room || (room.status !== 'ROUND_RESULT' && room.status !== 'ROUND_DISCUSSION')) return;
 
     this.clearRoomTimer(code);
     const alivePlayers = room.players.filter(p => p.isAlive);
-    const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
 
-    // Если осталось <= capacity человек или раунд 7 завершен -> КОНЕЦ ИГРЫ
-    if (alivePlayers.length <= capacity || room.currentRound >= 7) {
+    // Игра завершается СТРОГО после завершения 7 раунда (когда вскрыты все 7 карт) или если остался <= 1 выживший!
+    if (room.currentRound >= 7 || alivePlayers.length <= 1) {
       this.endGame(room);
       return;
     }
@@ -1559,6 +1662,7 @@ class GameManager {
       maxRounds: room.maxRounds,
       disaster: room.disaster,
       bunkerCapacity: room.bunkerCapacity || calculateBunkerCapacity(room.players.length),
+      isExileRound: this.isExileRound(room),
       votingResults: room.votingResults,
       ghostVotes,
       serverNow,
