@@ -77,13 +77,23 @@ export default function AuthModal({
     setError('');
     setGoogleLoading(true);
 
-    const backendUrl = socket?.io?.uri || window.location.origin;
-    const authUrl = `${backendUrl.replace(/\/$/, '')}/auth/google`;
-
     const width = 520;
     const height = 640;
     const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
     const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
+
+    const googleClientId = '764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com';
+    const redirectUri = window.location.origin;
+
+    const authUrl =
+      'https://accounts.google.com/o/oauth2/v2/auth?' +
+      new URLSearchParams({
+        client_id: googleClientId,
+        redirect_uri: redirectUri,
+        response_type: 'token',
+        scope: 'openid email profile',
+        prompt: 'select_account'
+      }).toString();
 
     try {
       const popup = window.open(
@@ -95,7 +105,6 @@ export default function AuthModal({
       if (popup) {
         popup.focus();
 
-        // Проверяем закрытие окна
         const checkClosedTimer = setInterval(() => {
           if (popup.closed) {
             clearInterval(checkClosedTimer);

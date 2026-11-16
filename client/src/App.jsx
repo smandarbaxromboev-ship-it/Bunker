@@ -39,6 +39,130 @@ const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname 
 
 const socket = io(BACKEND_URL);
 
+// Вспомогательный компонент для обработки возврата из всплывающего окна Google
+function GoogleAuthCallbackView({ socket, onSuccess }) {
+  const [status, setStatus] = useState('loading');
+  const [userName, setUserName] = useState('');
+
+  useEffect(() => {
+    async function processGoogleToken() {
+      try {
+        let profile = null;
+
+        // 1. Читаем токен из хэша URL (#access_token=...)
+        if (window.location.hash && window.location.hash.includes('access_token')) {
+          const params = new URLSearchParams(window.location.hash.substring(1));
+          const accessToken = params.get('access_token');
+          if (accessToken) {
+            const resp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+              headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            if (resp.ok) {
+              const info = await resp.json();
+              profile = {
+                name: info.name || (info.email ? info.email.split('@')[0] : 'Player'),
+                email: info.email,
+                picture: info.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(info.name || 'G')}&background=4285F4&color=fff&size=256&bold=true`,
+                googleId: 'google-' + info.sub
+              };
+            }
+          }
+        }
+
+        if (profile) {
+          setUserName(profile.name);
+          setStatus('success');
+
+          // Сохраняем пользователя через сокет на сервере
+          if (socket) {
+            socket.emit('googleDirectLogin', {
+              email: profile.email,
+              name: profile.name,
+              avatarUrl: profile.picture,
+              googleId: profile.googleId
+            }, (res) => {
+              const finalUser = (res && res.success && res.user) ? res.user : {
+                username: profile.name,
+                googleEmail: profile.email,
+                avatarUrl: profile.picture,
+                bunCoins: 500
+              };
+
+              // Оповещаем родительское окно через postMessage и BroadcastChannel
+              try {
+                const bc = new BroadcastChannel('bunker_google_auth');
+                bc.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: finalUser });
+              } catch (e) {}
+
+              if (window.opener && !window.opener.closed) {
+                try {
+                  window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: finalUser }, '*');
+                } catch (e) {}
+              }
+
+              try {
+                localStorage.setItem('bunker_last_google_user', JSON.stringify(finalUser));
+                localStorage.setItem('bunker_user_v3', JSON.stringify(finalUser));
+              } catch (e) {}
+
+              if (typeof onSuccess === 'function') {
+                onSuccess(finalUser);
+              }
+
+              setTimeout(() => {
+                try { window.close(); } catch (e) {}
+                window.location.replace('/');
+              }, 500);
+            });
+          }
+        } else {
+          setStatus('error');
+        }
+      } catch (err) {
+        console.error('Ошибка обработки Google токена:', err);
+        setStatus('error');
+      }
+    }
+
+    processGoogleToken();
+  }, [socket, onSuccess]);
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-center p-6 text-center font-sans">
+      <div className="w-full max-w-sm bg-zinc-900 border border-zinc-750 rounded-3xl p-6 shadow-2xl space-y-4">
+        {status === 'loading' && (
+          <>
+            <div className="w-12 h-12 border-3 border-zinc-700 border-t-blue-500 rounded-full animate-spin mx-auto" />
+            <h2 className="text-base font-bold text-white">Вход через Google...</h2>
+            <p className="text-xs text-zinc-400">Связь с сервером и подтверждение аккаунта...</p>
+          </>
+        )}
+        {status === 'success' && (
+          <>
+            <div className="w-12 h-12 bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-xl font-bold">✓</div>
+            <h2 className="text-base font-bold text-emerald-400">Вход выполнен успешно!</h2>
+            <p className="text-xs text-zinc-300 font-mono">{userName}</p>
+            <p className="text-[11px] text-zinc-500">Возврат в Бункер 7...</p>
+          </>
+        )}
+        {status === 'error' && (
+          <>
+            <div className="w-12 h-12 bg-red-500/20 border-2 border-red-500 text-red-400 rounded-full flex items-center justify-center mx-auto text-xl font-bold">✕</div>
+            <h2 className="text-base font-bold text-red-400">Не удалось завершить вход</h2>
+            <p className="text-xs text-zinc-400">Попробуйте закрыть окно и нажать вход снова.</p>
+            <button
+              onClick={() => { try { window.close(); } catch(e){} window.location.replace('/'); }}
+              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-mono rounded-xl cursor-pointer"
+            >
+              Закрыть окно
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
   const [inRoom, setInRoom] = useState(false);
@@ -713,13 +837,35 @@ export default function App() {
   }
 
   // EPIC BUNKER 404 NOT FOUND ROUTE FOR ANY UNKNOWN PATH
-  if (currentPath && currentPath !== '/' && currentPath !== '/index.html') {
+  if (
+    currentPath && 
+    currentPath !== '/' && 
+    currentPath !== '/index.html' && 
+    !currentPath.startsWith('/auth/google') && 
+    !(typeof window !== 'undefined' && window.location.hash && window.location.hash.includes('access_token'))
+  ) {
     return (
       <NotFoundView
         currentPath={currentPath}
         onBackHome={() => navigateTo('/')}
         lang={lang}
         setLang={handleSetLang}
+      />
+    );
+  }
+
+  // GOOGLE OAUTH CALLBACK POPUP HANDLER (ПРИНИМАЕТ ТОКЕН ОТ GOOGLE И ЗАКРЫВАЕТ ОКНО)
+  if (
+    (currentPath && currentPath.startsWith('/auth/google')) ||
+    (typeof window !== 'undefined' && window.location.hash && window.location.hash.includes('access_token'))
+  ) {
+    return (
+      <GoogleAuthCallbackView 
+        socket={socket} 
+        onSuccess={(loggedUser) => {
+          handleAuthSuccess(loggedUser, false);
+          navigateTo('/');
+        }} 
       />
     );
   }
