@@ -364,13 +364,12 @@ export default function App() {
     localStorage.setItem('bunker_atmosphere', String(val));
   };
 
-  // Auto-open reveal, voting and result modals on round phase change
+  // Auto-open reveal and result modals on round phase change
   useEffect(() => {
     if (roomState?.status === 'ROUND_REVEAL') {
       setShowRevealModal(true);
       setShowAmongUsEjection(false);
     } else if (roomState?.status === 'ROUND_VOTING') {
-      setShowVotingModal(true);
       setShowAmongUsEjection(false);
     } else if (roomState?.status === 'ROUND_DISCUSSION') {
       setShowVotingModal(false);
@@ -801,7 +800,6 @@ export default function App() {
   };
 
   const handleStartVoting = () => {
-    setShowVotingModal(true);
     if (!roomState?.code) return;
     socket.emit('startVoting', { roomCode: roomState.code, requesterId: myPlayerId });
   };

@@ -22,8 +22,11 @@ export default function AmongUsEjectionScreen({
   // Находим карточку профессии изгнанного игрока
   const fullPlayer = (roomState?.players || []).find(p => p.id === exiledPlayer?.id);
   const professionCard = fullPlayer?.deck?.find(c => c.id === 'profession' || c.type === 'profession');
-  const professionTitle = professionCard 
-    ? (getLocalized(professionCard.title, lang) || professionCard.name || professionCard.title)
+  const professionVal = professionCard 
+    ? (getLocalized(professionCard.value, lang) || getLocalized(professionCard.title, lang) || getLocalized(professionCard.name, lang))
+    : '';
+  const professionTitle = professionVal && professionVal !== '[object Object]'
+    ? professionVal
     : (lang === 'uz' ? 'Noma\'lum kasb' : lang === 'en' ? 'Unknown Profession' : 'Неизвестная профессия');
 
   const aliveRemaining = (roomState?.players || []).filter(p => p.isAlive && p.id !== exiledPlayer?.id).length;

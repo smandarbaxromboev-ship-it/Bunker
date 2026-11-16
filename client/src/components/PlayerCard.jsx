@@ -117,7 +117,9 @@ export default function PlayerCard({
                     ? 'bg-emerald-950/70 border border-emerald-500/50 text-emerald-400 font-bold'
                     : 'bg-amber-950/60 border border-amber-500/40 text-amber-400 animate-pulse'
                 }`}>
-                  {player.hasVoted ? '✓ Проголосовал' : '⏳ Думает...'}
+                  {player.hasVoted 
+                    ? (lang === 'uz' ? '✓ Ovoz berdi' : lang === 'en' ? '✓ Voted' : '✓ Проголосовал')
+                    : (lang === 'uz' ? '⏳ O\'ylamoqda...' : lang === 'en' ? '⏳ Thinking...' : '⏳ Думает...')}
                 </span>
               )}
             </div>
@@ -136,7 +138,11 @@ export default function PlayerCard({
                 ? 'bg-zinc-800 text-zinc-500 border border-zinc-700 opacity-40 cursor-not-allowed'
                 : 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 dark:bg-red-950/60 dark:hover:bg-red-900 dark:text-red-300 dark:border-red-800 cursor-pointer'
             }`}
-            title={myHasVoted ? (hasVotedForThis ? "Ваш голос уже отдан" : "Вы уже проголосовали (переключиться нельзя)") : "Голосовать"}
+            title={myHasVoted 
+              ? (hasVotedForThis 
+                ? (lang === 'uz' ? "Ovozingiz berilgan" : lang === 'en' ? "Your vote is cast" : "Ваш голос уже отдан") 
+                : (lang === 'uz' ? "Ovoz berib bo'lingan" : lang === 'en' ? "Already voted" : "Вы уже проголосовали (переключиться нельзя)")) 
+              : t.btnVote}
           >
             {hasVotedForThis && <Check className="w-3.5 h-3.5" />}
             <span>{hasVotedForThis ? (lang === 'uz' ? "Ovozingiz" : lang === 'en' ? "Your Vote" : "Ваш голос") : t.btnVote}</span>

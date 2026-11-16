@@ -974,10 +974,40 @@ export const translations = {
 
 export function getLocalized(obj, lang = 'ru') {
   if (obj === null || obj === undefined) return '';
-  if (typeof obj === 'string' || typeof obj === 'number') return String(obj);
+  if (typeof obj === 'string') {
+    if (obj === '[object Object]') return '';
+    return obj;
+  }
+  if (typeof obj === 'number') return String(obj);
   if (typeof obj === 'object') {
-    const val = obj[lang] ?? obj['ru'] ?? obj['en'] ?? obj['uz'] ?? '';
-    return typeof val === 'object' ? JSON.stringify(val) : String(val);
+    // 1. Прямые ключи языков (ru, en, uz)
+    if (obj[lang] !== undefined || obj['ru'] !== undefined || obj['en'] !== undefined || obj['uz'] !== undefined) {
+      const val = obj[lang] !== undefined && obj[lang] !== '' 
+        ? obj[lang] 
+        : (obj['ru'] !== undefined && obj['ru'] !== '' 
+          ? obj['ru'] 
+          : (obj['en'] !== undefined && obj['en'] !== '' 
+            ? obj['en'] 
+            : obj['uz']));
+      if (typeof val === 'object' && val !== null) {
+        return getLocalized(val, lang);
+      }
+      return val !== undefined && val !== null ? String(val) : '';
+    }
+
+    // 2. Если передан объект карточки или структуры (value, title, name, text, label, description)
+    if (obj.value !== undefined) return getLocalized(obj.value, lang);
+    if (obj.title !== undefined) return getLocalized(obj.title, lang);
+    if (obj.name !== undefined) return getLocalized(obj.name, lang);
+    if (obj.text !== undefined) return getLocalized(obj.text, lang);
+    if (obj.label !== undefined) return getLocalized(obj.label, lang);
+    if (obj.description !== undefined) return getLocalized(obj.description, lang);
+
+    // 3. Первый строковый атрибут объекта
+    const firstStr = Object.values(obj).find(v => typeof v === 'string' && v && v !== '[object Object]');
+    if (firstStr) return firstStr;
+
+    return '';
   }
   return String(obj);
 }
