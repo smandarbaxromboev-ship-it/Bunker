@@ -964,9 +964,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Отправка текстового сообщения или стикера в чат
-  socket.on('sendMessage', ({ roomCode, senderId, text, sticker }) => {
-    gameManager.addChatMessage(roomCode, senderId, text, sticker);
+  // Отправка текстового сообщения, стикера или голосового в чат
+  socket.on('sendMessage', ({ roomCode, senderId, text, sticker, voice }) => {
+    gameManager.addChatMessage(roomCode, senderId, text, sticker, voice);
   });
 
   socket.on('disconnect', () => {

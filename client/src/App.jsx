@@ -774,9 +774,9 @@ export default function App() {
     socket.emit('restartGame', { roomCode: roomState.code, requesterId: myPlayerId });
   };
 
-  const handleSendMessage = (text, sticker = null) => {
+  const handleSendMessage = (text, sticker = null, voice = null) => {
     if (!roomState?.code) return;
-    socket.emit('sendMessage', { roomCode: roomState.code, senderId: myPlayerId, text, sticker });
+    socket.emit('sendMessage', { roomCode: roomState.code, senderId: myPlayerId, text, sticker, voice });
   };
 
   const handleApplyTrump = (payload, callback) => {
@@ -1521,10 +1521,10 @@ export default function App() {
     );
   }
 
-  // LOBBY VIEW
+  // LOBBY VIEW (With Full Pre-Game Chat & Voice Messages)
   if (roomState?.status === 'LOBBY') {
     return (
-      <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-3 sm:p-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200 relative overflow-hidden">
+      <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-2.5 sm:p-6 pb-20 md:pb-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200 relative overflow-hidden">
         <AtmosphereEffects enabled={atmosphereEnabled} lang={lang} />
         {renderInviteBanner()}
 
@@ -1547,18 +1547,71 @@ export default function App() {
           onLeaveRoom={handleLeaveRoom}
           onLogout={handleLogout}
         />
-        <main className="flex-1 max-w-6xl mx-auto w-full py-4 sm:py-6 relative z-10">
-          <LobbyView
-            roomState={roomState}
-            myPlayerId={myPlayerId}
-            onStartGame={handleStartGame}
-            onAddBot={handleAddBot}
-            onRemoveBot={handleRemoveBot}
-            onLeaveLobby={handleLeaveRoom}
-            onOpenFriends={() => setShowFriendsModal(true)}
-            lang={lang}
-          />
+
+        <main className="flex-1 max-w-7xl mx-auto w-full py-3 sm:py-6 relative z-10 grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-5">
+          {/* Left Column: Lobby View (Players, Settings, Bots, Start) */}
+          <div className={`md:col-span-7 lg:col-span-8 ${mobileTab === 'chat' ? 'hidden md:block' : 'block'}`}>
+            <LobbyView
+              roomState={roomState}
+              myPlayerId={myPlayerId}
+              onStartGame={handleStartGame}
+              onAddBot={handleAddBot}
+              onRemoveBot={handleRemoveBot}
+              onLeaveLobby={handleLeaveRoom}
+              onOpenFriends={() => setShowFriendsModal(true)}
+              lang={lang}
+            />
+          </div>
+
+          {/* Right Column: Pre-game Chat Panel with Voice Messages */}
+          <div className={`md:col-span-5 lg:col-span-4 h-[calc(100dvh-180px)] md:h-[620px] lg:h-[680px] md:sticky md:top-20 ${mobileTab === 'bunker' ? 'hidden md:block' : 'block'}`}>
+            <ChatPanel
+              messages={roomState?.messages || []}
+              myPlayerId={myPlayerId}
+              isAlive={true}
+              isChatLocked={false}
+              onSendMessage={handleSendMessage}
+              onStartVoting={null}
+              isHost={isHost}
+              canStartVoting={false}
+              lang={lang}
+            />
+          </div>
         </main>
+
+        {/* Sleek Mobile Bottom Navigation Bar in Lobby */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-t border-slate-200 dark:border-zinc-800/90 px-3 py-2 flex items-center justify-around shadow-2xl pb-safe">
+          <button
+            onClick={() => handleSwitchMobileTab('bunker')}
+            className={`flex-1 py-1.5 rounded-xl text-xs font-display font-bold flex flex-col items-center justify-center gap-0.5 transition ${
+              mobileTab === 'bunker'
+                ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10'
+                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>{lang === 'uz' ? 'Lobbi' : lang === 'en' ? 'Lobby' : 'Лобби'} ({roomState?.players?.length || 0})</span>
+          </button>
+
+          <button
+            onClick={() => handleSwitchMobileTab('chat')}
+            className={`flex-1 py-1.5 rounded-xl text-xs font-display font-bold flex flex-col items-center justify-center gap-0.5 transition relative ${
+              mobileTab === 'chat'
+                ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10'
+                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            <div className="relative">
+              <Radio className="w-4 h-4" />
+              {unreadChatCount > 0 && (
+                <span className="absolute -top-1 -right-2 w-4 h-4 rounded-full bg-red-600 text-[9px] text-white flex items-center justify-center font-bold">
+                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                </span>
+              )}
+            </div>
+            <span>{t.mobileTabChat || 'ЧАТ'}</span>
+          </button>
+        </nav>
 
         {showShopModal && (
           <ShopModal socket={socket} lang={lang} user={user} onClose={() => setShowShopModal(false)} onUserUpdated={handleUserUpdated} />

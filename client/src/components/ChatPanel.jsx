@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, Vote, Ghost, Smile, Sparkles, X } from 'lucide-react';
+import { Send, MessageSquare, AlertCircle, Vote, Ghost, Smile, Sparkles, X, Mic, Square, Trash2, Check, Loader2 } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 import { translations, getLocalized } from '../utils/translations';
+import VoiceMessagePlayer from './VoiceMessagePlayer';
 
 const QUICK_PHRASES = {
   ru: [
@@ -63,13 +64,32 @@ export default function ChatPanel({
 }) {
   const [text, setText] = useState('');
   const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordDuration, setRecordDuration] = useState(0);
+  const [isSendingVoice, setIsSendingVoice] = useState(false);
+  const [micError, setMicError] = useState('');
+
   const messagesEndRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordTimerRef = useRef(null);
+  const streamRef = useRef(null);
+
   const t = translations[lang] || translations.ru;
   const phrases = QUICK_PHRASES[lang] || QUICK_PHRASES.ru;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -90,6 +110,117 @@ export default function ChatPanel({
     const labelText = getLocalized(sticker.label, lang) || sticker.label;
     onSendMessage(labelText, { ...sticker, label: labelText });
     setShowStickerPicker(false);
+  };
+
+  // ===================== ГОЛОСОВЫЕ СООБЩЕНИЯ (MEDIA RECORDER) =====================
+  const startRecording = async () => {
+    try {
+      setMicError('');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setMicError(t.micNotSupported || 'Запись аудио не поддерживается браузером');
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      audioChunksRef.current = [];
+
+      let mimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : '';
+      }
+
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.start(100);
+      setIsRecording(true);
+      setRecordDuration(0);
+      soundManager.playBeep(950, 0.05);
+
+      if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+      let count = 0;
+      recordTimerRef.current = setInterval(() => {
+        count += 1;
+        setRecordDuration(count);
+        if (count >= 60) {
+          stopAndSendRecording();
+        }
+      }, 1000);
+    } catch (err) {
+      console.error('Microphone access error:', err);
+      soundManager.playBeep(350, 0.1);
+      setMicError(t.micDenied || 'Разрешите доступ к микрофону в браузере для голосовых сообщений');
+      setTimeout(() => setMicError(''), 5000);
+    }
+  };
+
+  const stopAndSendRecording = () => {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') return;
+    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+    setIsSendingVoice(true);
+    soundManager.playBeep(850, 0.05);
+
+    const recorder = mediaRecorderRef.current;
+    const finalDuration = recordDuration;
+
+    recorder.onstop = () => {
+      const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+
+      if (audioBlob.size > 0 && finalDuration >= 1) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Data = reader.result;
+          onSendMessage('', null, { audioData: base64Data, duration: finalDuration });
+          setIsRecording(false);
+          setRecordDuration(0);
+          setIsSendingVoice(false);
+        };
+        reader.readAsDataURL(audioBlob);
+      } else {
+        setIsRecording(false);
+        setRecordDuration(0);
+        setIsSendingVoice(false);
+      }
+    };
+
+    recorder.stop();
+  };
+
+  const cancelRecording = () => {
+    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    audioChunksRef.current = [];
+    setIsRecording(false);
+    setRecordDuration(0);
+    setIsSendingVoice(false);
+    soundManager.playBeep(450, 0.06);
+  };
+
+  const formatRecordTime = (sec) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
   return (
@@ -132,6 +263,14 @@ export default function ChatPanel({
           <span className="truncate">
             {t.ghostChatBanner || "👻 Призрачный чат: видят только выбывшие. Живые вас не слышат!"}
           </span>
+        </div>
+      )}
+
+      {/* Error notification for Mic */}
+      {micError && (
+        <div className="px-3 py-2 bg-red-950/80 border-b border-red-800 text-red-200 text-xs font-mono flex items-center gap-2 animate-fadeIn shrink-0">
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+          <span className="truncate">{micError}</span>
         </div>
       )}
 
@@ -180,8 +319,15 @@ export default function ChatPanel({
                 </span>
               </div>
 
-              {/* Message Bubble: either Sticker or Plain Text */}
-              {msg.sticker ? (
+              {/* Message Bubble: Voice Message, Sticker, or Plain Text */}
+              {msg.voice ? (
+                <VoiceMessagePlayer
+                  audioData={msg.voice.audioData}
+                  duration={msg.voice.duration}
+                  isMe={isMe}
+                  isGhost={isGhostMsg}
+                />
+              ) : msg.sticker ? (
                 <div
                   className={`p-2 sm:p-2.5 rounded-2xl flex items-center gap-2 shadow-md border transition-transform hover:scale-105 ${
                     isMe
@@ -209,7 +355,7 @@ export default function ChatPanel({
                         : 'bg-amber-500 text-black font-medium rounded-tr-none'
                       : isGhostMsg
                       ? 'bg-purple-950/90 border border-purple-800/80 text-purple-200 rounded-tl-none'
-                      : 'bg-zinc-800 border border-zinc-700/60 text-zinc-100 rounded-tl-none'
+                      : 'bg-zinc-800 border-zinc-700/60 text-zinc-100 rounded-tl-none'
                   }`}
                 >
                   {getLocalized(msg.text, lang)}
@@ -271,50 +417,107 @@ export default function ChatPanel({
         ))}
       </div>
 
-      {/* Input Form with Sticker Picker Button */}
+      {/* Input Form with Text, Stickers and Voice Recording */}
       <div className="p-2 sm:p-3 border-t border-zinc-800 bg-zinc-950/90 shrink-0">
-        <form onSubmit={handleSubmit} className="flex items-center gap-1.5 sm:gap-2">
-          {/* Sticker picker button */}
-          <button
-            type="button"
-            onClick={() => setShowStickerPicker(!showStickerPicker)}
-            title={t.btnStickers || "Отправить стикер"}
-            className={`p-2 sm:p-2.5 rounded-xl border transition flex items-center justify-center shrink-0 cursor-pointer ${
-              showStickerPicker
-                ? 'bg-amber-500 text-black border-amber-500 shadow-md shadow-amber-500/30'
-                : 'bg-zinc-900 hover:bg-zinc-800 text-amber-400 border-zinc-700'
-            }`}
-          >
-            <Smile className="w-4 h-4" />
-          </button>
+        {isRecording ? (
+          /* Live Voice Recording UI Bar */
+          <div className="flex items-center justify-between gap-2 px-3 py-2 bg-red-950/40 border-2 border-red-500/80 rounded-2xl animate-pulse">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="w-3 h-3 rounded-full bg-red-500 animate-ping shrink-0" />
+              <span className="text-xs sm:text-sm font-mono font-bold text-red-300">
+                {formatRecordTime(recordDuration)} <span className="opacity-60">/ 1:00</span>
+              </span>
+              <span className="text-[11px] text-zinc-400 hidden sm:inline truncate">
+                {t.recordingVoice || 'Идет запись...'}
+              </span>
+            </div>
 
-          <input
-            type="text"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={!isAlive ? (t.ghostChatPlaceholder || "👻 Чат призраков (видят только выбывшие)...") : t.chatPlaceholder}
-            maxLength={300}
-            className={`flex-1 border rounded-xl px-3 py-2 sm:py-2.5 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none font-mono ${
-              !isAlive
-                ? 'bg-purple-950/30 border-purple-800 focus:border-purple-500'
-                : 'bg-zinc-900 border-zinc-700 focus:border-amber-500'
-            }`}
-          />
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Cancel Button */}
+              <button
+                type="button"
+                onClick={cancelRecording}
+                title={t.cancelVoice || "Отменить запись"}
+                className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-red-400 transition cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
 
-          <button
-            type="submit"
-            disabled={!text.trim()}
-            className={`p-2 sm:p-2.5 rounded-xl font-bold transition flex items-center justify-center shrink-0 ${
-              text.trim()
-                ? !isAlive
-                  ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30 cursor-pointer'
-                  : 'bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/20 cursor-pointer'
-                : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-            }`}
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
+              {/* Stop & Send Button */}
+              <button
+                type="button"
+                onClick={stopAndSendRecording}
+                disabled={isSendingVoice}
+                title={t.sendVoiceTooltip || "Отправить голосовое сообщение"}
+                className="px-3 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-lg shadow-red-600/40 cursor-pointer"
+              >
+                {isSendingVoice ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>{t.btnSendVoice || 'Отправить'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Normal Text + Sticker + Mic Input Form */
+          <form onSubmit={handleSubmit} className="flex items-center gap-1.5 sm:gap-2">
+            {/* Sticker picker button */}
+            <button
+              type="button"
+              onClick={() => setShowStickerPicker(!showStickerPicker)}
+              title={t.btnStickers || "Отправить стикер"}
+              className={`p-2 sm:p-2.5 rounded-xl border transition flex items-center justify-center shrink-0 cursor-pointer ${
+                showStickerPicker
+                  ? 'bg-amber-500 text-black border-amber-500 shadow-md shadow-amber-500/30'
+                  : 'bg-zinc-900 hover:bg-zinc-800 text-amber-400 border-zinc-700'
+              }`}
+            >
+              <Smile className="w-4 h-4" />
+            </button>
+
+            <input
+              type="text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={!isAlive ? (t.ghostChatPlaceholder || "👻 Чат призраков (видят только выбывшие)...") : t.chatPlaceholder}
+              maxLength={300}
+              className={`flex-1 border rounded-xl px-3 py-2 sm:py-2.5 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none font-mono ${
+                !isAlive
+                  ? 'bg-purple-950/30 border-purple-800 focus:border-purple-500'
+                  : 'bg-zinc-900 border-zinc-700 focus:border-amber-500'
+              }`}
+            />
+
+            {/* Voice Record Mic Button */}
+            <button
+              type="button"
+              onClick={startRecording}
+              title={t.sendVoiceTooltip || "Записать голосовое сообщение"}
+              className="p-2 sm:p-2.5 rounded-xl bg-zinc-900 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-zinc-700 hover:border-amber-500/60 transition flex items-center justify-center shrink-0 cursor-pointer shadow-sm active:scale-95"
+            >
+              <Mic className="w-4 h-4" />
+            </button>
+
+            {/* Send Text Button */}
+            <button
+              type="submit"
+              disabled={!text.trim()}
+              className={`p-2 sm:p-2.5 rounded-xl font-bold transition flex items-center justify-center shrink-0 ${
+                text.trim()
+                  ? !isAlive
+                    ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30 cursor-pointer'
+                    : 'bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/20 cursor-pointer'
+                  : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+              }`}
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

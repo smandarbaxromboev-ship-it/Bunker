@@ -1507,14 +1507,14 @@ class GameManager {
     this.broadcastRoom(code);
   }
 
-  addChatMessage(code, senderId, text, sticker = null) {
+  addChatMessage(code, senderId, text, sticker = null, voice = null) {
     const room = this.rooms.get(code);
     if (!room) return;
 
     const sender = room.players.find(p => p.id === senderId);
     if (!sender) return;
 
-    // Чат доступен ВСЕГДА (даже во время и после голосования)!
+    // Чат доступен ВСЕГДА (в лобби, во время игры и после голосования)!
     // Если игрок выбыл, сообщение отправляется в закрытый "Призрачный чат" (видят только мертвые)
     const isGhostMessage = !sender.isAlive;
 
@@ -1526,6 +1526,10 @@ class GameManager {
       senderAvatar: sender.character?.avatar || (sender.isBot ? '🤖' : '🥷'),
       text: (text || '').trim().substring(0, 300),
       sticker: sticker || null,
+      voice: voice && voice.audioData ? {
+        audioData: voice.audioData,
+        duration: Math.round(Number(voice.duration) || 0)
+      } : null,
       isGhost: isGhostMessage,
       timestamp: formatServerTime(nowMs),
       createdAt: nowMs,
