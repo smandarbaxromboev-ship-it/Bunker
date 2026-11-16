@@ -719,6 +719,7 @@ export default function App() {
         currentPath={currentPath}
         onBackHome={() => navigateTo('/')}
         lang={lang}
+        setLang={handleSetLang}
       />
     );
   }

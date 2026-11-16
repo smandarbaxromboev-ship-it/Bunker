@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { translations } from '../utils/translations';
 import { Shield, Lock, User, Sparkles, X, AlertCircle, Upload, Link as LinkIcon, CheckCircle2, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { soundManager } from '../utils/audio';
@@ -20,6 +20,73 @@ export default function AuthModal({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
+  const googleBtnRef = useRef(null);
+  const [googleClientId, setGoogleClientId] = useState(null);
+
+  // Получаем Google Client ID с сервера и рисуем официальную кнопку «Войти через Google»
+  useEffect(() => {
+    let cancelled = false;
+    socket.emit('getGoogleConfig', {}, (cfg) => {
+      if (!cancelled && cfg && cfg.clientId) setGoogleClientId(cfg.clientId);
+    });
+    return () => { cancelled = true; };
+  }, [socket]);
+
+  useEffect(() => {
+    if (!googleClientId) return;
+
+    const handleCredential = (response) => {
+      if (!response || !response.credential) return;
+      setLoading(true);
+      setError('');
+      socket.emit('googleLogin', { credential: response.credential }, (res) => {
+        setLoading(false);
+        if (res && res.error) {
+          setError(res.error);
+        } else if (res && res.success && res.user) {
+          soundManager.playBeep(880, 0.1);
+          onAuthSuccess(res.user, Boolean(res.isNewRegistration));
+          if (onClose) onClose();
+        } else {
+          setError(lang === 'uz' ? 'Xatolik yuz berdi' : lang === 'en' ? 'Unexpected error' : 'Произошла непредвиденная ошибка');
+        }
+      });
+    };
+
+    const renderGoogleButton = () => {
+      if (!window.google || !window.google.accounts || !googleBtnRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleCredential,
+        ux_mode: 'popup'
+      });
+      googleBtnRef.current.innerHTML = '';
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: 'filled_black',
+        size: 'large',
+        shape: 'pill',
+        text: 'continue_with',
+        locale: lang === 'uz' ? 'uz' : lang === 'en' ? 'en' : 'ru',
+        width: 300
+      });
+    };
+
+    if (window.google && window.google.accounts) {
+      renderGoogleButton();
+    } else {
+      let script = document.getElementById('google-gsi-script');
+      if (!script) {
+        script = document.createElement('script');
+        script.id = 'google-gsi-script';
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+      script.addEventListener('load', renderGoogleButton);
+      return () => script.removeEventListener('load', renderGoogleButton);
+    }
+  }, [googleClientId, lang]);
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
@@ -204,6 +271,18 @@ export default function AuthModal({
             <span className="font-mono bg-amber-500/20 px-2 py-0.5 rounded text-amber-400 font-bold border border-amber-500/40">
               🪙 500 BunCoins
             </span>
+          </div>
+        )}
+
+        {/* Google Sign-In (shown only when server has GOOGLE_CLIENT_ID configured) */}
+        {googleClientId && (
+          <div className="mb-4">
+            <div className="flex justify-center min-h-[44px]" ref={googleBtnRef} />
+            <div className="flex items-center gap-3 mt-3 text-[10px] font-mono text-zinc-500 uppercase">
+              <span className="flex-1 h-px bg-zinc-800" />
+              <span>{lang === 'uz' ? 'yoki parol bilan' : lang === 'en' ? 'or with password' : 'или с паролем'}</span>
+              <span className="flex-1 h-px bg-zinc-800" />
+            </div>
           </div>
         )}
 

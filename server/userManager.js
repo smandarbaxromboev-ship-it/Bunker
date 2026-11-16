@@ -253,6 +253,74 @@ class UserManager {
     return { success: true, user: this.sanitizeUser(user) };
   }
 
+  // Вход / автоматическая регистрация через Google (профиль уже проверен сервером Google)
+  googleLogin({ sub, email, name, picture }) {
+    if (!sub) return { error: 'Google не вернул идентификатор аккаунта.' };
+
+    let existing = null;
+    for (const u of this.users.values()) {
+      if (u.googleId === String(sub)) {
+        existing = u;
+        break;
+      }
+    }
+
+    if (existing) {
+      if (existing.isBlocked) {
+        return { error: 'Ваш аккаунт заблокирован администратором!' };
+      }
+      if (!existing.avatarUrl && picture) {
+        existing.avatarUrl = picture;
+        this.saveUsers();
+      }
+      return { success: true, user: this.sanitizeUser(existing), isNewRegistration: false };
+    }
+
+    // Подбираем свободное уникальное имя игрока из имени Google / email
+    let base = String(name || (email ? email.split('@')[0] : '') || 'Player')
+      .replace(/[^\p{L}\p{N}_ \-]/gu, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .substring(0, 16);
+    if (base.length < 2) base = 'Player';
+
+    let candidate = base;
+    let n = 1;
+    while (this.users.has(candidate.toLowerCase())) {
+      n += 1;
+      candidate = `${base.substring(0, 16)}_${n}`.substring(0, 20);
+      if (n > 9999) {
+        candidate = `${base.substring(0, 12)}_${Math.floor(Math.random() * 1e6)}`;
+        break;
+      }
+    }
+
+    const newUser = {
+      userId: this.generateUniqueUserId(),
+      username: candidate,
+      // Случайный пароль: вход в этот аккаунт возможен только через Google
+      password: 'g_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2),
+      googleId: String(sub),
+      googleEmail: email || null,
+      avatarUrl: picture || null,
+      bunCoins: 500,
+      friends: [],
+      inventory: ['char_stalker', 'frame_default', 'title_survivor'],
+      equipped: {
+        character: 'char_stalker',
+        frame: 'frame_default',
+        title: 'title_survivor'
+      },
+      stats: { gamesPlayed: 0, wins: 0, roundsSurvived: 0 },
+      rulesAccepted: false,
+      createdAt: new Date().toISOString()
+    };
+
+    this.users.set(candidate.toLowerCase(), newUser);
+    this.saveUsers();
+    return { success: true, user: this.sanitizeUser(newUser), isNewRegistration: true };
+  }
+
   getUser(username, fallback = null) {
     if (!username) return null;
     let user = this.users.get(username.trim().toLowerCase());

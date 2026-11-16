@@ -84,6 +84,7 @@ function getOnlineUsernamesSet() {
 // Проверка админских прав через переменные окружения (.env)
 const ADMIN_LOGIN_ENV = (process.env.ADMIN_LOGIN || 'Samandar').trim().toLowerCase();
 const ADMIN_PASSWORD_ENV = (process.env.ADMIN_PASSWORD || '05052013').trim();
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
 
 function checkAdminAuth(login, password) {
   return (
@@ -123,6 +124,59 @@ io.on('connection', (socket) => {
     } catch (e) {
       console.error('Ошибка updateProfile:', e);
       if (typeof callback === 'function') callback({ error: 'Ошибка обновления профиля' });
+    }
+  });
+
+  // ===================== ВХОД ЧЕРЕЗ GOOGLE =====================
+  socket.on('getGoogleConfig', (_payload, callback) => {
+    if (typeof callback === 'function') {
+      callback({ clientId: GOOGLE_CLIENT_ID || null });
+    }
+  });
+
+  socket.on('googleLogin', async ({ credential }, callback) => {
+    try {
+      if (!GOOGLE_CLIENT_ID) {
+        if (typeof callback === 'function') callback({ error: 'Вход через Google ещё не настроен на сервере.' });
+        return;
+      }
+      if (!credential || typeof credential !== 'string') {
+        if (typeof callback === 'function') callback({ error: 'Google не передал данные входа.' });
+        return;
+      }
+
+      // Токен проверяется серверами Google (подпись, срок действия)
+      const resp = await fetch(
+        'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(credential)
+      );
+      if (!resp.ok) {
+        if (typeof callback === 'function') callback({ error: 'Google отклонил вход. Попробуйте ещё раз.' });
+        return;
+      }
+      const info = await resp.json();
+
+      if (info.aud !== GOOGLE_CLIENT_ID) {
+        if (typeof callback === 'function') callback({ error: 'Недействительный токен Google.' });
+        return;
+      }
+      if (String(info.email_verified) !== 'true') {
+        if (typeof callback === 'function') callback({ error: 'Email Google-аккаунта не подтверждён.' });
+        return;
+      }
+
+      const res = userManager.googleLogin({
+        sub: info.sub,
+        email: info.email,
+        name: info.given_name || info.name,
+        picture: info.picture
+      });
+      if (res && res.success && res.user) {
+        bindUserSocket(res.user.username, socket.id);
+      }
+      if (typeof callback === 'function') callback(res);
+    } catch (e) {
+      console.error('Ошибка googleLogin:', e);
+      if (typeof callback === 'function') callback({ error: 'Ошибка входа через Google' });
     }
   });
 

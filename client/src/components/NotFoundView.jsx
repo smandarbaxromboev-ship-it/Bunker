@@ -31,7 +31,7 @@ const WASTELAND_FINDS = {
   ]
 };
 
-export default function NotFoundView({ currentPath = '/404', onBackHome, lang = 'ru' }) {
+export default function NotFoundView({ currentPath = '/404', onBackHome, lang = 'ru', setLang }) {
   const [radiation, setRadiation] = useState(404.2);
   const [scanResult, setScanResult] = useState('');
   const [isScanning, setIsScanning] = useState(false);
@@ -77,6 +77,27 @@ export default function NotFoundView({ currentPath = '/404', onBackHome, lang = 
     <div className="min-h-[100dvh] bg-zinc-950 text-zinc-100 flex flex-col justify-between p-3 sm:p-6 relative overflow-hidden select-none">
       {/* Ambient Apocalyptic Ash & Radiation Glow */}
       <AtmosphereEffects enabled={true} lang={lang} />
+
+      {/* Language Switcher */}
+      {setLang && (
+        <div className="absolute top-6 right-4 sm:right-6 z-20 flex items-center bg-zinc-900/90 rounded-2xl p-1 border border-zinc-700 text-xs font-mono font-bold shadow-lg">
+          {['ru', 'en', 'uz'].map((code) => (
+            <button
+              key={code}
+              type="button"
+              onClick={() => {
+                soundManager.playBeep(800, 0.05);
+                setLang(code);
+              }}
+              className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
+                lang === code ? 'bg-amber-500 text-black shadow-sm' : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              {code.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Top Caution Hazard Tape */}
       <div className="w-full h-3 rounded-full bg-[repeating-linear-gradient(45deg,#f59e0b,#f59e0b_14px,#09090b_14px,#09090b_28px)] opacity-80 shadow-[0_0_20px_rgba(245,158,11,0.4)] relative z-10" />
