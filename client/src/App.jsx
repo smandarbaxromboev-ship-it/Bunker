@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { 
   ShieldAlert, Users, LogIn, PlusCircle, Radio, 
@@ -500,42 +500,6 @@ export default function App() {
     }
   }, [roomState?.status, roomState?.currentRound, roomState?.activeTurnPlayerId, roomState?.votingResults, myPlayerId, myPlayer?.hasRevealedThisRound, hasShownEjectionForRound]);
 
-  // Global Google Auth synchronization
-  useEffect(() => {
-    let bc = null;
-    try {
-      bc = new BroadcastChannel('bunker_google_auth');
-      bc.onmessage = (event) => {
-        if (event.data?.type === 'GOOGLE_AUTH_SUCCESS' && event.data.user) {
-          handleAuthSuccess(event.data.user, false);
-        }
-      };
-    } catch (e) {}
-
-    const handleMessage = (event) => {
-      if (event.data?.type === 'GOOGLE_AUTH_SUCCESS' && event.data.user) {
-        handleAuthSuccess(event.data.user, false);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-
-    const handleStorage = (e) => {
-      if (e.key === 'bunker_user_v3' && e.newValue) {
-        try {
-          const u = JSON.parse(e.newValue);
-          if (u && u.username) handleAuthSuccess(u, false);
-        } catch (err) {}
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-
-    return () => {
-      if (bc) bc.close();
-      window.removeEventListener('message', handleMessage);
-      window.removeEventListener('storage', handleStorage);
-    };
-  }, []);
-
   // URL Popstate tracking for /admin and /
   useEffect(() => {
     const handlePopState = () => setCurrentPath(window.location.pathname);
@@ -790,6 +754,42 @@ export default function App() {
       setShowRulesModal(true);
     }
   };
+
+  // Global Google Auth synchronization across tabs/popups
+  useEffect(() => {
+    let bc = null;
+    try {
+      bc = new BroadcastChannel('bunker_google_auth');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'GOOGLE_AUTH_SUCCESS' && event.data.user) {
+          handleAuthSuccess(event.data.user, false);
+        }
+      };
+    } catch (e) {}
+
+    const handleMessage = (event) => {
+      if (event.data?.type === 'GOOGLE_AUTH_SUCCESS' && event.data.user) {
+        handleAuthSuccess(event.data.user, false);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+
+    const handleStorage = (e) => {
+      if (e.key === 'bunker_user_v3' && e.newValue) {
+        try {
+          const u = JSON.parse(e.newValue);
+          if (u && u.username) handleAuthSuccess(u, false);
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   const handleRulesUnderstood = () => {
     if (user?.username) {
