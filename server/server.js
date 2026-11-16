@@ -297,9 +297,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('updateProfile', ({ username, avatarUrl, rulesAccepted }, callback) => {
+  socket.on('updateProfile', ({ username, newUsername, avatarUrl, rulesAccepted }, callback) => {
     try {
-      const res = userManager.updateProfile(username, { avatarUrl, rulesAccepted });
+      const res = userManager.updateProfile(username, { newUsername, avatarUrl, rulesAccepted });
       if (res && res.success) {
         bindUserSocket(res.user.username, socket.id);
         gameManager.updatePlayerProfile(username, res.user);
@@ -384,7 +384,8 @@ io.on('connection', (socket) => {
         if (typeof callback === 'function') callback({ error: 'Код авторизации не передан' });
         return;
       }
-      const postData = querystring.stringify({
+
+      const tokenParams = new URLSearchParams({
         code: String(code),
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
@@ -392,18 +393,25 @@ io.on('connection', (socket) => {
         grant_type: 'authorization_code'
       });
 
-      const tokenData = await httpsRequestJson(
-        {
-          hostname: 'oauth2.googleapis.com',
-          path: '/token',
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Content-Length': Buffer.byteLength(postData)
-          }
+      const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
-        postData
-      );
+        body: tokenParams.toString()
+      });
+
+      const tokenData = await tokenResp.json();
+
+      if (!tokenResp.ok || tokenData.error) {
+        console.error('[GOOGLE TOKEN ERROR]:', tokenResp.status, tokenData);
+        if (typeof callback === 'function') {
+          callback({
+            error: tokenData.error_description || tokenData.error || 'Ошибка обмена токена Google'
+          });
+        }
+        return;
+      }
 
       let profile = {};
       if (tokenData.id_token) {
@@ -411,43 +419,36 @@ io.on('connection', (socket) => {
       }
       if (tokenData.access_token) {
         try {
-          const userInfo = await httpsRequestJson({
-            hostname: 'www.googleapis.com',
-            path: '/oauth2/v3/userinfo',
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${tokenData.access_token}`
-            }
+          const userResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` }
           });
-          profile = { ...profile, ...userInfo };
-        } catch (err) {}
+          if (userResp.ok) {
+            const userInfo = await userResp.json();
+            profile = { ...profile, ...userInfo };
+          }
+        } catch (err) {
+          console.error('[GOOGLE USERINFO ERROR]:', err);
+        }
       }
 
-      const email = profile.email || 'user@gmail.com';
-      const name =
-        profile.name ||
-        [profile.given_name, profile.family_name].filter(Boolean).join(' ') ||
-        email.split('@')[0];
+      const email = (profile.email || '').trim();
+      const rawName = (profile.name || [profile.given_name, profile.family_name].filter(Boolean).join(' ') || '').trim();
+      const name = rawName || (email ? email.split('@')[0] : 'Samandar');
       const picture = profile.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4285F4&color=fff&size=256&bold=true`;
 
       const userRes = userManager.googleDirectLogin({
         email,
         name,
         avatarUrl: picture,
-        googleId: 'google-' + (profile.sub || profile.id || Date.now())
+        googleId: 'google-' + (profile.sub || profile.id || (email ? email.toLowerCase() : Date.now()))
       });
 
-      const user = userRes.user || {
-        username: name,
-        googleEmail: email,
-        avatarUrl: picture,
-        bunCoins: 500
-      };
-
-      if (user) {
-        bindUserSocket(user.username, socket.id);
+      if (userRes && userRes.success && userRes.user) {
+        bindUserSocket(userRes.user.username, socket.id);
+        if (typeof callback === 'function') callback({ success: true, user: userRes.user });
+      } else {
+        if (typeof callback === 'function') callback(userRes);
       }
-      if (typeof callback === 'function') callback({ success: true, user });
     } catch (e) {
       console.error('Ошибка exchangeGoogleCode:', e);
       if (typeof callback === 'function') callback({ error: 'Ошибка обмена токена Google' });

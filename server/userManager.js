@@ -227,6 +227,29 @@ class UserManager {
     const user = this.ensureUser(username, updates);
     if (!user) return { error: 'Имя пользователя не указано' };
 
+    if (updates.newUsername) {
+      const cleanNew = String(updates.newUsername)
+        .replace(/[^\p{L}\p{N}_ \-]/gu, '')
+        .trim()
+        .replace(/\s+/g, '_')
+        .substring(0, 16);
+      if (cleanNew.length >= 2 && cleanNew.toLowerCase() !== user.username.toLowerCase()) {
+        if (this.users.has(cleanNew.toLowerCase())) {
+          return { error: 'Пользователь с таким ником уже существует!' };
+        }
+        this.users.delete(user.username.toLowerCase());
+        user.username = cleanNew;
+        this.users.set(cleanNew.toLowerCase(), user);
+      }
+    }
+
+    if (updates.newPassword) {
+      const cleanPass = String(updates.newPassword).trim();
+      if (cleanPass.length >= 3) {
+        user.password = cleanPass;
+      }
+    }
+
     if (updates.avatarUrl !== undefined) {
       user.avatarUrl = updates.avatarUrl ? updates.avatarUrl.trim() : null;
     }
@@ -355,7 +378,19 @@ class UserManager {
       }
       if (!existing.googleId) existing.googleId = gid;
       if (!existing.googleEmail && rawEmail) existing.googleEmail = rawEmail;
-      if (!existing.avatarUrl && avatarUrl) existing.avatarUrl = avatarUrl;
+      if (avatarUrl) existing.avatarUrl = avatarUrl;
+
+      // Если текущий ник технический ("user" или "user_1"), обновляем его на настоящее имя из Google!
+      const targetName = rawName || (rawEmail ? rawEmail.split('@')[0] : '');
+      if (targetName && (existing.username.toLowerCase() === 'user' || existing.username.toLowerCase().startsWith('user_'))) {
+        const cleanedName = targetName.replace(/[^\p{L}\p{N}_ \-]/gu, '').trim().replace(/\s+/g, '_').substring(0, 16);
+        if (cleanedName && cleanedName.toLowerCase() !== existing.username.toLowerCase()) {
+          this.users.delete(existing.username.toLowerCase());
+          existing.username = cleanedName;
+          this.users.set(cleanedName.toLowerCase(), existing);
+        }
+      }
+
       this.saveUsers();
       return { success: true, user: this.sanitizeUser(existing), isNewRegistration: false };
     }

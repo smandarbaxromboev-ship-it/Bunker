@@ -108,7 +108,7 @@ export default function AuthModal({
         client_id: effectiveClientId,
         redirect_uri: redirectUri,
         response_type: 'code',
-        scope: 'openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+        scope: 'openid email profile',
         access_type: 'online',
         prompt: 'select_account'
       }).toString();

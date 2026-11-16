@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { User, Link as LinkIcon, Sparkles, X, Check, Trophy, Shield, Coins, Trash2, Upload } from 'lucide-react';
+import { User, Link as LinkIcon, Sparkles, X, Check, Trophy, Shield, Coins, Trash2, Upload, Pencil } from 'lucide-react';
 import CharacterAvatar from './CharacterAvatar';
 import { soundManager } from '../utils/audio';
 import { translations } from '../utils/translations';
@@ -7,10 +7,44 @@ import { translations } from '../utils/translations';
 export default function ProfileModal({ user, socket, lang = 'ru', onClose, onProfileUpdated }) {
   const t = translations[lang] || translations.ru;
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
+  const [isEditingNick, setIsEditingNick] = useState(false);
+  const [newNick, setNewNick] = useState(user?.username || '');
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
+
+  const handleSaveNick = (e) => {
+    e?.preventDefault();
+    const trimmed = newNick.trim();
+    if (!trimmed || trimmed === user?.username) {
+      setIsEditingNick(false);
+      return;
+    }
+    if (trimmed.length < 2) {
+      setErrorMsg(lang === 'uz' ? 'Nik kamida 2 ta belgidan iborat bo\'lishi kerak' : lang === 'en' ? 'Nickname must be at least 2 characters' : 'Никнейм должен быть не короче 2 символов');
+      return;
+    }
+    setLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    socket.emit('updateProfile', {
+      username: user.username,
+      newUsername: trimmed
+    }, (res) => {
+      setLoading(false);
+      if (res && res.success && res.user) {
+        soundManager.playBeep(880, 0.1);
+        setIsEditingNick(false);
+        setSuccessMsg(lang === 'uz' ? 'Nik muvaffaqiyatli saqlandi!' : lang === 'en' ? 'Nickname updated successfully!' : 'Никнейм успешно изменён!');
+        if (onProfileUpdated) onProfileUpdated(res.user);
+        setTimeout(() => setSuccessMsg(''), 3000);
+      } else {
+        setErrorMsg(res?.error || 'Ошибка при изменении ника');
+      }
+    });
+  };
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
@@ -114,13 +148,53 @@ export default function ProfileModal({ user, socket, lang = 'ru', onClose, onPro
           <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border-2 border-amber-500/60 flex items-center justify-center text-amber-400 shrink-0">
             <User className="w-6 h-6" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold font-display text-white">
               {t.profileTitle}
             </h2>
-            <p className="text-xs font-mono text-amber-400">
-              @{user?.username}
-            </p>
+            {isEditingNick ? (
+              <form onSubmit={handleSaveNick} className="flex items-center gap-1.5 mt-1">
+                <input
+                  type="text"
+                  value={newNick}
+                  onChange={(e) => setNewNick(e.target.value)}
+                  maxLength={16}
+                  className="px-2 py-0.5 rounded bg-zinc-950 border border-amber-500/70 text-xs font-mono text-amber-300 w-36 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-black font-bold text-[11px] transition cursor-pointer"
+                  title="Сохранить"
+                >
+                  ✓
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsEditingNick(false); setNewNick(user?.username || ''); }}
+                  className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] transition cursor-pointer"
+                  title="Отмена"
+                >
+                  ✕
+                </button>
+              </form>
+            ) : (
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-xs font-mono text-amber-400 truncate max-w-[160px]">
+                  @{user?.username}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setNewNick(user?.username || ''); setIsEditingNick(true); }}
+                  className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-amber-400 font-mono transition cursor-pointer px-1.5 py-0.5 rounded hover:bg-zinc-800"
+                  title="Изменить никнейм"
+                >
+                  <Pencil className="w-3 h-3 text-amber-500" />
+                  <span>{lang === 'uz' ? "o'zgartirish" : lang === 'en' ? 'edit' : 'изменить'}</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
