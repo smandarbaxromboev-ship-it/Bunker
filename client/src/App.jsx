@@ -426,7 +426,20 @@ export default function App() {
 
   const handleJoinRoomByCode = (targetCode) => {
     const clean = String(targetCode || '').trim();
-    if (!clean || !user) return;
+    if (!clean) return;
+    setErrorMessage('');
+
+    if (!user) {
+      setErrorMessage(
+        lang === 'uz'
+          ? "⚠️ Bunkerga ulanish uchun tizimga kiring yoki ro'yxatdan o'ting!"
+          : lang === 'en'
+          ? '⚠️ Registration or login required to join a bunker!'
+          : '⚠️ Для входа в комнату необходимо зарегистрироваться или войти в аккаунт!'
+      );
+      setShowAuthModal(true);
+      return;
+    }
 
     // Если уже в другой комнате — сначала выходим из старой
     const currentCode = roomState?.code || localStorage.getItem('bunker_room_code');
@@ -436,13 +449,13 @@ export default function App() {
     }
 
     const name = (user.username || playerName || 'Выживший').trim();
+    localStorage.setItem('bunker_player_name', name);
     soundManager.playBeep(950, 0.08);
     setPendingInvite(null);
 
     socket.emit('joinRoom', { roomCode: clean, playerName: name, userProfile: user }, (res) => {
       if (res?.error) {
         setErrorMessage(res.error);
-        alert(res.error);
         return;
       }
       setMyPlayerId(res.playerId);
@@ -881,82 +894,95 @@ export default function App() {
             </div>
           </div>
 
-          {/* Public Open Rooms Browser (Список открытых комнат на главной странице) */}
-          <div className="mt-6 sm:mt-8 p-4 sm:p-5 rounded-3xl bg-white dark:bg-zinc-900/90 border-2 border-cyan-500/40 max-w-3xl mx-auto shadow-lg">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <div className="flex items-center gap-2">
-                <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
-                <h3 className="text-xs sm:text-sm font-display font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-                  {lang === 'uz'
-                    ? `OCHIQ XONALAR RO'YXATI (${publicRooms.length})`
-                    : lang === 'en'
-                    ? `OPEN PUBLIC ROOMS (${publicRooms.length})`
-                    : `🌐 СПИСОК ОТКРЫТЫХ КОМНАТ (${publicRooms.length})`}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  socket.emit('getPublicRooms', {}, (res) => {
-                    if (res && res.success) setPublicRooms(res.rooms || []);
-                  });
-                }}
-                className="text-[11px] font-mono text-cyan-500 hover:underline cursor-pointer"
-              >
-                {lang === 'uz' ? '↻ Yangilash' : lang === 'en' ? '↻ Refresh' : '↻ Обновить'}
-              </button>
-            </div>
-
-            {publicRooms.length === 0 ? (
-              <div className="text-center py-4 px-3 rounded-2xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-xs font-mono text-slate-500 dark:text-zinc-400">
-                {lang === 'uz'
-                  ? "Hozircha ochiq xonalar yo'q. «Yangi xona yaratish» tugmasini bosing va birinchi bo'ling!"
-                  : lang === 'en'
-                  ? 'No open lobby rooms right now. Click "Create Room" above to host one!'
-                  : 'Сейчас нет ожидающих комнат. Нажмите «Создать бункер» выше — ваша комната сразу появится здесь!'}
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                {publicRooms.map((rm) => (
-                  <div
-                    key={rm.code}
-                    className="p-3 rounded-2xl bg-slate-50 dark:bg-zinc-950/80 border border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3 hover:border-cyan-500/50 transition"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/40 flex items-center justify-center text-lg shrink-0">
-                        {rm.hostAvatar || '🥷'}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs sm:text-sm font-display font-bold text-slate-900 dark:text-white truncate">
-                          {lang === 'uz'
-                            ? `Xona ${rm.hostName} (#${rm.code})`
-                            : lang === 'en'
-                            ? `Room ${rm.hostName} (#${rm.code})`
-                            : `Комната ${rm.hostName} (#${rm.code})`}
-                        </div>
-                        <div className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 flex items-center gap-2">
-                          <span className="text-emerald-500 font-bold">
-                            👥 {rm.playersCount}/{rm.maxPlayers} {lang === 'uz' ? "o'yinchi" : lang === 'en' ? 'players' : 'игроков'}
-                          </span>
-                          <span>•</span>
-                          <span className="text-amber-500">Ожидание в лобби</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleJoinRoomByCode(rm.code)}
-                      className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-md shadow-cyan-500/20"
-                    >
-                      <LogIn className="w-3.5 h-3.5" />
-                      <span>{lang === 'uz' ? 'Kirish' : lang === 'en' ? 'Join' : 'Войти'}</span>
-                    </button>
+          {/* Public Open Rooms Browser (Список открытых комнат на главной странице — ТОЛЬКО до начала игры!) */}
+          {(() => {
+            const openLobbyRooms = publicRooms.filter(
+              (rm) => rm.status === 'LOBBY' && (rm.playersCount ?? rm.totalPlayers ?? 0) < (rm.maxPlayers || 12)
+            );
+            return (
+              <div className="mt-6 sm:mt-8 p-4 sm:p-5 rounded-3xl bg-white dark:bg-zinc-900/90 border-2 border-cyan-500/40 max-w-3xl mx-auto shadow-lg">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
+                    <h3 className="text-xs sm:text-sm font-display font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                      {lang === 'uz'
+                        ? `OCHIQ XONALAR RO'YXATI (${openLobbyRooms.length})`
+                        : lang === 'en'
+                        ? `OPEN PUBLIC LOBBIES (${openLobbyRooms.length})`
+                        : `🌐 СПИСОК ОТКРЫТЫХ КОМНАТ (${openLobbyRooms.length})`}
+                    </h3>
                   </div>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      socket.emit('getPublicRooms', {}, (res) => {
+                        if (res && res.success) setPublicRooms(res.rooms || []);
+                      });
+                    }}
+                    className="text-[11px] font-mono text-cyan-500 hover:underline cursor-pointer"
+                  >
+                    {lang === 'uz' ? '↻ Yangilash' : lang === 'en' ? '↻ Refresh' : '↻ Обновить'}
+                  </button>
+                </div>
+
+                {openLobbyRooms.length === 0 ? (
+                  <div className="text-center py-4 px-3 rounded-2xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-xs font-mono text-slate-500 dark:text-zinc-400">
+                    {lang === 'uz'
+                      ? "Hozircha ochiq lobbilar yo'q (o'yin boshlangan xonalarga kirib bo'lmaydi). «Yangi xona yaratish» tugmasini bosing!"
+                      : lang === 'en'
+                      ? 'No open lobby rooms right now (rooms already in-game are locked). Click "Create Room" above!'
+                      : 'Сейчас нет открытых лобби (в комнаты, где игра уже началась, вход закрыт). Нажмите «Создать бункер» выше!'}
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {openLobbyRooms.map((rm) => {
+                      const count = rm.playersCount ?? rm.totalPlayers ?? 1;
+                      const maxP = rm.maxPlayers || 12;
+                      return (
+                        <div
+                          key={rm.code}
+                          className="p-3 rounded-2xl bg-slate-50 dark:bg-zinc-950/80 border border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3 hover:border-cyan-500/50 transition"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/40 flex items-center justify-center text-lg shrink-0">
+                              {rm.hostAvatar || '🥷'}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs sm:text-sm font-display font-bold text-slate-900 dark:text-white truncate">
+                                {lang === 'uz'
+                                  ? `Xona ${rm.hostName} (#${rm.code})`
+                                  : lang === 'en'
+                                  ? `Room ${rm.hostName} (#${rm.code})`
+                                  : `Комната ${rm.hostName} (#${rm.code})`}
+                              </div>
+                              <div className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 flex items-center gap-2">
+                                <span className="text-emerald-500 font-bold">
+                                  👥 {count}/{maxP} {lang === 'uz' ? "o'yinchi" : lang === 'en' ? 'players' : 'игроков'}
+                                </span>
+                                <span>•</span>
+                                <span className="text-amber-500">
+                                  {lang === 'uz' ? 'Boshlanishidan oldin (Lobbi)' : lang === 'en' ? 'Waiting in Lobby' : 'До начала игры (Лобби)'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleJoinRoomByCode(rm.code)}
+                            className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-md shadow-cyan-500/20"
+                          >
+                            <LogIn className="w-3.5 h-3.5" />
+                            <span>{lang === 'uz' ? 'Kirish' : lang === 'en' ? 'Join' : 'Войти'}</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* Rules Summary */}
           <div className="mt-6 sm:mt-8 p-4 sm:p-5 rounded-2xl bg-white/70 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 max-w-3xl mx-auto text-xs text-slate-600 dark:text-zinc-400 font-mono space-y-1.5 shadow-sm">

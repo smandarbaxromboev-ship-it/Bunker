@@ -180,8 +180,21 @@ class GameManager {
       return { error: 'Комната с таким цифровым кодом не найдена.' };
     }
 
+    // СТРОГИЙ ЗАПРЕТ ВХОДА ВО ВРЕМЯ ИГРЫ: зайти можно ТОЛЬКО до старта игры (пока статус LOBBY)!
     if (room.status !== 'LOBBY') {
-      return { error: 'Игра в этом бункере уже началась!' };
+      return { error: '🔒 Невозможно войти: игра в этой комнате уже началась! Подключиться можно только до начала игры (в лобби).' };
+    }
+
+    // Если этот же игрок уже числится в этом лобби — просто обновляем его сокет без дублирования
+    if (userProfile && userProfile.username) {
+      const existingPlayer = room.players.find(
+        p => !p.isBot && !p.hasLeft && p.username && p.username.toLowerCase() === userProfile.username.toLowerCase()
+      );
+      if (existingPlayer) {
+        existingPlayer.socketId = socketId;
+        this.broadcastRoom(code);
+        return { code, playerId: existingPlayer.id, room: this.getSanitizedRoomState(room, existingPlayer.id) };
+      }
     }
 
     if (room.players.length >= 12) {
@@ -1593,17 +1606,21 @@ class GameManager {
   getPublicLobbyRooms() {
     const publicRooms = [];
     for (const [code, room] of this.rooms.entries()) {
+      // В список открытых комнат попадают ТОЛЬКО лобби ДО начала игры (status === 'LOBBY') со свободными местами!
+      if (room.status !== 'LOBBY' || room.players.length >= 12) continue;
+
       const host = room.players.find(p => p.id === room.hostId) || room.players[0];
       publicRooms.push({
         code: room.code,
         status: room.status,
         hostName: host ? host.name : 'Командир',
         hostAvatar: host?.character?.avatar || '🥷',
+        playersCount: room.players.length,
         totalPlayers: room.players.length,
         maxPlayers: 12,
         bunkerCapacity: room.bunkerCapacity || calculateBunkerCapacity(room.players.length),
         disasterTitle: room.disaster ? room.disaster.title : null,
-        canJoin: room.status === 'LOBBY' && room.players.length < 12
+        canJoin: true
       });
     }
     return publicRooms;
@@ -1645,8 +1662,12 @@ class GameManager {
 
   closeRoom(code) {
     if (this.rooms.has(code)) {
+      this.clearRoomTimer(code);
       this.io.to(code).emit('roomClosedByAdmin', { message: 'Комната была закрыта администратором' });
       this.rooms.delete(code);
+      if (this.io) {
+        this.io.emit('publicRoomsUpdated', this.getPublicLobbyRooms());
+      }
       return true;
     }
     return false;

@@ -226,6 +226,22 @@ io.on('connection', (socket) => {
         if (typeof callback === 'function') callback({ error: 'Сначала создайте комнату или войдите в бункер!' });
         return;
       }
+      const cleanRoomCode = String(roomCode).trim();
+      const targetRoom = gameManager.rooms.get(cleanRoomCode);
+      if (!targetRoom) {
+        if (typeof callback === 'function') callback({ error: 'Комната не найдена!' });
+        return;
+      }
+      if (targetRoom.status !== 'LOBBY') {
+        if (typeof callback === 'function') {
+          callback({ error: '🔒 Игра в этой комнате уже началась! Звать друзей можно только до начала игры (в лобби).' });
+        }
+        return;
+      }
+      if (targetRoom.players.length >= 12) {
+        if (typeof callback === 'function') callback({ error: 'Комната уже заполнена (12/12)!' });
+        return;
+      }
       const sender = userManager.getUser(fromUsername);
       const target = userManager.findUserByIdOrName(targetUserId || targetUsername);
       if (!target) {

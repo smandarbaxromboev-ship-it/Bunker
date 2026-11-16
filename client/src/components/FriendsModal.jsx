@@ -467,8 +467,10 @@ export default function FriendsModal({
                               <span className="text-zinc-500">● Оффлайн</span>
                             )}
                             {f.currentRoomCode && (
-                              <span className="text-amber-400 font-bold">
-                                • В комнате #{f.currentRoomCode}
+                              <span className={f.currentRoomStatus === 'LOBBY' ? 'text-amber-400 font-bold' : 'text-red-400 font-bold'}>
+                                {f.currentRoomStatus === 'LOBBY'
+                                  ? `• В лобби #${f.currentRoomCode}`
+                                  : `• 🔒 В игре (#${f.currentRoomCode})`}
                               </span>
                             )}
                           </div>
@@ -511,8 +513,8 @@ export default function FriendsModal({
                           </button>
                         )}
 
-                        {/* Join friend's room if they are in one and we aren't in that room */}
-                        {f.currentRoomCode && f.currentRoomCode !== currentRoomCode && onJoinFriendRoom && (
+                        {/* Join friend's room ONLY if they are in LOBBY (before game starts) */}
+                        {f.currentRoomCode && f.currentRoomCode !== currentRoomCode && f.currentRoomStatus === 'LOBBY' && onJoinFriendRoom && (
                           <button
                             type="button"
                             onClick={() => {
