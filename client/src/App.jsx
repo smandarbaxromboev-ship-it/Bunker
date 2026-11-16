@@ -45,11 +45,54 @@ function GoogleAuthCallbackView({ socket, onSuccess }) {
   const [userName, setUserName] = useState('');
 
   useEffect(() => {
-    async function processGoogleToken() {
+    async function processGoogleAuth() {
       try {
-        let profile = null;
+        const searchParams = new URLSearchParams(window.location.search);
+        const code = searchParams.get('code');
 
-        // 1. Читаем токен из хэша URL (#access_token=...)
+        // 1. Обработка через код авторизации (?code=...)
+        if (code && socket) {
+          socket.emit('exchangeGoogleCode', {
+            code,
+            redirectUri: window.location.origin
+          }, (res) => {
+            if (res && res.success && res.user) {
+              setUserName(res.user.username);
+              setStatus('success');
+
+              try {
+                const bc = new BroadcastChannel('bunker_google_auth');
+                bc.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: res.user });
+              } catch (e) {}
+
+              if (window.opener && !window.opener.closed) {
+                try {
+                  window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: res.user }, '*');
+                } catch (e) {}
+              }
+
+              try {
+                localStorage.setItem('bunker_last_google_user', JSON.stringify(res.user));
+                localStorage.setItem('bunker_user_v3', JSON.stringify(res.user));
+              } catch (e) {}
+
+              if (typeof onSuccess === 'function') {
+                onSuccess(res.user);
+              }
+
+              setTimeout(() => {
+                try { window.close(); } catch (e) {}
+                window.location.replace('/');
+              }, 400);
+            } else {
+              console.error('Ошибка обмена кода:', res?.error);
+              setStatus('error');
+            }
+          });
+          return;
+        }
+
+        // 2. Читаем токен из хэша URL (#access_token=...)
         if (window.location.hash && window.location.hash.includes('access_token')) {
           const params = new URLSearchParams(window.location.hash.substring(1));
           const accessToken = params.get('access_token');
@@ -59,72 +102,69 @@ function GoogleAuthCallbackView({ socket, onSuccess }) {
             });
             if (resp.ok) {
               const info = await resp.json();
-              profile = {
+              const profile = {
                 name: info.name || (info.email ? info.email.split('@')[0] : 'Player'),
                 email: info.email,
                 picture: info.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(info.name || 'G')}&background=4285F4&color=fff&size=256&bold=true`,
                 googleId: 'google-' + info.sub
               };
+
+              setUserName(profile.name);
+              setStatus('success');
+
+              if (socket) {
+                socket.emit('googleDirectLogin', {
+                  email: profile.email,
+                  name: profile.name,
+                  avatarUrl: profile.picture,
+                  googleId: profile.googleId
+                }, (res) => {
+                  const finalUser = (res && res.success && res.user) ? res.user : {
+                    username: profile.name,
+                    googleEmail: profile.email,
+                    avatarUrl: profile.picture,
+                    bunCoins: 500
+                  };
+
+                  try {
+                    const bc = new BroadcastChannel('bunker_google_auth');
+                    bc.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: finalUser });
+                  } catch (e) {}
+
+                  if (window.opener && !window.opener.closed) {
+                    try {
+                      window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: finalUser }, '*');
+                    } catch (e) {}
+                  }
+
+                  try {
+                    localStorage.setItem('bunker_last_google_user', JSON.stringify(finalUser));
+                    localStorage.setItem('bunker_user_v3', JSON.stringify(finalUser));
+                  } catch (e) {}
+
+                  if (typeof onSuccess === 'function') {
+                    onSuccess(finalUser);
+                  }
+
+                  setTimeout(() => {
+                    try { window.close(); } catch (e) {}
+                    window.location.replace('/');
+                  }, 400);
+                });
+              }
+              return;
             }
           }
         }
 
-        if (profile) {
-          setUserName(profile.name);
-          setStatus('success');
-
-          // Сохраняем пользователя через сокет на сервере
-          if (socket) {
-            socket.emit('googleDirectLogin', {
-              email: profile.email,
-              name: profile.name,
-              avatarUrl: profile.picture,
-              googleId: profile.googleId
-            }, (res) => {
-              const finalUser = (res && res.success && res.user) ? res.user : {
-                username: profile.name,
-                googleEmail: profile.email,
-                avatarUrl: profile.picture,
-                bunCoins: 500
-              };
-
-              // Оповещаем родительское окно через postMessage и BroadcastChannel
-              try {
-                const bc = new BroadcastChannel('bunker_google_auth');
-                bc.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: finalUser });
-              } catch (e) {}
-
-              if (window.opener && !window.opener.closed) {
-                try {
-                  window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: finalUser }, '*');
-                } catch (e) {}
-              }
-
-              try {
-                localStorage.setItem('bunker_last_google_user', JSON.stringify(finalUser));
-                localStorage.setItem('bunker_user_v3', JSON.stringify(finalUser));
-              } catch (e) {}
-
-              if (typeof onSuccess === 'function') {
-                onSuccess(finalUser);
-              }
-
-              setTimeout(() => {
-                try { window.close(); } catch (e) {}
-                window.location.replace('/');
-              }, 500);
-            });
-          }
-        } else {
-          setStatus('error');
-        }
+        setStatus('error');
       } catch (err) {
-        console.error('Ошибка обработки Google токена:', err);
+        console.error('Ошибка обработки Google авторизации:', err);
         setStatus('error');
       }
     }
 
-    processGoogleToken();
+    processGoogleAuth();
   }, [socket, onSuccess]);
 
   return (
@@ -842,7 +882,7 @@ export default function App() {
     currentPath !== '/' && 
     currentPath !== '/index.html' && 
     !currentPath.startsWith('/auth/google') && 
-    !(typeof window !== 'undefined' && window.location.hash && window.location.hash.includes('access_token'))
+    !(typeof window !== 'undefined' && ((window.location.search && window.location.search.includes('code=')) || (window.location.hash && window.location.hash.includes('access_token'))))
   ) {
     return (
       <NotFoundView
@@ -854,10 +894,10 @@ export default function App() {
     );
   }
 
-  // GOOGLE OAUTH CALLBACK POPUP HANDLER (ПРИНИМАЕТ ТОКЕН ОТ GOOGLE И ЗАКРЫВАЕТ ОКНО)
+  // GOOGLE OAUTH CALLBACK POPUP HANDLER (ПРИНИМАЕТ КОД ИЛИ ТОКЕН ОТ GOOGLE И ЗАКРЫВАЕТ ОКНО)
   if (
     (currentPath && currentPath.startsWith('/auth/google')) ||
-    (typeof window !== 'undefined' && window.location.hash && window.location.hash.includes('access_token'))
+    (typeof window !== 'undefined' && ((window.location.search && window.location.search.includes('code=')) || (window.location.hash && window.location.hash.includes('access_token'))))
   ) {
     return (
       <GoogleAuthCallbackView 

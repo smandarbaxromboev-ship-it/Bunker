@@ -90,8 +90,9 @@ export default function AuthModal({
       new URLSearchParams({
         client_id: googleClientId,
         redirect_uri: redirectUri,
-        response_type: 'token',
-        scope: 'openid email profile',
+        response_type: 'code',
+        scope: 'openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+        access_type: 'online',
         prompt: 'select_account'
       }).toString();
 

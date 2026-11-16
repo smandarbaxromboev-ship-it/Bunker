@@ -85,7 +85,7 @@ app.get('/Bunker7.apk', (req, res) => {
 app.get('/auth/google', (req, res) => {
   const protocol = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
   const host = req.headers['x-forwarded-host'] || req.headers.host;
-  const redirectUri = `${protocol}://${host}/auth/google/callback`;
+  const redirectUri = `${protocol}://${host}`;
 
   const googleAuthUrl =
     'https://accounts.google.com/o/oauth2/v2/auth?' +
@@ -101,15 +101,16 @@ app.get('/auth/google', (req, res) => {
   res.redirect(googleAuthUrl);
 });
 
-app.get('/auth/google/callback', async (req, res) => {
+// Обработка возврата от Google с ?code=...
+app.get(['/', '/auth/google/callback'], async (req, res, next) => {
   const code = req.query.code;
   if (!code) {
-    return res.redirect('/');
+    return next();
   }
 
   const protocol = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
   const host = req.headers['x-forwarded-host'] || req.headers.host;
-  const redirectUri = `${protocol}://${host}/auth/google/callback`;
+  const redirectUri = `${protocol}://${host}`;
 
   try {
     const postData = querystring.stringify({
@@ -377,6 +378,82 @@ io.on('connection', (socket) => {
     } catch (e) {
       console.error('Ошибка googleDirectLogin:', e);
       if (typeof callback === 'function') callback({ error: 'Ошибка входа через Google' });
+    }
+  });
+
+  socket.on('exchangeGoogleCode', async ({ code, redirectUri }, callback) => {
+    try {
+      if (!code) {
+        if (typeof callback === 'function') callback({ error: 'Код авторизации не передан' });
+        return;
+      }
+      const postData = querystring.stringify({
+        code: String(code),
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: redirectUri || 'http://localhost:3000',
+        grant_type: 'authorization_code'
+      });
+
+      const tokenData = await httpsRequestJson(
+        {
+          hostname: 'oauth2.googleapis.com',
+          path: '/token',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': Buffer.byteLength(postData)
+          }
+        },
+        postData
+      );
+
+      let profile = {};
+      if (tokenData.id_token) {
+        profile = decodeJwtPayload(tokenData.id_token);
+      }
+      if (tokenData.access_token) {
+        try {
+          const userInfo = await httpsRequestJson({
+            hostname: 'www.googleapis.com',
+            path: '/oauth2/v3/userinfo',
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${tokenData.access_token}`
+            }
+          });
+          profile = { ...profile, ...userInfo };
+        } catch (err) {}
+      }
+
+      const email = profile.email || 'user@gmail.com';
+      const name =
+        profile.name ||
+        [profile.given_name, profile.family_name].filter(Boolean).join(' ') ||
+        email.split('@')[0];
+      const picture = profile.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4285F4&color=fff&size=256&bold=true`;
+
+      const userRes = userManager.googleDirectLogin({
+        email,
+        name,
+        avatarUrl: picture,
+        googleId: 'google-' + (profile.sub || profile.id || Date.now())
+      });
+
+      const user = userRes.user || {
+        username: name,
+        googleEmail: email,
+        avatarUrl: picture,
+        bunCoins: 500
+      };
+
+      if (user) {
+        bindUserSocket(user.username, socket.id);
+      }
+      if (typeof callback === 'function') callback({ success: true, user });
+    } catch (e) {
+      console.error('Ошибка exchangeGoogleCode:', e);
+      if (typeof callback === 'function') callback({ error: 'Ошибка обмена токена Google' });
     }
   });
 
