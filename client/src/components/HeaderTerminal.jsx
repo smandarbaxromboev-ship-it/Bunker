@@ -80,7 +80,7 @@ export default function HeaderTerminal({
             </div>
           )}
 
-          <BunkerLogo size="sm" lang={lang} />
+          <BunkerLogo size="sm" lang={lang} hideTextOnMobile={true} />
           <div className="min-w-0 hidden md:block">
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-900 text-amber-600 dark:text-amber-400 font-mono font-bold border border-slate-300 dark:border-zinc-700 shrink-0">

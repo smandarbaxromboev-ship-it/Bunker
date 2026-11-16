@@ -13,18 +13,16 @@ const BOT_CHARACTERS = [
   { avatar: '🎯', name: { ru: 'Неоновый Снайпер', en: 'Neon Sniper', uz: 'Neon Mergan' }, borderClass: 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)]', glowClass: 'ring-2 ring-yellow-400', title: { ru: 'Легенда Пустошей', en: 'Wasteland Legend', uz: 'Sahro Afsonasi' }, titleColor: 'text-yellow-400 font-bold' }
 ];
 
-// Динамический расчет мест в бункере (примерно 50% от числа игроков):
-// 3..4 игрока -> 2 места
-// 5..7 игроков -> 3 места (для 7 игроков: ровно 3 победителя в бункере!)
-// 8..9 игроков -> 4 места
-// 10..11 игроков -> 5 мест
-// 12 игроков -> 6 мест
+// Динамический расчет призовых мест:
+// 3..9 игроков -> 2 места
+// 10 игроков -> 3 места
+// 11 игроков -> 4 места
+// 12 игроков -> 5 мест
 function calculateBunkerCapacity(playerCount) {
-  if (playerCount <= 4) return 2;
-  if (playerCount <= 7) return 3;
-  if (playerCount <= 9) return 4;
-  if (playerCount <= 11) return 5;
-  return 6;
+  if (playerCount >= 12) return 5;
+  if (playerCount === 11) return 4;
+  if (playerCount === 10) return 3;
+  return 2;
 }
 
 function formatServerTime(nowMs = Date.now()) {
@@ -416,37 +414,6 @@ class GameManager {
     return { success: true };
   }
 
-  // Определение раундов с изгнанием:
-  // Раунд 1 — ВСЕГДА раунд знакомства (0 изгнаний, все открывают Профессию).
-  // Изгнания распределяются так, чтобы игра длилась ВСЕ 7 РАУНДОВ и вскрылись ВСЕ 7 КАРТ!
-  isExileRound(room) {
-    if (!room) return false;
-    // 1 раунд — ВСЕГДА знакомство без изгнаний!
-    if (room.currentRound <= 1) return false;
-
-    const alivePlayers = room.players.filter(p => p.isAlive && !p.hasLeft);
-    const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
-
-    // Если мест в бункере уже хватает на всех оставшихся выживших — изгнаний больше нет!
-    if (alivePlayers.length <= capacity) {
-      return false;
-    }
-
-    const exilesNeeded = alivePlayers.length - capacity;
-    const roundsLeftIncludingThis = Math.max(1, 8 - room.currentRound);
-
-    // Если оставшихся раундов столько же, сколько нужно изгнать (или меньше) — изгнание обязательно в этом раунде!
-    if (exilesNeeded >= roundsLeftIncludingThis) {
-      return true;
-    }
-
-    // В 7 раунде всегда финальный отбор в бункер!
-    if (room.currentRound === 7) return true;
-
-    // В остальных раундах изгнания проводятся в четных раундах (2, 4, 6...)
-    return room.currentRound % 2 === 0;
-  }
-
   // ФАЗА 1: ПООЧЕРЕДНОЕ ВСКРЫТИЕ КАРТ (ПО 60 СЕКУНД НА ИГРОКА)
   startRevealPhase(room) {
     this.clearRoomTimer(room.code);
@@ -670,6 +637,7 @@ class GameManager {
   }
 
   // ФАЗА 2: ДЕБАТЫ И ГОЛОСОВАНИЕ
+  // ФАЗА 2: ДЕБАТЫ И ГОЛОСОВАНИЕ — ТАЙМЕР РОВНО 20 МИНУТ (1200 СЕКУНД)
   startDiscussionPhase(room) {
     this.clearRoomTimer(room.code);
     room.status = 'ROUND_DISCUSSION';
@@ -679,30 +647,11 @@ class GameManager {
     room.timerType = 'ROUND';
     room.players.forEach(p => { p.votedFor = null; });
 
-    const isExile = this.isExileRound(room);
-    room.isExileRound = isExile;
-
-    if (!isExile) {
-      if (room.currentRound === 1) {
-        this.addSystemMessage(room, {
-          ru: `📢 РАУНД 1 — КРУГ ЗНАКОМСТВА! Все открыли Профессию. В 1-м раунде никто не изгоняется! Обсуждайте профессии в чате и нажимайте «Следующий раунд», чтобы открыть вторую карту.`,
-          en: `📢 ROUND 1 — INTRODUCTIONS! All professions revealed. No exile in round 1! Discuss professions and proceed to Round 2.`,
-          uz: `📢 1-RAUND — TANISHUV BOSQICHI! Barcha kasbini ochdi. 1-raundda hech kim haydalmaydi! 2-raundga o'tish uchun tugmani bosing.`
-        });
-      } else {
-        this.addSystemMessage(room, {
-          ru: `📢 РАУНД ${room.currentRound} — МИРНЫЙ РАУНД (БЕЗ ИЗГНАНИЯ)! Все новые карты открыты. Никто не покидает бункер в этом раунде! Обсуждайте характеристики и переходите к следующему раунду.`,
-          en: `📢 ROUND ${room.currentRound} — PEACEFUL ROUND (NO EXILE)! All cards revealed. No one leaves the bunker this round! Discuss and proceed to the next round.`,
-          uz: `📢 ${room.currentRound}-RAUND — TINCH RAUND (HAYDASH YO'Q)! Yangi kartalar ochildi. Bu raundda hech kim haydalmaydi! Keyingi raundga o'tishingiz mumkin.`
-        });
-      }
-    } else {
-      this.addSystemMessage(room, {
-        ru: `📢 РАУНД ${room.currentRound}: РАУНД ИЗГНАНИЯ! Все карты вскрыты. Голосуйте на карточках игроков или в окне голосования, чтобы изгнать слабейшего кандидата!`,
-        en: `📢 ROUND ${room.currentRound}: EXILE ROUND! All cards revealed. Cast your votes on player cards or in the voting window to exile the weakest survivor!`,
-        uz: `📢 ${room.currentRound}-RAUND: HAYDASH RAUNDI! Barcha kartalar ochildi. Eng nomunosib o'yinchini haydash uchun ovoz bering!`
-      });
-    }
+    this.addSystemMessage(room, {
+      ru: `📢 ВСЕ КАРТЫ ВСКРЫТЫ! Любой игрок уже сейчас может голосовать на карточках игроков или открыть окно голосования (не нужно ждать создателя комнаты)!`,
+      en: `📢 ALL CARDS REVEALED! Any player can vote right now on player cards or open the voting window (no need to wait for the room host)!`,
+      uz: `📢 BARCHA KARTALAR OCHILDI! Har bir o'yinchi xona yaratuvchisini kutmasdan hoziroq ovoz berishi mumkin!`
+    });
 
     this.broadcastRoom(room.code);
 
@@ -720,21 +669,14 @@ class GameManager {
       this.handleRoundTimeout(room.code);
     });
 
-    // Запускаем ботов голосовать только если это раунд изгнания!
-    if (isExile) {
-      this.scheduleRealisticBotVotes(room);
-    }
+    // Запускаем реалистичное поведение ботов: они думают, обсуждают новые карты в чате и голосуют по очереди!
+    this.scheduleRealisticBotVotes(room);
   }
 
   handleRoundTimeout(code) {
     const room = this.rooms.get(code);
     if (!room) return;
     if (room.status !== 'ROUND_DISCUSSION' && room.status !== 'ROUND_VOTING') return;
-
-    if (!this.isExileRound(room)) {
-      this.nextRoundOrEnd(code, room.hostId);
-      return;
-    }
 
     this.addSystemMessage(room, {
       ru: `⏰ 20 МИНУТ РАУНДА ИСТЕКЛИ! Терминал принудительно подводит итоги голосования.`,
@@ -747,13 +689,6 @@ class GameManager {
   startVotingPhase(code, requesterId) {
     const room = this.rooms.get(code);
     if (!room || (room.status !== 'ROUND_DISCUSSION' && room.status !== 'ROUND_VOTING')) return;
-
-    // В мирном раунде сразу переходим к следующему раунду
-    if (!this.isExileRound(room)) {
-      this.nextRoundOrEnd(code, requesterId);
-      return;
-    }
-
     if (room.status === 'ROUND_VOTING') {
       this.broadcastRoom(code);
       return;
@@ -1041,9 +976,6 @@ class GameManager {
   castVote(code, voterId, targetPlayerId) {
     const room = this.rooms.get(code);
     if (!room || (room.status !== 'ROUND_VOTING' && room.status !== 'ROUND_DISCUSSION')) return;
-
-    // В мирном раунде голосования на выбывание нет!
-    if (!this.isExileRound(room)) return;
 
     const voter = room.players.find(p => p.id === voterId);
     if (!voter || !voter.isAlive) return;
@@ -1361,7 +1293,8 @@ class GameManager {
           exiledPlayer: null
         };
         const remainingAfterTie = room.players.filter(p => p.isAlive);
-        if (room.currentRound >= 7 || remainingAfterTie.length <= 1) {
+        const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
+        if (room.currentRound >= 7 || remainingAfterTie.length <= capacity) {
           this.setRoomTimer(room.code, 4000, () => {
             this.endGame(room);
           });
@@ -1467,9 +1400,10 @@ class GameManager {
     room.status = 'ROUND_RESULT';
     room.timerExpiresAt = null;
 
-    // Игра завершается СТРОГО в конце 7 раунда (когда открыты все 7 карт) или если остался 1 выживший!
+    // Игра завершается, когда осталось выживших <= вместимости бункера или наступил 7 раунд:
     const remainingAlive = room.players.filter(p => p.isAlive);
-    if (room.currentRound >= 7 || remainingAlive.length <= 1) {
+    const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
+    if (room.currentRound >= 7 || remainingAlive.length <= capacity) {
       this.setRoomTimer(room.code, 4000, () => {
         this.endGame(room);
       });
@@ -1492,9 +1426,9 @@ class GameManager {
 
     this.clearRoomTimer(code);
     const alivePlayers = room.players.filter(p => p.isAlive);
+    const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
 
-    // Игра завершается СТРОГО после завершения 7 раунда (когда вскрыты все 7 карт) или если остался <= 1 выживший!
-    if (room.currentRound >= 7 || alivePlayers.length <= 1) {
+    if (room.currentRound >= 7 || alivePlayers.length <= capacity) {
       this.endGame(room);
       return;
     }
@@ -1662,7 +1596,6 @@ class GameManager {
       maxRounds: room.maxRounds,
       disaster: room.disaster,
       bunkerCapacity: room.bunkerCapacity || calculateBunkerCapacity(room.players.length),
-      isExileRound: this.isExileRound(room),
       votingResults: room.votingResults,
       ghostVotes,
       serverNow,

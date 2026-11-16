@@ -1,7 +1,7 @@
 import React from 'react';
 import { translations } from '../utils/translations';
 
-export default function BunkerLogo({ size = 'md', animated = true, className = '', lang = 'ru' }) {
+export default function BunkerLogo({ size = 'md', animated = true, className = '', lang = 'ru', hideTextOnMobile = false }) {
   const t = translations[lang] || translations.ru;
   const isSm = size === 'sm';
   const isLg = size === 'lg';
@@ -63,7 +63,7 @@ export default function BunkerLogo({ size = 'md', animated = true, className = '
       </div>
 
       {/* Typography */}
-      <div className="flex flex-col text-left">
+      <div className={`flex flex-col text-left ${hideTextOnMobile ? 'hidden md:flex' : ''}`}>
         <div className="flex items-center gap-1.5 leading-none">
           <span className={`font-display font-black tracking-widest uppercase text-slate-900 dark:text-white drop-shadow-[0_2px_12px_rgba(245,158,11,0.35)] ${titleSizes}`}>
             {t.logoTitle || 'БУНКЕР'}

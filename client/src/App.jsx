@@ -1678,7 +1678,7 @@ export default function App() {
                 key={player.id}
                 player={player}
                 isSelf={player.id === myPlayerId}
-                isVoting={(roomState.status === 'ROUND_VOTING' || roomState.status === 'ROUND_DISCUSSION') && isAlive && roomState.isExileRound !== false}
+                isVoting={(roomState.status === 'ROUND_VOTING' || roomState.status === 'ROUND_DISCUSSION') && isAlive}
                 onVoteTarget={handleCastVote}
                 hasVotedForThis={myPlayer?.votedFor === player.id}
                 myHasVoted={Boolean(myPlayer?.hasVoted)}
