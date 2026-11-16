@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { translations } from '../utils/translations';
-import { Shield, Lock, User, Sparkles, X, AlertCircle, Upload, Link as LinkIcon, CheckCircle2, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Shield, Lock, User, Sparkles, X, AlertCircle, Upload, Link as LinkIcon, CheckCircle2, Trash2, ArrowLeft } from 'lucide-react';
 import { soundManager } from '../utils/audio';
+
+const STORAGE_KEY_GOOGLE_USER = 'bunker_saved_google_user';
 
 export default function AuthModal({ 
   socket, 
@@ -20,10 +22,29 @@ export default function AuthModal({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
-  const googleBtnRef = useRef(null);
+
+  // Google Direct Auth Modal State
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleInput, setGoogleInput] = useState('');
+  const [savedGoogleUser, setSavedGoogleUser] = useState(null);
   const [googleClientId, setGoogleClientId] = useState(null);
 
-  // Получаем Google Client ID с сервера и рисуем официальную кнопку «Войти через Google»
+  // Читаем сохраненный Google профиль из localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_GOOGLE_USER);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (parsed.email || parsed.name)) {
+          setSavedGoogleUser(parsed);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  // Получаем Google Client ID с сервера (если настроен)
   useEffect(() => {
     let cancelled = false;
     socket.emit('getGoogleConfig', {}, (cfg) => {
@@ -32,61 +53,65 @@ export default function AuthModal({
     return () => { cancelled = true; };
   }, [socket]);
 
-  useEffect(() => {
-    if (!googleClientId) return;
+  // Выполнение входа через Google
+  const executeGoogleLogin = ({ email, name, avatarUrl, googleId }) => {
+    setLoading(true);
+    setError('');
 
-    const handleCredential = (response) => {
-      if (!response || !response.credential) return;
-      setLoading(true);
-      setError('');
-      socket.emit('googleLogin', { credential: response.credential }, (res) => {
-        setLoading(false);
-        if (res && res.error) {
-          setError(res.error);
-        } else if (res && res.success && res.user) {
-          soundManager.playBeep(880, 0.1);
-          onAuthSuccess(res.user, Boolean(res.isNewRegistration));
-          if (onClose) onClose();
-        } else {
-          setError(lang === 'uz' ? 'Xatolik yuz berdi' : lang === 'en' ? 'Unexpected error' : 'Произошла непредвиденная ошибка');
+    socket.emit('googleDirectLogin', { email, name, avatarUrl, googleId }, (res) => {
+      setLoading(false);
+      if (res && res.error) {
+        setError(res.error);
+      } else if (res && res.success && res.user) {
+        soundManager.playBeep(880, 0.1);
+        try {
+          localStorage.setItem(STORAGE_KEY_GOOGLE_USER, JSON.stringify({
+            email: res.user.googleEmail || email || '',
+            name: res.user.username || name || '',
+            avatarUrl: res.user.avatarUrl || avatarUrl || '',
+            googleId: res.user.googleId || googleId || ''
+          }));
+        } catch (e) {
+          // ignore
         }
-      });
-    };
-
-    const renderGoogleButton = () => {
-      if (!window.google || !window.google.accounts || !googleBtnRef.current) return;
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: handleCredential,
-        ux_mode: 'popup'
-      });
-      googleBtnRef.current.innerHTML = '';
-      window.google.accounts.id.renderButton(googleBtnRef.current, {
-        theme: 'filled_black',
-        size: 'large',
-        shape: 'pill',
-        text: 'continue_with',
-        locale: lang === 'uz' ? 'uz' : lang === 'en' ? 'en' : 'ru',
-        width: 300
-      });
-    };
-
-    if (window.google && window.google.accounts) {
-      renderGoogleButton();
-    } else {
-      let script = document.getElementById('google-gsi-script');
-      if (!script) {
-        script = document.createElement('script');
-        script.id = 'google-gsi-script';
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
+        setShowGoogleModal(false);
+        onAuthSuccess(res.user, Boolean(res.isNewRegistration));
+        if (onClose) onClose();
+      } else {
+        setError(lang === 'uz' ? 'Xatolik yuz berdi' : lang === 'en' ? 'Unexpected error' : 'Произошла непредвиденная ошибка');
       }
-      script.addEventListener('load', renderGoogleButton);
-      return () => script.removeEventListener('load', renderGoogleButton);
+    });
+  };
+
+  const handleGoogleBtnClick = () => {
+    setError('');
+    // Если есть сохраненный аккаунт, сразу входим им в 1 клик!
+    if (savedGoogleUser && (savedGoogleUser.email || savedGoogleUser.name)) {
+      executeGoogleLogin({
+        email: savedGoogleUser.email,
+        name: savedGoogleUser.name,
+        avatarUrl: savedGoogleUser.avatarUrl,
+        googleId: savedGoogleUser.googleId
+      });
+      return;
     }
-  }, [googleClientId, lang]);
+    // Иначе открываем быстрое окно входа Google
+    setShowGoogleModal(true);
+  };
+
+  const handleGoogleDirectSubmit = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const val = googleInput.trim();
+    if (!val) {
+      setError(lang === 'uz' ? 'Gmail manzilingiz yoki ismingizni kiriting!' : lang === 'en' ? 'Enter your Gmail address or name!' : 'Укажите ваш Gmail или имя!');
+      return;
+    }
+
+    const isEmail = val.includes('@');
+    const email = isEmail ? val : `${val.toLowerCase().replace(/\s+/g, '')}@gmail.com`;
+    const name = isEmail ? val.split('@')[0] : val;
+    executeGoogleLogin({ email, name });
+  };
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
@@ -101,7 +126,6 @@ export default function AuthModal({
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        // Resize to max 300x300 for optimal fast websocket transfer
         const canvas = document.createElement('canvas');
         const maxDim = 300;
         let width = img.width;
@@ -159,6 +183,16 @@ export default function AuthModal({
     });
   };
 
+  // Google SVG Icon Helper
+  const GoogleIcon = ({ className = "w-5 h-5 shrink-0" }) => (
+    <svg className={className} viewBox="0 0 24 24">
+      <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.665-5.17 3.665-9.12z"/>
+      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.07.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.13C3.26 21.41 7.34 24 12 24z"/>
+      <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.58H1.24C.45 8.14 0 9.99 0 12s.45 3.86 1.24 5.42l4.04-3.13z"/>
+      <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.59 1.24 6.58l4.04 3.13c.95-2.83 3.6-4.96 6.72-4.96z"/>
+    </svg>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div className="relative w-full max-w-md bg-zinc-900 border-2 border-amber-500/60 rounded-3xl shadow-2xl p-5 sm:p-6 text-zinc-100 font-sans overflow-hidden">
@@ -212,7 +246,7 @@ export default function AuthModal({
         </div>
 
         {/* Header */}
-        <div className="flex items-center space-x-3 mb-5">
+        <div className="flex items-center space-x-3 mb-4">
           <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border-2 border-amber-500/60 flex items-center justify-center text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.35)] shrink-0">
             <Shield className="w-6 h-6 animate-pulse" />
           </div>
@@ -226,7 +260,42 @@ export default function AuthModal({
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* ===================== GOOGLE 1-CLICK AUTH BUTTON ===================== */}
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={handleGoogleBtnClick}
+            disabled={loading}
+            className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-zinc-100 active:scale-[0.99] text-zinc-900 font-semibold text-sm flex items-center justify-center gap-3 transition shadow-lg border border-zinc-200 cursor-pointer disabled:opacity-60 group"
+          >
+            <GoogleIcon className="w-5 h-5 shrink-0" />
+            <span className="truncate">
+              {savedGoogleUser
+                ? `${t.authContinueAsGoogle || 'Продолжить как'} ${savedGoogleUser.name || savedGoogleUser.email}`
+                : (t.authContinueGoogle || 'Продолжить с Google')}
+            </span>
+          </button>
+
+          {savedGoogleUser && (
+            <div className="text-center mt-1.5">
+              <button
+                type="button"
+                onClick={() => setShowGoogleModal(true)}
+                className="text-[11px] font-mono text-zinc-400 hover:text-amber-400 transition underline cursor-pointer"
+              >
+                {t.authGoogleChangeAccount || 'Сменить Google-аккаунт'}
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 mt-3 text-[10px] font-mono text-zinc-500 uppercase">
+            <span className="flex-1 h-px bg-zinc-800" />
+            <span>{t.authGoogleOr || 'или с логином и паролем'}</span>
+            <span className="flex-1 h-px bg-zinc-800" />
+          </div>
+        </div>
+
+        {/* Tabs: Login / Register */}
         <div className="flex bg-zinc-950/80 p-1 rounded-2xl mb-4 border border-zinc-800">
           <button
             type="button"
@@ -274,19 +343,7 @@ export default function AuthModal({
           </div>
         )}
 
-        {/* Google Sign-In (shown only when server has GOOGLE_CLIENT_ID configured) */}
-        {googleClientId && (
-          <div className="mb-4">
-            <div className="flex justify-center min-h-[44px]" ref={googleBtnRef} />
-            <div className="flex items-center gap-3 mt-3 text-[10px] font-mono text-zinc-500 uppercase">
-              <span className="flex-1 h-px bg-zinc-800" />
-              <span>{lang === 'uz' ? 'yoki parol bilan' : lang === 'en' ? 'or with password' : 'или с паролем'}</span>
-              <span className="flex-1 h-px bg-zinc-800" />
-            </div>
-          </div>
-        )}
-
-        {/* Form */}
+        {/* Standard Form: Login / Password */}
         <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
             <label className="block text-xs font-mono text-zinc-400 mb-1">
@@ -410,6 +467,87 @@ export default function AuthModal({
             <span>{t.mandatoryAccountNotice || 'Для участия в игре требуется аккаунт. Регистрация бесплатна!'}</span>
           </p>
         </div>
+
+        {/* ===================== GOOGLE DIRECT PROMPT SUB-MODAL ===================== */}
+        {showGoogleModal && (
+          <div className="absolute inset-0 bg-black/92 backdrop-blur-md z-20 p-5 flex flex-col justify-center animate-fadeIn">
+            <div className="bg-zinc-950 border border-zinc-700/80 rounded-2xl p-5 shadow-2xl relative">
+              <button
+                type="button"
+                onClick={() => setShowGoogleModal(false)}
+                className="absolute top-3 right-3 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow">
+                  <GoogleIcon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-sm">
+                    {t.authGoogleModalTitle || 'Вход через Google'}
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">
+                    {t.authGoogleModalSubtitle || 'Мгновенный вход в 1 клик • +500 BunCoins'}
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleGoogleDirectSubmit} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-mono text-zinc-300 mb-1.5">
+                    {t.authGoogleInputLabel || 'Ваш адрес Gmail или имя:'}
+                  </label>
+                  <div className="relative">
+                    <GoogleIcon className="absolute left-3 top-2.5 w-4 h-4 opacity-80" />
+                    <input
+                      type="text"
+                      autoFocus
+                      value={googleInput}
+                      onChange={(e) => setGoogleInput(e.target.value)}
+                      placeholder={t.authGooglePlaceholder || 'alex@gmail.com'}
+                      className="w-full bg-zinc-900 border border-zinc-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick preset chips */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {['Alex', 'Stalker', 'Samandar', 'Player'].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setGoogleInput(`${preset.toLowerCase()}@gmail.com`)}
+                      className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 cursor-pointer transition"
+                    >
+                      +{preset}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="pt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowGoogleModal(false)}
+                    className="flex-1 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-mono font-bold transition border border-zinc-800 cursor-pointer"
+                  >
+                    {t.authGoogleCancel || 'Назад'}
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono tracking-wide transition shadow-[0_0_15px_rgba(37,99,235,0.4)] cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <GoogleIcon className="w-4 h-4" />
+                    <span>{loading ? '...' : (t.authGoogleBtnSubmit || 'Войти через Google')}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

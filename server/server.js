@@ -180,6 +180,19 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('googleDirectLogin', ({ email, name, avatarUrl, googleId }, callback) => {
+    try {
+      const res = userManager.googleDirectLogin({ email, name, avatarUrl, googleId });
+      if (res && res.success && res.user) {
+        bindUserSocket(res.user.username, socket.id);
+      }
+      if (typeof callback === 'function') callback(res);
+    } catch (e) {
+      console.error('Ошибка googleDirectLogin:', e);
+      if (typeof callback === 'function') callback({ error: 'Ошибка входа через Google' });
+    }
+  });
+
   socket.on('login', ({ username, password }, callback) => {
     try {
       const res = userManager.login(username, password);

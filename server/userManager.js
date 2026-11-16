@@ -321,6 +321,93 @@ class UserManager {
     return { success: true, user: this.sanitizeUser(newUser), isNewRegistration: true };
   }
 
+  // Прямой 1-клик вход и регистрация через Google (не требует ручной настройки Google Cloud Console)
+  googleDirectLogin({ email, name, avatarUrl, googleId }) {
+    const rawEmail = (email || '').trim().toLowerCase();
+    const rawName = (name || '').trim();
+    if (!rawEmail && !rawName && !googleId) {
+      return { error: 'Пожалуйста, укажите ваш Google аккаунт (Email или имя).' };
+    }
+
+    // Идентификатор Google: либо переданный googleId, либо хеш от email
+    const gid = googleId ? String(googleId) : (rawEmail ? `g_${rawEmail}` : `g_${rawName.toLowerCase()}`);
+
+    // Ищем существующего пользователя по googleId или googleEmail или имени
+    let existing = null;
+    for (const u of this.users.values()) {
+      if (u.googleId && u.googleId === gid) {
+        existing = u;
+        break;
+      }
+      if (rawEmail && u.googleEmail && u.googleEmail.toLowerCase() === rawEmail) {
+        existing = u;
+        break;
+      }
+      if (rawEmail && u.username && u.username.toLowerCase() === rawEmail.split('@')[0].toLowerCase()) {
+        existing = u;
+        break;
+      }
+    }
+
+    if (existing) {
+      if (existing.isBlocked) {
+        return { error: 'Ваш аккаунт заблокирован администратором!' };
+      }
+      if (!existing.googleId) existing.googleId = gid;
+      if (!existing.googleEmail && rawEmail) existing.googleEmail = rawEmail;
+      if (!existing.avatarUrl && avatarUrl) existing.avatarUrl = avatarUrl;
+      this.saveUsers();
+      return { success: true, user: this.sanitizeUser(existing), isNewRegistration: false };
+    }
+
+    // Создаем имя пользователя из имени Google или email
+    let base = rawName || (rawEmail ? rawEmail.split('@')[0] : 'GooglePlayer');
+    base = String(base)
+      .replace(/[^\p{L}\p{N}_ \-]/gu, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .substring(0, 16);
+    if (base.length < 2) base = 'GooglePlayer';
+
+    let candidate = base;
+    let n = 1;
+    while (this.users.has(candidate.toLowerCase())) {
+      n += 1;
+      candidate = `${base.substring(0, 14)}_${n}`.substring(0, 20);
+      if (n > 9999) {
+        candidate = `${base.substring(0, 10)}_${Math.floor(Math.random() * 1e6)}`;
+        break;
+      }
+    }
+
+    // Генерируем красивый фирменный аватар Google
+    const finalAvatar = avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(candidate)}&background=4285F4&color=fff&size=256&bold=true`;
+
+    const newUser = {
+      userId: this.generateUniqueUserId(),
+      username: candidate,
+      password: 'g_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2),
+      googleId: gid,
+      googleEmail: rawEmail || null,
+      avatarUrl: finalAvatar,
+      bunCoins: 500, // Бонус новичку!
+      friends: [],
+      inventory: ['char_stalker', 'frame_default', 'title_survivor'],
+      equipped: {
+        character: 'char_stalker',
+        frame: 'frame_default',
+        title: 'title_survivor'
+      },
+      stats: { gamesPlayed: 0, wins: 0, roundsSurvived: 0 },
+      rulesAccepted: false,
+      createdAt: new Date().toISOString()
+    };
+
+    this.users.set(candidate.toLowerCase(), newUser);
+    this.saveUsers();
+    return { success: true, user: this.sanitizeUser(newUser), isNewRegistration: true };
+  }
+
   getUser(username, fallback = null) {
     if (!username) return null;
     let user = this.users.get(username.trim().toLowerCase());
@@ -398,6 +485,8 @@ class UserManager {
       userId: user.userId,
       username: user.username,
       avatarUrl: user.avatarUrl || null,
+      googleEmail: user.googleEmail || null,
+      googleId: user.googleId || null,
       rulesAccepted: Boolean(user.rulesAccepted),
       bunCoins: user.bunCoins,
       friends: user.friends || [],
