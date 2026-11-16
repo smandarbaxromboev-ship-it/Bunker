@@ -23,11 +23,14 @@ export default function AuthModal({
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Google Direct Auth Modal State
+  // Google Account Chooser Modal State
   const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [googleInput, setGoogleInput] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [googleCustomEmail, setGoogleCustomEmail] = useState('');
+  const [googleCustomName, setGoogleCustomName] = useState('');
   const [savedGoogleUser, setSavedGoogleUser] = useState(null);
   const [googleClientId, setGoogleClientId] = useState(null);
+  const googleBtnRef = useRef(null);
 
   // Читаем сохраненный Google профиль из localStorage
   useEffect(() => {
@@ -83,34 +86,25 @@ export default function AuthModal({
     });
   };
 
-  const handleGoogleBtnClick = () => {
-    setError('');
-    // Если есть сохраненный аккаунт, сразу входим им в 1 клик!
-    if (savedGoogleUser && (savedGoogleUser.email || savedGoogleUser.name)) {
-      executeGoogleLogin({
-        email: savedGoogleUser.email,
-        name: savedGoogleUser.name,
-        avatarUrl: savedGoogleUser.avatarUrl,
-        googleId: savedGoogleUser.googleId
-      });
-      return;
-    }
-    // Иначе открываем быстрое окно входа Google
-    setShowGoogleModal(true);
+  const handleSelectGoogleAccount = (acc) => {
+    executeGoogleLogin({
+      email: acc.email,
+      name: acc.name || acc.fullName,
+      avatarUrl: acc.avatar || acc.avatarUrl,
+      googleId: acc.googleId || `g_${acc.email}`
+    });
   };
 
-  const handleGoogleDirectSubmit = (e) => {
+  const handleCustomGoogleSubmit = (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    const val = googleInput.trim();
-    if (!val) {
-      setError(lang === 'uz' ? 'Gmail manzilingiz yoki ismingizni kiriting!' : lang === 'en' ? 'Enter your Gmail address or name!' : 'Укажите ваш Gmail или имя!');
+    const mail = googleCustomEmail.trim();
+    if (!mail) {
+      setError(lang === 'uz' ? 'Gmail manzilingizni kiriting!' : lang === 'en' ? 'Enter your Gmail address!' : 'Укажите адрес Gmail!');
       return;
     }
-
-    const isEmail = val.includes('@');
-    const email = isEmail ? val : `${val.toLowerCase().replace(/\s+/g, '')}@gmail.com`;
-    const name = isEmail ? val.split('@')[0] : val;
-    executeGoogleLogin({ email, name });
+    const cleanMail = mail.includes('@') ? mail : `${mail}@gmail.com`;
+    const cleanName = googleCustomName.trim() || cleanMail.split('@')[0];
+    executeGoogleLogin({ email: cleanMail, name: cleanName });
   };
 
   const handleFileUpload = (e) => {
@@ -183,7 +177,7 @@ export default function AuthModal({
     });
   };
 
-  // Google SVG Icon Helper
+  // Google Official SVG Icon
   const GoogleIcon = ({ className = "w-5 h-5 shrink-0" }) => (
     <svg className={className} viewBox="0 0 24 24">
       <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.665-5.17 3.665-9.12z"/>
@@ -260,11 +254,11 @@ export default function AuthModal({
           </div>
         </div>
 
-        {/* ===================== GOOGLE 1-CLICK AUTH BUTTON ===================== */}
+        {/* ===================== GOOGLE AUTH BUTTON ===================== */}
         <div className="mb-4">
           <button
             type="button"
-            onClick={handleGoogleBtnClick}
+            onClick={() => setShowGoogleModal(true)}
             disabled={loading}
             className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-zinc-100 active:scale-[0.99] text-zinc-900 font-semibold text-sm flex items-center justify-center gap-3 transition shadow-lg border border-zinc-200 cursor-pointer disabled:opacity-60 group"
           >
@@ -468,83 +462,164 @@ export default function AuthModal({
           </p>
         </div>
 
-        {/* ===================== GOOGLE DIRECT PROMPT SUB-MODAL ===================== */}
+        {/* ===================== GOOGLE ACCOUNT CHOOSER (ОФИЦИАЛЬНОЕ ОКНО ВЫБОРА АККАУНТА GOOGLE) ===================== */}
         {showGoogleModal && (
-          <div className="absolute inset-0 bg-black/92 backdrop-blur-md z-20 p-5 flex flex-col justify-center animate-fadeIn">
-            <div className="bg-zinc-950 border border-zinc-700/80 rounded-2xl p-5 shadow-2xl relative">
+          <div className="absolute inset-0 bg-black/92 backdrop-blur-md z-30 p-3 sm:p-5 flex flex-col justify-center items-center animate-fadeIn">
+            <div className="w-full max-w-sm bg-zinc-950 border border-zinc-700/80 rounded-3xl p-5 sm:p-6 shadow-2xl relative text-zinc-100 font-sans">
               <button
                 type="button"
-                onClick={() => setShowGoogleModal(false)}
-                className="absolute top-3 right-3 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition cursor-pointer"
+                onClick={() => { setShowGoogleModal(false); setShowCustomInput(false); }}
+                className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow">
+              {/* Google Header */}
+              <div className="text-center mb-4">
+                <div className="w-11 h-11 rounded-2xl bg-white flex items-center justify-center mx-auto shadow-md mb-2.5">
                   <GoogleIcon className="w-6 h-6" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-white text-sm">
-                    {t.authGoogleModalTitle || 'Вход через Google'}
-                  </h3>
-                  <p className="text-[11px] text-zinc-400">
-                    {t.authGoogleModalSubtitle || 'Мгновенный вход в 1 клик • +500 BunCoins'}
-                  </p>
-                </div>
+                <h3 className="font-semibold text-base text-zinc-100 tracking-tight">
+                  {lang === 'uz' ? 'Google hisobini tanlang' : lang === 'en' ? 'Choose a Google account' : 'Выберите аккаунт Google'}
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  {lang === 'uz' ? '«Bunker 7» ilovasiga o‘tish uchun' : lang === 'en' ? 'to continue to Bunker 7' : 'для перехода в приложение «Бункер 7»'}
+                </p>
               </div>
 
-              <form onSubmit={handleGoogleDirectSubmit} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-mono text-zinc-300 mb-1.5">
-                    {t.authGoogleInputLabel || 'Ваш адрес Gmail или имя:'}
-                  </label>
-                  <div className="relative">
-                    <GoogleIcon className="absolute left-3 top-2.5 w-4 h-4 opacity-80" />
+              {/* Account Chooser List */}
+              <div className="divide-y divide-zinc-850 border-t border-b border-zinc-850 py-1 my-3">
+                {/* Primary Account: Samandar Baxromboev */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectGoogleAccount({
+                    name: 'Samandar',
+                    fullName: 'Samandar Baxromboev',
+                    email: 'smandarbaxromboev@gmail.com',
+                    avatar: 'https://ui-avatars.com/api/?name=Samandar+Baxromboev&background=1a73e8&color=fff&size=256&bold=true'
+                  })}
+                  disabled={loading}
+                  className="w-full p-2.5 rounded-2xl hover:bg-zinc-900 active:bg-zinc-850 transition flex items-center gap-3.5 text-left cursor-pointer group border border-transparent hover:border-zinc-800"
+                >
+                  <div className="w-10 h-10 rounded-full bg-blue-600 border border-blue-400/40 text-white font-bold text-sm flex items-center justify-center shadow-sm shrink-0">
+                    S
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-xs sm:text-sm text-zinc-100 group-hover:text-white truncate">
+                      Samandar Baxromboev
+                    </div>
+                    <div className="text-[11px] font-mono text-zinc-400 truncate">
+                      smandarbaxromboev@gmail.com
+                    </div>
+                  </div>
+                  <div className="text-zinc-500 group-hover:text-zinc-300 transition text-sm">
+                    ›
+                  </div>
+                </button>
+
+                {/* Additional Saved Account from localStorage if different */}
+                {savedGoogleUser && savedGoogleUser.email && savedGoogleUser.email !== 'smandarbaxromboev@gmail.com' && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectGoogleAccount(savedGoogleUser)}
+                    disabled={loading}
+                    className="w-full p-2.5 rounded-2xl hover:bg-zinc-900 active:bg-zinc-850 transition flex items-center gap-3.5 text-left cursor-pointer group border border-transparent hover:border-zinc-800"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-emerald-600 border border-emerald-400/40 text-white font-bold text-sm flex items-center justify-center shadow-sm shrink-0">
+                      {(savedGoogleUser.name || savedGoogleUser.email)[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-xs sm:text-sm text-zinc-100 group-hover:text-white truncate">
+                        {savedGoogleUser.name || 'Google User'}
+                      </div>
+                      <div className="text-[11px] font-mono text-zinc-400 truncate">
+                        {savedGoogleUser.email}
+                      </div>
+                    </div>
+                    <div className="text-zinc-500 group-hover:text-zinc-300 transition text-sm">
+                      ›
+                    </div>
+                  </button>
+                )}
+
+                {/* Option: Use another Google account */}
+                <button
+                  type="button"
+                  onClick={() => setShowCustomInput(!showCustomInput)}
+                  className="w-full p-2.5 rounded-2xl hover:bg-zinc-900 active:bg-zinc-850 transition flex items-center gap-3.5 text-left cursor-pointer group border border-transparent hover:border-zinc-800"
+                >
+                  <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 group-hover:text-white flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0 text-xs sm:text-sm font-medium text-zinc-300 group-hover:text-white">
+                    {lang === 'uz' ? 'Boshqa hisobdan foydalanish' : lang === 'en' ? 'Use another account' : 'Использовать другой аккаунт'}
+                  </div>
+                </button>
+              </div>
+
+              {/* Sub-form: Enter custom Google email / name if requested */}
+              {showCustomInput && (
+                <form onSubmit={handleCustomGoogleSubmit} className="mt-3 p-3 bg-zinc-900/90 rounded-2xl border border-zinc-800 space-y-2.5 animate-fadeIn">
+                  <div>
+                    <label className="block text-[11px] font-mono text-zinc-400 mb-1">
+                      {lang === 'uz' ? 'Gmail manzili:' : lang === 'en' ? 'Gmail address:' : 'Адрес Gmail:'}
+                    </label>
                     <input
                       type="text"
                       autoFocus
-                      value={googleInput}
-                      onChange={(e) => setGoogleInput(e.target.value)}
-                      placeholder={t.authGooglePlaceholder || 'alex@gmail.com'}
-                      className="w-full bg-zinc-900 border border-zinc-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition font-mono"
+                      value={googleCustomEmail}
+                      onChange={(e) => setGoogleCustomEmail(e.target.value)}
+                      placeholder="user@gmail.com"
+                      className="w-full bg-zinc-950 border border-zinc-700 focus:border-blue-500 rounded-xl px-3 py-1.5 text-xs text-white outline-none font-mono"
                     />
                   </div>
-                </div>
-
-                {/* Quick preset chips */}
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {['Alex', 'Stalker', 'Samandar', 'Player'].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setGoogleInput(`${preset.toLowerCase()}@gmail.com`)}
-                      className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 cursor-pointer transition"
-                    >
-                      +{preset}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="pt-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowGoogleModal(false)}
-                    className="flex-1 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-mono font-bold transition border border-zinc-800 cursor-pointer"
-                  >
-                    {t.authGoogleCancel || 'Назад'}
-                  </button>
-
+                  <div>
+                    <label className="block text-[11px] font-mono text-zinc-400 mb-1">
+                      {lang === 'uz' ? 'Ismingiz (ixtiyoriy):' : lang === 'en' ? 'Your name (optional):' : 'Имя (по желанию):'}
+                    </label>
+                    <input
+                      type="text"
+                      value={googleCustomName}
+                      onChange={(e) => setGoogleCustomName(e.target.value)}
+                      placeholder="Alex"
+                      className="w-full bg-zinc-950 border border-zinc-700 focus:border-blue-500 rounded-xl px-3 py-1.5 text-xs text-white outline-none font-mono"
+                    />
+                  </div>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono tracking-wide transition shadow-[0_0_15px_rgba(37,99,235,0.4)] cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold font-mono transition cursor-pointer"
                   >
-                    <GoogleIcon className="w-4 h-4" />
-                    <span>{loading ? '...' : (t.authGoogleBtnSubmit || 'Войти через Google')}</span>
+                    {loading ? '...' : (lang === 'uz' ? 'Kirish' : lang === 'en' ? 'Sign In' : 'Войти')}
                   </button>
+                </form>
+              )}
+
+              {/* Google Privacy Policy & Starter Bonus Footnote */}
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-xl py-1 px-2.5">
+                  <span>🎁</span>
+                  <span>+500 BunCoins при входе через Google</span>
                 </div>
-              </form>
+                <p className="text-[10px] text-zinc-500 text-center leading-relaxed px-1">
+                  {lang === 'uz' 
+                    ? 'Davom etish orqali Google sizning ismingiz, email va profilingizni «Bunker 7» bilan xavfsiz almashadi.'
+                    : lang === 'en'
+                    ? 'To continue, Google will share your name, email address, and profile picture with Bunker 7.'
+                    : 'Чтобы продолжить, Google предоставит приложению «Бункер 7» ваше имя, адрес электронной почты и фото профиля.'}
+                </p>
+              </div>
+
+              {/* Cancel button */}
+              <div className="mt-3 pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => { setShowGoogleModal(false); setShowCustomInput(false); }}
+                  className="text-xs font-mono text-zinc-400 hover:text-white transition cursor-pointer underline"
+                >
+                  {lang === 'uz' ? 'Bekor qilish' : lang === 'en' ? 'Cancel' : 'Отмена'}
+                </button>
+              </div>
             </div>
           </div>
         )}
