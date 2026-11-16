@@ -3,9 +3,6 @@ import { translations } from '../utils/translations';
 import { Shield, Lock, User, Sparkles, X, AlertCircle, Upload, Link as LinkIcon, CheckCircle2, Trash2 } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 
-const STORAGE_KEY_GOOGLE_ACCOUNTS = 'bunker_google_accounts_list';
-const STORAGE_KEY_LAST_GOOGLE = 'bunker_last_google_user';
-
 export default function AuthModal({ 
   socket, 
   lang, 
@@ -22,120 +19,97 @@ export default function AuthModal({
   const [avatarUrl, setAvatarUrl] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Google Account Chooser State
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [showNewAccountForm, setShowNewAccountForm] = useState(false);
-  const [googleInputEmail, setGoogleInputEmail] = useState('');
-  const [googleInputName, setGoogleInputName] = useState('');
-  const [accountsList, setAccountsList] = useState([]);
-  const [lastUser, setLastUser] = useState(null);
-
-  // Загружаем список сохраненных Google-аккаунтов для этого конкретного устройства
+  // Слушаем успешную авторизацию от настоящего окна Google OAuth
   useEffect(() => {
-    try {
-      const rawList = localStorage.getItem(STORAGE_KEY_GOOGLE_ACCOUNTS);
-      if (rawList) {
-        const parsed = JSON.parse(rawList);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setAccountsList(parsed);
-        }
+    let bc = null;
+
+    const handleAuthData = (user) => {
+      if (!user) return;
+      setGoogleLoading(false);
+      soundManager.playBeep(880, 0.1);
+      onAuthSuccess(user, false);
+      if (onClose) onClose();
+    };
+
+    // 1. postMessage из всплывающего окна
+    const handleMessage = (e) => {
+      if (e.data && e.data.type === 'GOOGLE_AUTH_SUCCESS' && e.data.user) {
+        handleAuthData(e.data.user);
       }
-      const rawLast = localStorage.getItem(STORAGE_KEY_LAST_GOOGLE);
-      if (rawLast) {
-        const p = JSON.parse(rawLast);
-        if (p && (p.email || p.name)) {
-          setLastUser(p);
+    };
+    window.addEventListener('message', handleMessage);
+
+    // 2. BroadcastChannel для межвкладочной синхронизации
+    try {
+      bc = new BroadcastChannel('bunker_google_auth');
+      bc.onmessage = (e) => {
+        if (e.data && e.data.type === 'GOOGLE_AUTH_SUCCESS' && e.data.user) {
+          handleAuthData(e.data.user);
         }
+      };
+    } catch (e) {}
+
+    // 3. localStorage listener
+    const handleStorage = (e) => {
+      if (e.key === 'bunker_last_google_user' && e.newValue) {
+        try {
+          const user = JSON.parse(e.newValue);
+          if (user && (user.username || user.email)) {
+            handleAuthData(user);
+          }
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('storage', handleStorage);
+      if (bc) bc.close();
+    };
+  }, [onAuthSuccess, onClose]);
+
+  // Запуск настоящего всплывающего окна Google OAuth 2.0 (accounts.google.com)
+  const handleStartGoogleOAuth = () => {
+    setError('');
+    setGoogleLoading(true);
+
+    const backendUrl = socket?.io?.uri || window.location.origin;
+    const authUrl = `${backendUrl.replace(/\/$/, '')}/auth/google`;
+
+    const width = 520;
+    const height = 640;
+    const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
+    const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
+
+    try {
+      const popup = window.open(
+        authUrl,
+        'RealGoogleOAuthPopup',
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no`
+      );
+
+      if (popup) {
+        popup.focus();
+
+        // Проверяем закрытие окна
+        const checkClosedTimer = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkClosedTimer);
+            setGoogleLoading(false);
+          }
+        }, 1000);
+        return;
       }
     } catch (e) {
-      // ignore
+      console.warn('Popup blocked, redirecting:', e);
     }
-  }, []);
 
-  // Выполнение входа через Google
-  const executeGoogleLogin = ({ email, name, avatarUrl, googleId }) => {
-    setLoading(true);
-    setError('');
-
-    socket.emit('googleDirectLogin', { email, name, avatarUrl, googleId }, (res) => {
-      setLoading(false);
-      if (res && res.error) {
-        setError(res.error);
-      } else if (res && res.success && res.user) {
-        soundManager.playBeep(880, 0.1);
-        
-        // Сохраняем аккаунт в список аккаунтов на этом устройстве
-        try {
-          const newAccount = {
-            email: res.user.googleEmail || email || `${res.user.username.toLowerCase()}@gmail.com`,
-            name: res.user.username || name || '',
-            avatarUrl: res.user.avatarUrl || avatarUrl || '',
-            googleId: res.user.googleId || googleId || ''
-          };
-
-          setAccountsList(prev => {
-            const filtered = prev.filter(a => a.email.toLowerCase() !== newAccount.email.toLowerCase());
-            const updated = [newAccount, ...filtered].slice(0, 8);
-            try {
-              localStorage.setItem(STORAGE_KEY_GOOGLE_ACCOUNTS, JSON.stringify(updated));
-              localStorage.setItem(STORAGE_KEY_LAST_GOOGLE, JSON.stringify(newAccount));
-            } catch (err) {}
-            return updated;
-          });
-          setLastUser(newAccount);
-        } catch (e) {
-          // ignore
-        }
-
-        setShowGoogleModal(false);
-        setShowNewAccountForm(false);
-        onAuthSuccess(res.user, Boolean(res.isNewRegistration));
-        if (onClose) onClose();
-      } else {
-        setError(lang === 'uz' ? 'Xatolik yuz berdi' : lang === 'en' ? 'Unexpected error' : 'Произошла непредвиденная ошибка');
-      }
-    });
-  };
-
-  const handleSelectGoogleAccount = (acc) => {
-    executeGoogleLogin({
-      email: acc.email,
-      name: acc.name,
-      avatarUrl: acc.avatarUrl,
-      googleId: acc.googleId || `g_${acc.email}`
-    });
-  };
-
-  const handleRemoveAccount = (e, emailToRemove) => {
-    e.stopPropagation();
-    const updated = accountsList.filter(a => a.email !== emailToRemove);
-    setAccountsList(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY_GOOGLE_ACCOUNTS, JSON.stringify(updated));
-      if (lastUser && lastUser.email === emailToRemove) {
-        const next = updated[0] || null;
-        setLastUser(next);
-        if (next) {
-          localStorage.setItem(STORAGE_KEY_LAST_GOOGLE, JSON.stringify(next));
-        } else {
-          localStorage.removeItem(STORAGE_KEY_LAST_GOOGLE);
-        }
-      }
-    } catch (err) {}
-  };
-
-  const handleNewGoogleSubmit = (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    const mail = googleInputEmail.trim();
-    if (!mail) {
-      setError(lang === 'uz' ? 'Gmail manzilingiz yoki ismingizni kiriting!' : lang === 'en' ? 'Enter your Gmail address or name!' : 'Укажите адрес Gmail или имя!');
-      return;
-    }
-    const cleanMail = mail.includes('@') ? mail : `${mail.toLowerCase().replace(/\s+/g, '')}@gmail.com`;
-    const cleanName = googleInputName.trim() || cleanMail.split('@')[0];
-    executeGoogleLogin({ email: cleanMail, name: cleanName });
+    // Если всплывающее окно заблокировано — перенаправляем в этом же окне
+    window.location.href = authUrl;
   };
 
   const handleFileUpload = (e) => {
@@ -285,41 +259,25 @@ export default function AuthModal({
           </div>
         </div>
 
-        {/* ===================== GOOGLE AUTH BUTTON ===================== */}
+        {/* ===================== НАСТОЯЩАЯ КНОПКА GOOGLE OAUTH ===================== */}
         <div className="mb-4">
           <button
             type="button"
-            onClick={() => {
-              setError('');
-              setShowGoogleModal(true);
-              setShowNewAccountForm(accountsList.length === 0);
-            }}
-            disabled={loading}
+            onClick={handleStartGoogleOAuth}
+            disabled={loading || googleLoading}
             className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-zinc-100 active:scale-[0.99] text-zinc-900 font-semibold text-sm flex items-center justify-center gap-3 transition shadow-lg border border-zinc-200 cursor-pointer disabled:opacity-60 group"
           >
-            <GoogleIcon className="w-5 h-5 shrink-0" />
+            {googleLoading ? (
+              <div className="w-5 h-5 border-2 border-zinc-400 border-t-blue-600 rounded-full animate-spin shrink-0" />
+            ) : (
+              <GoogleIcon className="w-5 h-5 shrink-0" />
+            )}
             <span className="truncate">
-              {lastUser
-                ? `${t.authContinueAsGoogle || 'Продолжить как'} ${lastUser.name || lastUser.email}`
+              {googleLoading 
+                ? (lang === 'uz' ? 'Google bilan ulanmoqda...' : lang === 'en' ? 'Connecting to Google...' : 'Подключение к Google...')
                 : (t.authContinueGoogle || 'Продолжить с Google')}
             </span>
           </button>
-
-          {accountsList.length > 0 && (
-            <div className="text-center mt-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setError('');
-                  setShowGoogleModal(true);
-                  setShowNewAccountForm(false);
-                }}
-                className="text-[11px] font-mono text-zinc-400 hover:text-amber-400 transition underline cursor-pointer"
-              >
-                {t.authGoogleChangeAccount || 'Сменить Google-аккаунт'}
-              </button>
-            </div>
-          )}
 
           <div className="flex items-center gap-3 mt-3 text-[10px] font-mono text-zinc-500 uppercase">
             <span className="flex-1 h-px bg-zinc-800" />
@@ -500,180 +458,6 @@ export default function AuthModal({
             <span>{t.mandatoryAccountNotice || 'Для участия в игре требуется аккаунт. Регистрация бесплатна!'}</span>
           </p>
         </div>
-
-        {/* ===================== GOOGLE ACCOUNT CHOOSER (ОКНО ВЫБОРА / ВХОДА GOOGLE) ===================== */}
-        {showGoogleModal && (
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-md z-30 p-3 sm:p-5 flex flex-col justify-center items-center animate-fadeIn">
-            <div className="w-full max-w-sm bg-zinc-950 border border-zinc-750 rounded-3xl p-5 sm:p-6 shadow-2xl relative text-zinc-100 font-sans">
-              <button
-                type="button"
-                onClick={() => { setShowGoogleModal(false); setShowNewAccountForm(false); }}
-                className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              {/* Google Header */}
-              <div className="text-center mb-4">
-                <div className="w-11 h-11 rounded-2xl bg-white flex items-center justify-center mx-auto shadow-md mb-2.5">
-                  <GoogleIcon className="w-6 h-6" />
-                </div>
-                <h3 className="font-semibold text-base text-zinc-100 tracking-tight">
-                  {showNewAccountForm 
-                    ? (lang === 'uz' ? 'Google hisobingizga kiring' : lang === 'en' ? 'Sign in to Google' : 'Вход в аккаунт Google')
-                    : (lang === 'uz' ? 'Google hisobini tanlang' : lang === 'en' ? 'Choose a Google account' : 'Выберите аккаунт Google')}
-                </h3>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  {lang === 'uz' ? '«Bunker 7» ilovasiga o‘tish uchun' : lang === 'en' ? 'to continue to Bunker 7' : 'для перехода в приложение «Бункер 7»'}
-                </p>
-              </div>
-
-              {/* Chooser View: If device has saved accounts and not adding new */}
-              {!showNewAccountForm && accountsList.length > 0 && (
-                <div className="divide-y divide-zinc-850 border-t border-b border-zinc-850 py-1 my-3 max-h-56 overflow-y-auto">
-                  {accountsList.map((acc, idx) => {
-                    const initial = (acc.name || acc.email || 'G')[0].toUpperCase();
-                    const colors = ['bg-blue-600', 'bg-emerald-600', 'bg-amber-600', 'bg-purple-600', 'bg-rose-600'];
-                    const colorClass = colors[idx % colors.length];
-
-                    return (
-                      <div
-                        key={acc.email || idx}
-                        onClick={() => handleSelectGoogleAccount(acc)}
-                        className="w-full p-2.5 rounded-2xl hover:bg-zinc-900 active:bg-zinc-850 transition flex items-center gap-3 text-left cursor-pointer group"
-                      >
-                        <div className={`w-9 h-9 rounded-full ${colorClass} text-white font-bold text-xs flex items-center justify-center shadow-sm shrink-0 overflow-hidden`}>
-                          {acc.avatarUrl && !acc.avatarUrl.includes('ui-avatars') ? (
-                            <img src={acc.avatarUrl} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <span>{initial}</span>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-xs sm:text-sm text-zinc-100 group-hover:text-white truncate">
-                            {acc.name || acc.email.split('@')[0]}
-                          </div>
-                          <div className="text-[11px] font-mono text-zinc-400 truncate">
-                            {acc.email}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={(e) => handleRemoveAccount(e, acc.email)}
-                          title="Удалить из списка"
-                          className="p-1 text-zinc-600 hover:text-zinc-300 rounded-lg hover:bg-zinc-800 transition cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    );
-                  })}
-
-                  {/* Add / Use another account */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setGoogleInputEmail('');
-                      setGoogleInputName('');
-                      setShowNewAccountForm(true);
-                    }}
-                    className="w-full p-2.5 rounded-2xl hover:bg-zinc-900 active:bg-zinc-850 transition flex items-center gap-3 text-left cursor-pointer group border border-transparent hover:border-zinc-800"
-                  >
-                    <div className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 group-hover:text-white flex items-center justify-center shrink-0">
-                      <User className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 min-w-0 text-xs sm:text-sm font-medium text-zinc-300 group-hover:text-white">
-                      {lang === 'uz' ? 'Boshqa hisobdan foydalanish' : lang === 'en' ? 'Use another account' : 'Использовать другой аккаунт'}
-                    </div>
-                  </button>
-                </div>
-              )}
-
-              {/* Form View: When no saved accounts or user clicks "Use another account" */}
-              {(showNewAccountForm || accountsList.length === 0) && (
-                <form onSubmit={handleNewGoogleSubmit} className="space-y-3.5 py-2">
-                  <div>
-                    <label className="block text-xs font-mono text-zinc-300 mb-1.5">
-                      {lang === 'uz' ? 'Elektron pochta (Gmail) yoki ism:' : lang === 'en' ? 'Email (Gmail) or name:' : 'Адрес эл. почты (Gmail) или имя:'}
-                    </label>
-                    <div className="relative">
-                      <GoogleIcon className="absolute left-3 top-2.5 w-4 h-4 opacity-90" />
-                      <input
-                        type="text"
-                        autoFocus
-                        value={googleInputEmail}
-                        onChange={(e) => setGoogleInputEmail(e.target.value)}
-                        placeholder="your_email@gmail.com"
-                        required
-                        className="w-full bg-zinc-900 border border-zinc-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-mono text-zinc-400 mb-1">
-                      {lang === 'uz' ? 'O‘yindagi ismingiz (ixtiyoriy):' : lang === 'en' ? 'In-game name (optional):' : 'Имя в игре (по желанию):'}
-                    </label>
-                    <input
-                      type="text"
-                      value={googleInputName}
-                      onChange={(e) => setGoogleInputName(e.target.value)}
-                      placeholder="Alex"
-                      className="w-full bg-zinc-900 border border-zinc-800 focus:border-blue-500 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 outline-none transition font-mono"
-                    />
-                  </div>
-
-                  <div className="pt-1 flex gap-2">
-                    {accountsList.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setShowNewAccountForm(false)}
-                        className="flex-1 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-mono font-bold transition border border-zinc-800 cursor-pointer"
-                      >
-                        {lang === 'uz' ? 'Orqaga' : lang === 'en' ? 'Back' : 'Назад к списку'}
-                      </button>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold font-mono tracking-wide transition shadow-[0_0_15px_rgba(37,99,235,0.4)] cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <GoogleIcon className="w-4 h-4" />
-                      <span>{loading ? '...' : (lang === 'uz' ? 'Davom etish' : lang === 'en' ? 'Next / Sign in' : 'Далее • Войти')}</span>
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Bonus Badge & Privacy note */}
-              <div className="mt-3 space-y-2">
-                <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-xl py-1 px-2.5">
-                  <span>🎁</span>
-                  <span>+500 BunCoins при входе через Google</span>
-                </div>
-                <p className="text-[10px] text-zinc-500 text-center leading-relaxed px-1">
-                  {lang === 'uz' 
-                    ? 'Davom etish orqali Google sizning ismingiz, email va profilingizni «Bunker 7» bilan xavfsiz almashadi.'
-                    : lang === 'en'
-                    ? 'To continue, Google will share your name, email address, and profile picture with Bunker 7.'
-                    : 'Чтобы продолжить, Google предоставит приложению «Бункер 7» ваше имя, адрес электронной почты и фото профиля.'}
-                </p>
-              </div>
-
-              {/* Cancel button */}
-              <div className="mt-3 pt-2 text-center">
-                <button
-                  type="button"
-                  onClick={() => { setShowGoogleModal(false); setShowNewAccountForm(false); }}
-                  className="text-xs font-mono text-zinc-400 hover:text-white transition cursor-pointer underline"
-                >
-                  {lang === 'uz' ? 'Bekor qilish' : lang === 'en' ? 'Cancel' : 'Закрыть'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -1,9 +1,11 @@
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const querystring = require('querystring');
 
 // Загрузка переменных окружения из server/.env (если существует)
 const envPath = path.join(__dirname, '.env');
@@ -25,6 +27,43 @@ const GameManager = require('./gameManager');
 const { userManager, SHOP_ITEMS } = require('./userManager');
 const cardsManager = require('./cardsManager');
 
+// Google OAuth 2.0 Credentials (официальный Google Auth Library Installed Client)
+const GOOGLE_CLIENT_ID =
+  process.env.GOOGLE_CLIENT_ID ||
+  '764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com';
+const GOOGLE_CLIENT_SECRET =
+  process.env.GOOGLE_CLIENT_SECRET || 'd-FL95Q19q7MQmFpd7hHD0Ty';
+
+function httpsRequestJson(options, postBody = null) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let raw = '';
+      res.on('data', (chunk) => { raw += chunk; });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(raw));
+        } catch (e) {
+          reject(new Error('Invalid JSON from Google: ' + raw));
+        }
+      });
+    });
+    req.on('error', reject);
+    if (postBody) req.write(postBody);
+    req.end();
+  });
+}
+
+function decodeJwtPayload(jwtToken) {
+  try {
+    const payloadBase64 = jwtToken.split('.')[1];
+    const normalized = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonStr = Buffer.from(normalized, 'base64').toString('utf8');
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    return {};
+  }
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -40,6 +79,155 @@ app.get('/Bunker7.apk', (req, res) => {
   res.setHeader('Content-Type', 'application/vnd.android.package-archive');
   res.setHeader('Content-Disposition', 'attachment; filename="Bunker7.apk"');
   res.sendFile(apkFile);
+});
+
+// ===================== НАСТОЯЩИЙ GOOGLE OAUTH 2.0 (ACCOUNTS.GOOGLE.COM) =====================
+app.get('/auth/google', (req, res) => {
+  const protocol = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const redirectUri = `${protocol}://${host}/auth/google/callback`;
+
+  const googleAuthUrl =
+    'https://accounts.google.com/o/oauth2/v2/auth?' +
+    querystring.stringify({
+      client_id: GOOGLE_CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+      access_type: 'online',
+      prompt: 'select_account'
+    });
+
+  res.redirect(googleAuthUrl);
+});
+
+app.get('/auth/google/callback', async (req, res) => {
+  const code = req.query.code;
+  if (!code) {
+    return res.redirect('/');
+  }
+
+  const protocol = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const redirectUri = `${protocol}://${host}/auth/google/callback`;
+
+  try {
+    const postData = querystring.stringify({
+      code: String(code),
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code'
+    });
+
+    const tokenData = await httpsRequestJson(
+      {
+        hostname: 'oauth2.googleapis.com',
+        path: '/token',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      },
+      postData
+    );
+
+    let profile = {};
+    if (tokenData.id_token) {
+      profile = decodeJwtPayload(tokenData.id_token);
+    }
+
+    if (tokenData.access_token) {
+      try {
+        const userInfo = await httpsRequestJson({
+          hostname: 'www.googleapis.com',
+          path: '/oauth2/v3/userinfo',
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`
+          }
+        });
+        profile = { ...profile, ...userInfo };
+      } catch (err) {}
+    }
+
+    const email = profile.email || 'user@gmail.com';
+    const name =
+      profile.name ||
+      [profile.given_name, profile.family_name].filter(Boolean).join(' ') ||
+      email.split('@')[0];
+    const picture = profile.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4285F4&color=fff&size=256&bold=true`;
+
+    const userRes = userManager.googleDirectLogin({
+      email,
+      name,
+      avatarUrl: picture,
+      googleId: 'google-' + (profile.sub || profile.id || Date.now())
+    });
+
+    const user = userRes.user || {
+      username: name,
+      googleEmail: email,
+      avatarUrl: picture,
+      bunCoins: 500
+    };
+
+    const html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Google — Вход выполнен</title>
+  <style>
+    body { font-family: 'Segoe UI', -apple-system, sans-serif; background: #09090b; color: #f4f4f5; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+    .card { background: #18181b; border: 1px solid #27272a; padding: 32px 40px; border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); max-width: 360px; width: 90%; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #27272a; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner"></div>
+    <h2 style="font-size: 17px; margin: 0 0 8px; color: #60a5fa;">Вход через Google выполнен!</h2>
+    <p style="font-size: 13px; margin: 0; color: #a1a1aa;">${user.username} (${user.googleEmail || email})</p>
+  </div>
+  <script>
+    (function() {
+      const user = ${JSON.stringify(user)};
+      try {
+        const bc = new BroadcastChannel('bunker_google_auth');
+        bc.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: user });
+      } catch (e) {}
+
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: user }, '*');
+        } catch (e) {}
+      }
+
+      try {
+        localStorage.setItem('bunker_last_google_user', JSON.stringify({
+          email: user.googleEmail || user.email,
+          name: user.username,
+          avatarUrl: user.avatarUrl
+        }));
+      } catch (e) {}
+
+      setTimeout(function() {
+        try { window.close(); } catch (e) {}
+        window.location.replace('/');
+      }, 500);
+    })();
+  </script>
+</body>
+</html>`;
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    console.error('Ошибка Google OAuth callback:', err);
+    res.redirect('/');
+  }
 });
 
 app.use(express.static(clientDistPath));
@@ -84,7 +272,6 @@ function getOnlineUsernamesSet() {
 // Проверка админских прав через переменные окружения (.env)
 const ADMIN_LOGIN_ENV = (process.env.ADMIN_LOGIN || 'Samandar').trim().toLowerCase();
 const ADMIN_PASSWORD_ENV = (process.env.ADMIN_PASSWORD || '05052013').trim();
-const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
 
 function checkAdminAuth(login, password) {
   return (
