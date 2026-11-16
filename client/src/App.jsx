@@ -313,6 +313,10 @@ export default function App() {
   const [joinCode, setJoinCode] = useState('');
   const [myPlayerId, setMyPlayerId] = useState(() => localStorage.getItem('bunker_player_id') || '');
   const [roomState, setRoomState] = useState(null);
+  const myPlayer = roomState?.players?.find((p) => p.id === myPlayerId);
+  const isAlive = myPlayer ? myPlayer.isAlive : true;
+  const isHost = roomState?.hostId === myPlayerId;
+  const isChatLocked = false;
   const [errorMessage, setErrorMessage] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [mobileTab, setMobileTab] = useState('bunker'); // 'bunker' | 'chat'
@@ -999,11 +1003,6 @@ export default function App() {
       if (typeof callback === 'function') callback(res);
     });
   };
-
-  const myPlayer = roomState?.players?.find((p) => p.id === myPlayerId);
-  const isAlive = myPlayer ? myPlayer.isAlive : true;
-  const isHost = roomState?.hostId === myPlayerId;
-  const isChatLocked = false; // Чат теперь доступен всегда, даже во время и после голосования!
 
   const renderInviteBanner = () => {
     return (

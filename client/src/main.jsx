@@ -29,20 +29,27 @@ class RootErrorBoundary extends React.Component {
             <p className="text-xs text-zinc-400">
               Обнаружен сбой отображения интерфейса. Нажмите кнопку ниже, чтобы мгновенно продолжить игру.
             </p>
+            {this.state.error && (
+              <div className="p-2.5 rounded-xl bg-black/60 border border-red-500/30 text-left text-[11px] text-red-400 overflow-x-auto max-h-24">
+                {String(this.state.error?.message || this.state.error)}
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
               <button
                 onClick={() => {
                   this.setState({ hasError: false, error: null });
                   window.location.reload();
                 }}
-                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs cursor-pointer shadow-md"
               >
                 🔄 Продолжить игру
               </button>
               <button
                 onClick={() => {
-                  localStorage.removeItem('bunker_room_code');
-                  localStorage.removeItem('bunker_player_id');
+                  try {
+                    localStorage.removeItem('bunker_room_code');
+                    localStorage.removeItem('bunker_player_id');
+                  } catch (e) {}
                   this.setState({ hasError: false, error: null });
                   window.location.href = '/';
                 }}
