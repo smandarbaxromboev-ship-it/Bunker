@@ -43,6 +43,7 @@ const socket = io(BACKEND_URL);
 function GoogleAuthCallbackView({ socket, onSuccess }) {
   const [status, setStatus] = useState('loading');
   const [userName, setUserName] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     async function processGoogleAuth() {
@@ -86,6 +87,7 @@ function GoogleAuthCallbackView({ socket, onSuccess }) {
               }, 400);
             } else {
               console.error('Ошибка обмена кода:', res?.error);
+              setErrorMessage(res?.error || '');
               setStatus('error');
             }
           });
@@ -189,7 +191,9 @@ function GoogleAuthCallbackView({ socket, onSuccess }) {
           <>
             <div className="w-12 h-12 bg-red-500/20 border-2 border-red-500 text-red-400 rounded-full flex items-center justify-center mx-auto text-xl font-bold">✕</div>
             <h2 className="text-base font-bold text-red-400">Не удалось завершить вход</h2>
-            <p className="text-xs text-zinc-400">Попробуйте закрыть окно и нажать вход снова.</p>
+            <p className="text-xs text-zinc-400 break-words px-2">
+              {errorMessage || 'Попробуйте закрыть окно и нажать вход снова.'}
+            </p>
             <button
               onClick={() => { try { window.close(); } catch(e){} window.location.replace('/'); }}
               className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-mono rounded-xl cursor-pointer"
