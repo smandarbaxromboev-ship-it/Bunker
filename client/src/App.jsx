@@ -28,6 +28,8 @@ import RulesModal from './components/RulesModal';
 import ProfileModal from './components/ProfileModal';
 import FriendsModal from './components/FriendsModal';
 import DailyCrateModal from './components/DailyCrateModal';
+import NotFoundView from './components/NotFoundView';
+import InstallAppModal from './components/InstallAppModal';
 
 const SECRET_ADMIN_PATH = import.meta.env.VITE_ADMIN_SECRET_PATH || '/samandar-bunker-hq-0505';
 
@@ -83,7 +85,18 @@ export default function App() {
   const [showRevealModal, setShowRevealModal] = useState(true);
   const [showVotingModal, setShowVotingModal] = useState(true);
   const [showResultModal, setShowResultModal] = useState(true);
-  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(() => {
+    return typeof window !== 'undefined' ? window.__deferredInstallPrompt || null : null;
+  });
+  const [isAppInstalled, setIsAppInstalled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const isStandalone =
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator?.standalone === true ||
+      document.referrer.includes('android-app://');
+    return isStandalone || localStorage.getItem('bunker_app_installed') === 'true';
+  });
+  const [showInstallModal, setShowInstallModal] = useState(false);
   const [atmosphereEnabled, setAtmosphereEnabled] = useState(() => {
     return localStorage.getItem('bunker_atmosphere') !== 'false';
   });
@@ -104,31 +117,68 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (window.__deferredInstallPrompt) {
+      setDeferredInstallPrompt(window.__deferredInstallPrompt);
+    }
+
     const onBeforeInstallPrompt = (e) => {
       e.preventDefault();
+      window.__deferredInstallPrompt = e;
       setDeferredInstallPrompt(e);
     };
+    const onPwaReady = () => {
+      if (window.__deferredInstallPrompt) {
+        setDeferredInstallPrompt(window.__deferredInstallPrompt);
+      }
+    };
+    const onAppInstalled = () => {
+      window.__deferredInstallPrompt = null;
+      setDeferredInstallPrompt(null);
+      setIsAppInstalled(true);
+      try {
+        localStorage.setItem('bunker_app_installed', 'true');
+      } catch (e) {}
+    };
+
     window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    window.addEventListener('bunker-pwa-ready', onPwaReady);
+    window.addEventListener('appinstalled', onAppInstalled);
+    window.addEventListener('bunker-pwa-installed', onAppInstalled);
+
+    if (navigator.getInstalledRelatedApps) {
+      navigator.getInstalledRelatedApps().then((apps) => {
+        if (Array.isArray(apps) && apps.length > 0) {
+          onAppInstalled();
+        }
+      }).catch(() => {});
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+      window.removeEventListener('bunker-pwa-ready', onPwaReady);
+      window.removeEventListener('appinstalled', onAppInstalled);
+      window.removeEventListener('bunker-pwa-installed', onAppInstalled);
+    };
   }, []);
 
   const handleInstallApp = async () => {
     soundManager.playBeep(900, 0.08);
-    if (deferredInstallPrompt) {
-      deferredInstallPrompt.prompt();
+    const promptObj = deferredInstallPrompt || window.__deferredInstallPrompt;
+    if (promptObj) {
       try {
-        await deferredInstallPrompt.userChoice;
+        promptObj.prompt();
+        const choice = await promptObj.userChoice;
+        window.__deferredInstallPrompt = null;
+        setDeferredInstallPrompt(null);
+        if (choice && choice.outcome === 'accepted') {
+          setIsAppInstalled(true);
+          localStorage.setItem('bunker_app_installed', 'true');
+          return;
+        }
       } catch (e) {}
-      setDeferredInstallPrompt(null);
-      return;
     }
-    // Скачиваем готовый подписанный Android APK напрямую с сайта!
-    const link = document.createElement('a');
-    link.href = '/Bunker7.apk';
-    link.download = 'Бункер 7.apk';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Открываем окно установки APK + ярлыка на главный экран телефона!
+    setShowInstallModal(true);
   };
 
   const handleToggleAtmosphere = (val) => {
@@ -662,6 +712,17 @@ export default function App() {
     );
   }
 
+  // EPIC BUNKER 404 NOT FOUND ROUTE FOR ANY UNKNOWN PATH
+  if (currentPath && currentPath !== '/' && currentPath !== '/index.html') {
+    return (
+      <NotFoundView
+        currentPath={currentPath}
+        onBackHome={() => navigateTo('/')}
+        lang={lang}
+      />
+    );
+  }
+
   // MAIN WELCOME / JOIN SCREEN
   if (!inRoom) {
     return (
@@ -769,15 +830,17 @@ export default function App() {
                 </button>
               )}
 
-              {/* Install PWA / Download Android APK Button */}
-              <button
-                onClick={handleInstallApp}
-                title={lang === 'uz' ? "Android APK ilovasini yuklab olish" : lang === 'en' ? 'Download Android APK / Install App' : 'Скачать официальный Android APK (Бункер 7.apk)'}
-                className="px-3 py-1.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500 hover:text-zinc-950 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer"
-              >
-                <span>📲</span>
-                <span>{lang === 'uz' ? "APK Yuklash" : lang === 'en' ? 'Get APK' : 'Скачать APK'}</span>
-              </button>
+              {/* Install PWA / Download Android APK Button (Automatically hidden once installed!) */}
+              {!isAppInstalled && (
+                <button
+                  onClick={handleInstallApp}
+                  title={lang === 'uz' ? "Android APK ilovasini yuklab olish" : lang === 'en' ? 'Download Android APK / Install App' : 'Скачать официальный Android APK и вывести на главный экран телефона'}
+                  className="px-3 py-1.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500 hover:text-zinc-950 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer animate-pulse"
+                >
+                  <span>📲</span>
+                  <span>{lang === 'uz' ? "APK Yuklash" : lang === 'en' ? 'Get APK' : 'Скачать APK'}</span>
+                </button>
+              )}
 
               {/* Rules Button */}
               <button
@@ -1148,6 +1211,19 @@ export default function App() {
           lang={lang}
           setLang={handleSetLang}
         />
+
+        {/* Install App & APK Modal */}
+        {showInstallModal && (
+          <InstallAppModal
+            deferredPrompt={deferredInstallPrompt}
+            onInstalled={() => {
+              setIsAppInstalled(true);
+              localStorage.setItem('bunker_app_installed', 'true');
+            }}
+            onClose={() => setShowInstallModal(false)}
+            lang={lang}
+          />
+        )}
 
         {/* Daily Supply Crate & Promo Codes Modal */}
         {showDailyModal && user && (

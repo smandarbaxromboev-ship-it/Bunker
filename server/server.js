@@ -29,8 +29,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Раздача собранного клиентского React приложения
+// Раздача собранного клиентского React приложения и APK-пакета
 const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
+const clientPublicPath = path.join(__dirname, '..', 'client', 'public');
+
+app.get('/Bunker7.apk', (req, res) => {
+  const apkFile = fs.existsSync(path.join(clientDistPath, 'Bunker7.apk'))
+    ? path.join(clientDistPath, 'Bunker7.apk')
+    : path.join(clientPublicPath, 'Bunker7.apk');
+  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.setHeader('Content-Disposition', 'attachment; filename="Bunker7.apk"');
+  res.sendFile(apkFile);
+});
+
 app.use(express.static(clientDistPath));
 
 const server = http.createServer(app);

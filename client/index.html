@@ -23,8 +23,25 @@
 
     <!-- PWA Manifest & Icons -->
     <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <link rel="apple-touch-icon" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+
+    <script>
+      window.__deferredInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__deferredInstallPrompt = e;
+        window.dispatchEvent(new Event('bunker-pwa-ready'));
+      });
+      window.addEventListener('appinstalled', function () {
+        window.__deferredInstallPrompt = null;
+        try {
+          localStorage.setItem('bunker_app_installed', 'true');
+        } catch (err) {}
+        window.dispatchEvent(new Event('bunker-pwa-installed'));
+      });
+    </script>
 
     <!-- Google Structured Data (JSON-LD VideoGame) -->
     <script type="application/ld+json">
