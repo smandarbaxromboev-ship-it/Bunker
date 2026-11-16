@@ -365,9 +365,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('googleDirectLogin', ({ email, name, avatarUrl, googleId }, callback) => {
+  socket.on('googleDirectLogin', ({ email, name, avatarUrl, googleId, clientUser }, callback) => {
     try {
-      const res = userManager.googleDirectLogin({ email, name, avatarUrl, googleId });
+      const res = userManager.googleDirectLogin({ email, name, avatarUrl, googleId, clientUser });
       if (res && res.success && res.user) {
         bindUserSocket(res.user.username, socket.id);
       }
@@ -378,7 +378,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('exchangeGoogleCode', async ({ code, redirectUri }, callback) => {
+  socket.on('exchangeGoogleCode', async ({ code, redirectUri, clientUser }, callback) => {
     try {
       if (!code) {
         if (typeof callback === 'function') callback({ error: 'Код авторизации не передан' });
@@ -440,7 +440,8 @@ io.on('connection', (socket) => {
         email,
         name,
         avatarUrl: picture,
-        googleId: 'google-' + (profile.sub || profile.id || (email ? email.toLowerCase() : Date.now()))
+        googleId: 'google-' + (profile.sub || profile.id || (email ? email.toLowerCase() : Date.now())),
+        clientUser
       });
 
       if (userRes && userRes.success && userRes.user) {
@@ -964,9 +965,21 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Отправка текстового сообщения, стикера или голосового в чат
-  socket.on('sendMessage', ({ roomCode, senderId, text, sticker, voice }) => {
-    gameManager.addChatMessage(roomCode, senderId, text, sticker, voice);
+  // Отправка текстового сообщения, стикера, голосового или ответа в чат
+  socket.on('sendMessage', ({ roomCode, senderId, text, sticker, voice, replyTo }) => {
+    gameManager.addChatMessage(roomCode, senderId, text, sticker, voice, replyTo);
+  });
+
+  socket.on('editChatMessage', ({ roomCode, senderId, messageId, newText }) => {
+    gameManager.editChatMessage(roomCode, senderId, messageId, newText);
+  });
+
+  socket.on('deleteChatMessage', ({ roomCode, senderId, messageId }) => {
+    gameManager.deleteChatMessage(roomCode, senderId, messageId);
+  });
+
+  socket.on('typing', ({ roomCode, senderId, senderName }) => {
+    gameManager.setPlayerTyping(roomCode, senderId, senderName);
   });
 
   socket.on('disconnect', () => {

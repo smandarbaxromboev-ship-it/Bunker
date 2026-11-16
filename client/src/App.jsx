@@ -30,6 +30,7 @@ import FriendsModal from './components/FriendsModal';
 import DailyCrateModal from './components/DailyCrateModal';
 import NotFoundView from './components/NotFoundView';
 import InstallAppModal from './components/InstallAppModal';
+import AmongUsEjectionScreen from './components/AmongUsEjectionScreen';
 
 const SECRET_ADMIN_PATH = import.meta.env.VITE_ADMIN_SECRET_PATH || '/samandar-bunker-hq-0505';
 
@@ -52,10 +53,15 @@ function GoogleAuthCallbackView({ socket, onSuccess }) {
         const code = searchParams.get('code');
 
         // 1. Обработка через код авторизации (?code=...)
+        const savedRaw = localStorage.getItem('bunker_user_v3') || localStorage.getItem('bunker_last_google_user');
+        let clientUser = null;
+        try { if (savedRaw) clientUser = JSON.parse(savedRaw); } catch (e) {}
+
         if (code && socket) {
           socket.emit('exchangeGoogleCode', {
             code,
-            redirectUri: window.location.origin
+            redirectUri: window.location.origin,
+            clientUser
           }, (res) => {
             if (res && res.success && res.user) {
               setUserName(res.user.username);
@@ -119,7 +125,8 @@ function GoogleAuthCallbackView({ socket, onSuccess }) {
                   email: profile.email,
                   name: profile.name,
                   avatarUrl: profile.picture,
-                  googleId: profile.googleId
+                  googleId: profile.googleId,
+                  clientUser
                 }, (res) => {
                   const finalUser = (res && res.success && res.user) ? res.user : {
                     username: profile.name,
@@ -268,6 +275,9 @@ export default function App() {
   const [atmosphereEnabled, setAtmosphereEnabled] = useState(() => {
     return localStorage.getItem('bunker_atmosphere') !== 'false';
   });
+  const [showAmongUsEjection, setShowAmongUsEjection] = useState(false);
+  const [hasShownEjectionForRound, setHasShownEjectionForRound] = useState(null);
+  const [typingUsers, setTypingUsers] = useState({});
 
   const applyNormalizedRoomState = (newState) => {
     if (!newState) {
@@ -358,14 +368,24 @@ export default function App() {
   useEffect(() => {
     if (roomState?.status === 'ROUND_REVEAL') {
       setShowRevealModal(true);
+      setShowAmongUsEjection(false);
     } else if (roomState?.status === 'ROUND_VOTING') {
       setShowVotingModal(true);
+      setShowAmongUsEjection(false);
     } else if (roomState?.status === 'ROUND_DISCUSSION') {
       setShowVotingModal(false);
+      setShowAmongUsEjection(false);
     } else if (roomState?.status === 'ROUND_RESULT') {
-      setShowResultModal(true);
+      const exiled = roomState.votingResults?.exiledPlayer;
+      if (exiled && hasShownEjectionForRound !== roomState.currentRound) {
+        setShowAmongUsEjection(true);
+        setHasShownEjectionForRound(roomState.currentRound);
+        setShowResultModal(false);
+      } else {
+        setShowResultModal(true);
+      }
     }
-  }, [roomState?.status, roomState?.activeTurnPlayerId]);
+  }, [roomState?.status, roomState?.activeTurnPlayerId, roomState?.votingResults]);
 
   // URL Popstate tracking for /admin and /
   useEffect(() => {
@@ -501,6 +521,33 @@ export default function App() {
         }
         return curr;
       });
+    });
+
+    socket.on('chatMessageEdited', ({ id, text, isEdited }) => {
+      setRoomState((prev) => {
+        if (!prev || !prev.messages) return prev;
+        return {
+          ...prev,
+          messages: prev.messages.map(m => m.id === id ? { ...m, text, isEdited: true } : m)
+        };
+      });
+    });
+
+    socket.on('chatMessageDeleted', ({ id }) => {
+      setRoomState((prev) => {
+        if (!prev || !prev.messages) return prev;
+        return {
+          ...prev,
+          messages: prev.messages.filter(m => m.id !== id)
+        };
+      });
+    });
+
+    socket.on('playerTyping', ({ senderId, senderName }) => {
+      setTypingUsers((prev) => ({
+        ...prev,
+        [senderId]: { name: senderName, expiresAt: Date.now() + 3000 }
+      }));
     });
 
     // Мгновенное начисление BunCoins от администратора в реальном времени!
@@ -774,9 +821,24 @@ export default function App() {
     socket.emit('restartGame', { roomCode: roomState.code, requesterId: myPlayerId });
   };
 
-  const handleSendMessage = (text, sticker = null, voice = null) => {
+  const handleSendMessage = (text, sticker = null, voice = null, replyTo = null) => {
     if (!roomState?.code) return;
-    socket.emit('sendMessage', { roomCode: roomState.code, senderId: myPlayerId, text, sticker, voice });
+    socket.emit('sendMessage', { roomCode: roomState.code, senderId: myPlayerId, text, sticker, voice, replyTo });
+  };
+
+  const handleEditMessage = (messageId, newText) => {
+    if (!roomState?.code) return;
+    socket.emit('editChatMessage', { roomCode: roomState.code, senderId: myPlayerId, messageId, newText });
+  };
+
+  const handleDeleteMessage = (messageId) => {
+    if (!roomState?.code) return;
+    socket.emit('deleteChatMessage', { roomCode: roomState.code, senderId: myPlayerId, messageId });
+  };
+
+  const handleTyping = () => {
+    if (!roomState?.code) return;
+    socket.emit('typing', { roomCode: roomState.code, senderId: myPlayerId, senderName: myPlayer?.name || playerName });
   };
 
   const handleApplyTrump = (payload, callback) => {
@@ -1571,6 +1633,10 @@ export default function App() {
               isAlive={true}
               isChatLocked={false}
               onSendMessage={handleSendMessage}
+              onEditMessage={handleEditMessage}
+              onDeleteMessage={handleDeleteMessage}
+              onTyping={handleTyping}
+              typingUsers={typingUsers}
               onStartVoting={null}
               isHost={isHost}
               canStartVoting={false}
@@ -1753,6 +1819,10 @@ export default function App() {
             isAlive={isAlive}
             isChatLocked={isChatLocked}
             onSendMessage={handleSendMessage}
+            onEditMessage={handleEditMessage}
+            onDeleteMessage={handleDeleteMessage}
+            onTyping={handleTyping}
+            typingUsers={typingUsers}
             onStartVoting={handleStartVoting}
             isHost={isHost}
             canStartVoting={roomState?.status === 'ROUND_DISCUSSION' || roomState?.status === 'ROUND_VOTING'}
@@ -1861,8 +1931,21 @@ export default function App() {
         </div>
       )}
 
+      {/* 2.5 Among Us Ejection Cinematic Screen */}
+      {roomState?.status === 'ROUND_RESULT' && showAmongUsEjection && (
+        <AmongUsEjectionScreen
+          exiledPlayer={roomState.votingResults?.exiledPlayer}
+          roomState={roomState}
+          onComplete={() => {
+            setShowAmongUsEjection(false);
+            setShowResultModal(true);
+          }}
+          lang={lang}
+        />
+      )}
+
       {/* 3. Round Result / Exile Modal (Minimizable to talk in chat) */}
-      {roomState?.status === 'ROUND_RESULT' && showResultModal && (
+      {roomState?.status === 'ROUND_RESULT' && !showAmongUsEjection && showResultModal && (
         <RoundResultModal
           roomState={roomState}
           myPlayerId={myPlayerId}

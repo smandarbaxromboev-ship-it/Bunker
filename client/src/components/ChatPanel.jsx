@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, Vote, Ghost, Smile, Sparkles, X, Mic, Square, Trash2, Check, Loader2 } from 'lucide-react';
+import { 
+  Send, MessageSquare, AlertCircle, Vote, Ghost, Smile, Sparkles, X, 
+  Mic, Trash2, Check, Loader2, Reply, Pencil, CornerDownRight 
+} from 'lucide-react';
 import { soundManager } from '../utils/audio';
 import { translations, getLocalized } from '../utils/translations';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
@@ -57,6 +60,10 @@ export default function ChatPanel({
   isAlive, 
   isChatLocked = false, 
   onSendMessage, 
+  onEditMessage,
+  onDeleteMessage,
+  onTyping,
+  typingUsers = {},
   onStartVoting,
   isHost,
   canStartVoting,
@@ -64,6 +71,8 @@ export default function ChatPanel({
 }) {
   const [text, setText] = useState('');
   const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null); // { id, senderName, text, isVoice, isSticker }
+  const [editingMessage, setEditingMessage] = useState(null); // { id, text }
   const [isRecording, setIsRecording] = useState(false);
   const [recordDuration, setRecordDuration] = useState(0);
   const [isSendingVoice, setIsSendingVoice] = useState(false);
@@ -74,13 +83,15 @@ export default function ChatPanel({
   const audioChunksRef = useRef([]);
   const recordTimerRef = useRef(null);
   const streamRef = useRef(null);
+  const inputRef = useRef(null);
+  const lastTypingEmitRef = useRef(0);
 
   const t = translations[lang] || translations.ru;
   const phrases = QUICK_PHRASES[lang] || QUICK_PHRASES.ru;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, typingUsers]);
 
   useEffect(() => {
     return () => {
@@ -91,28 +102,84 @@ export default function ChatPanel({
     };
   }, []);
 
+  const handleInputChange = (e) => {
+    setText(e.target.value);
+    const now = Date.now();
+    if (now - lastTypingEmitRef.current > 1500 && onTyping) {
+      lastTypingEmitRef.current = now;
+      onTyping();
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!text.trim()) return;
+
+    if (editingMessage && onEditMessage) {
+      soundManager.playBeep(900, 0.04);
+      onEditMessage(editingMessage.id, text.trim());
+      setEditingMessage(null);
+      setText('');
+      return;
+    }
+
     soundManager.playBeep(900, 0.04);
-    onSendMessage(text);
+    onSendMessage(text, null, null, replyingTo);
     setText('');
+    setReplyingTo(null);
     setShowStickerPicker(false);
   };
 
   const handleQuickPhrase = (phrase) => {
     soundManager.playBeep(900, 0.04);
-    onSendMessage(phrase);
+    onSendMessage(phrase, null, null, replyingTo);
+    setReplyingTo(null);
   };
 
   const handleSendSticker = (sticker) => {
     soundManager.playBeep(1100, 0.05);
     const labelText = getLocalized(sticker.label, lang) || sticker.label;
-    onSendMessage(labelText, { ...sticker, label: labelText });
+    onSendMessage(labelText, { ...sticker, label: labelText }, null, replyingTo);
     setShowStickerPicker(false);
+    setReplyingTo(null);
   };
 
-  // ===================== ГОЛОСОВЫЕ СООБЩЕНИЯ (MEDIA RECORDER) =====================
+  const handleStartReply = (msg) => {
+    soundManager.playBeep(850, 0.03);
+    setEditingMessage(null);
+    setReplyingTo({
+      id: msg.id,
+      senderName: getLocalized(msg.senderName, lang) || msg.senderName,
+      text: msg.voice ? (lang === 'uz' ? '🎙️ Ovozli xabar' : lang === 'en' ? '🎙️ Voice message' : '🎙️ Голосовое сообщение')
+            : msg.sticker ? `${msg.sticker.emoji || '☢️'} Стикер`
+            : msg.text,
+      isVoice: Boolean(msg.voice),
+      isSticker: Boolean(msg.sticker)
+    });
+    inputRef.current?.focus();
+  };
+
+  const handleStartEdit = (msg) => {
+    soundManager.playBeep(850, 0.03);
+    setReplyingTo(null);
+    setEditingMessage({
+      id: msg.id,
+      text: msg.text
+    });
+    setText(msg.text);
+    inputRef.current?.focus();
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+    setText('');
+  };
+
+  // ===================== ГОЛОСОВЫЕ СООБЩЕНИЯ (БЕЗ ЛИМИТА В 1 МИНУТУ!) =====================
   const startRecording = async () => {
     try {
       setMicError('');
@@ -153,9 +220,7 @@ export default function ChatPanel({
       recordTimerRef.current = setInterval(() => {
         count += 1;
         setRecordDuration(count);
-        if (count >= 60) {
-          stopAndSendRecording();
-        }
+        // Никакого искусственного ограничения в 1 минуту — записывайте сколько хотите!
       }, 1000);
     } catch (err) {
       console.error('Microphone access error:', err);
@@ -185,10 +250,11 @@ export default function ChatPanel({
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64Data = reader.result;
-          onSendMessage('', null, { audioData: base64Data, duration: finalDuration });
+          onSendMessage('', null, { audioData: base64Data, duration: finalDuration }, replyingTo);
           setIsRecording(false);
           setRecordDuration(0);
           setIsSendingVoice(false);
+          setReplyingTo(null);
         };
         reader.readAsDataURL(audioBlob);
       } else {
@@ -222,6 +288,11 @@ export default function ChatPanel({
     const s = sec % 60;
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
+
+  // Активные печатающие игроки (кроме меня)
+  const activeTypers = Object.entries(typingUsers || {})
+    .filter(([id, data]) => id !== myPlayerId && data.expiresAt > Date.now())
+    .map(([, data]) => data.name);
 
   return (
     <div className="flex flex-col h-full bg-zinc-900/90 border border-zinc-800 rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl relative">
@@ -275,7 +346,7 @@ export default function ChatPanel({
       )}
 
       {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-2.5 sm:p-4 space-y-2.5 min-h-0">
+      <div className="flex-1 overflow-y-auto p-2.5 sm:p-4 space-y-3 min-h-0">
         {messages.map((msg) => {
           if (msg.isSystem) {
             return (
@@ -296,13 +367,16 @@ export default function ChatPanel({
 
           const isMe = msg.senderId === myPlayerId;
           const isGhostMsg = Boolean(msg.isGhost);
+          const canDelete = isMe || isHost;
+          const canEdit = isMe && !msg.voice && !msg.sticker;
 
           return (
             <div
               key={msg.id}
-              className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-fadeIn`}
+              className={`flex flex-col group ${isMe ? 'items-end' : 'items-start'} animate-fadeIn relative`}
             >
-              <div className="flex items-center gap-1 mb-0.5 px-1 text-[10px] sm:text-[11px] font-mono text-zinc-400">
+              {/* Sender Name, Time, Edited status and Action buttons */}
+              <div className="flex items-center gap-1.5 mb-0.5 px-1 text-[10px] sm:text-[11px] font-mono text-zinc-400">
                 {isGhostMsg && (
                   <span className="px-1.5 py-0.2 rounded bg-purple-900/60 text-purple-300 font-bold border border-purple-700/60 text-[9px] flex items-center gap-0.5">
                     <span>👻</span>
@@ -317,7 +391,64 @@ export default function ChatPanel({
                     ? new Date(msg.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false })
                     : msg.timestamp}
                 </span>
+                {msg.isEdited && (
+                  <span className="text-[9px] text-zinc-400 italic">
+                    ({lang === 'uz' ? 'tahrirlangan' : lang === 'en' ? 'edited' : 'изм.'})
+                  </span>
+                )}
+
+                {/* Quick Message Actions: Reply, Edit, Delete on Hover */}
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 ml-1 bg-zinc-950/80 px-1 py-0.5 rounded-md border border-zinc-800">
+                  {/* Reply Button */}
+                  <button
+                    onClick={() => handleStartReply(msg)}
+                    title={lang === 'uz' ? 'Javob berish' : lang === 'en' ? 'Reply' : 'Ответить'}
+                    className="p-1 text-zinc-400 hover:text-amber-400 rounded hover:bg-zinc-800 transition"
+                  >
+                    <Reply className="w-3 h-3" />
+                  </button>
+
+                  {/* Edit Button (if author and text) */}
+                  {canEdit && (
+                    <button
+                      onClick={() => handleStartEdit(msg)}
+                      title={lang === 'uz' ? 'Tahrirlash' : lang === 'en' ? 'Edit' : 'Изменить'}
+                      className="p-1 text-zinc-400 hover:text-cyan-400 rounded hover:bg-zinc-800 transition"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+
+                  {/* Delete Button (if author or host) */}
+                  {canDelete && (
+                    <button
+                      onClick={() => {
+                        if (onDeleteMessage) {
+                          soundManager.playBeep(500, 0.05);
+                          onDeleteMessage(msg.id);
+                        }
+                      }}
+                      title={lang === 'uz' ? "O'chirish" : lang === 'en' ? 'Delete' : 'Удалить'}
+                      className="p-1 text-zinc-400 hover:text-red-400 rounded hover:bg-zinc-800 transition"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* Quoted Message / Reply Preview if present */}
+              {msg.replyTo && (
+                <div className={`mb-1 px-2.5 py-1 rounded-xl text-[10px] sm:text-[11px] font-mono border-l-2 max-w-[85%] truncate flex items-center gap-1.5 ${
+                  isMe 
+                    ? 'bg-amber-500/10 border-amber-400 text-amber-200' 
+                    : 'bg-zinc-800/80 border-cyan-400 text-zinc-300'
+                }`}>
+                  <CornerDownRight className="w-3 h-3 shrink-0 opacity-70" />
+                  <span className="font-bold shrink-0">{msg.replyTo.senderName}:</span>
+                  <span className="truncate opacity-90">{msg.replyTo.text}</span>
+                </div>
+              )}
 
               {/* Message Bubble: Voice Message, Sticker, or Plain Text */}
               {msg.voice ? (
@@ -355,7 +486,7 @@ export default function ChatPanel({
                         : 'bg-amber-500 text-black font-medium rounded-tr-none'
                       : isGhostMsg
                       ? 'bg-purple-950/90 border border-purple-800/80 text-purple-200 rounded-tl-none'
-                      : 'bg-zinc-800 border-zinc-700/60 text-zinc-100 rounded-tl-none'
+                      : 'bg-zinc-800 border border-zinc-700/60 text-zinc-100 rounded-tl-none'
                   }`}
                 >
                   {getLocalized(msg.text, lang)}
@@ -364,12 +495,27 @@ export default function ChatPanel({
             </div>
           );
         })}
+
+        {/* Live Typing Indicator with 3 animated bouncing dots */}
+        {activeTypers.length > 0 && (
+          <div className="flex items-center gap-2 py-1 px-2 text-xs font-mono text-amber-400/90 animate-fadeIn">
+            <span className="truncate">
+              {activeTypers.join(', ')} {lang === 'uz' ? 'yozmoqda' : lang === 'en' ? 'is typing' : 'печатает'}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:0ms]"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:150ms]"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:300ms]"></span>
+            </span>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
       {/* Sticker Picker Popover */}
       {showStickerPicker && (
-        <div className="absolute bottom-14 left-2 right-2 p-3 bg-zinc-950/95 border-2 border-amber-500/60 rounded-2xl shadow-2xl backdrop-blur-md z-30 animate-fadeIn">
+        <div className="absolute bottom-16 left-2 right-2 p-3 bg-zinc-950/95 border-2 border-amber-500/60 rounded-2xl shadow-2xl backdrop-blur-md z-30 animate-fadeIn">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-800">
             <span className="text-xs font-mono font-bold text-amber-400 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -417,15 +563,41 @@ export default function ChatPanel({
         ))}
       </div>
 
+      {/* Active Reply or Edit Banner above input */}
+      {replyingTo && (
+        <div className="px-3 py-1.5 bg-zinc-900 border-t border-zinc-800 flex items-center justify-between text-xs font-mono text-zinc-300 shrink-0 animate-fadeIn">
+          <div className="flex items-center gap-2 min-w-0">
+            <Reply className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="text-amber-400 font-bold shrink-0">{lang === 'uz' ? 'Javob:' : lang === 'en' ? 'Reply to:' : 'Ответ:'} {replyingTo.senderName}</span>
+            <span className="text-zinc-400 truncate text-[11px]">«{replyingTo.text}»</span>
+          </div>
+          <button onClick={handleCancelReply} className="p-1 text-zinc-400 hover:text-white">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {editingMessage && (
+        <div className="px-3 py-1.5 bg-cyan-950/40 border-t border-cyan-800/60 flex items-center justify-between text-xs font-mono text-cyan-300 shrink-0 animate-fadeIn">
+          <div className="flex items-center gap-2 min-w-0">
+            <Pencil className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="font-bold shrink-0">{lang === 'uz' ? 'Tahrirlash:' : lang === 'en' ? 'Editing message' : 'Редактирование сообщения'}</span>
+          </div>
+          <button onClick={handleCancelEdit} className="p-1 text-zinc-400 hover:text-white">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Input Form with Text, Stickers and Voice Recording */}
       <div className="p-2 sm:p-3 border-t border-zinc-800 bg-zinc-950/90 shrink-0">
         {isRecording ? (
-          /* Live Voice Recording UI Bar */
+          /* Live Voice Recording UI Bar (No limit, record as long as wanted!) */
           <div className="flex items-center justify-between gap-2 px-3 py-2 bg-red-950/40 border-2 border-red-500/80 rounded-2xl animate-pulse">
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="w-3 h-3 rounded-full bg-red-500 animate-ping shrink-0" />
               <span className="text-xs sm:text-sm font-mono font-bold text-red-300">
-                {formatRecordTime(recordDuration)} <span className="opacity-60">/ 1:00</span>
+                {formatRecordTime(recordDuration)}
               </span>
               <span className="text-[11px] text-zinc-400 hidden sm:inline truncate">
                 {t.recordingVoice || 'Идет запись...'}
@@ -480,27 +652,38 @@ export default function ChatPanel({
             </button>
 
             <input
+              ref={inputRef}
               type="text"
               value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={!isAlive ? (t.ghostChatPlaceholder || "👻 Чат призраков (видят только выбывшие)...") : t.chatPlaceholder}
+              onChange={handleInputChange}
+              placeholder={
+                editingMessage 
+                  ? (lang === 'uz' ? 'Yangi matnni kiriting...' : lang === 'en' ? 'Edit message...' : 'Введите новый текст...')
+                  : !isAlive 
+                  ? (t.ghostChatPlaceholder || "👻 Чат призраков (видят только выбывшие)...") 
+                  : t.chatPlaceholder
+              }
               maxLength={300}
               className={`flex-1 border rounded-xl px-3 py-2 sm:py-2.5 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none font-mono ${
-                !isAlive
+                editingMessage
+                  ? 'bg-cyan-950/20 border-cyan-500 focus:border-cyan-400'
+                  : !isAlive
                   ? 'bg-purple-950/30 border-purple-800 focus:border-purple-500'
                   : 'bg-zinc-900 border-zinc-700 focus:border-amber-500'
               }`}
             />
 
             {/* Voice Record Mic Button */}
-            <button
-              type="button"
-              onClick={startRecording}
-              title={t.sendVoiceTooltip || "Записать голосовое сообщение"}
-              className="p-2 sm:p-2.5 rounded-xl bg-zinc-900 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-zinc-700 hover:border-amber-500/60 transition flex items-center justify-center shrink-0 cursor-pointer shadow-sm active:scale-95"
-            >
-              <Mic className="w-4 h-4" />
-            </button>
+            {!editingMessage && (
+              <button
+                type="button"
+                onClick={startRecording}
+                title={t.sendVoiceTooltip || "Записать голосовое сообщение"}
+                className="p-2 sm:p-2.5 rounded-xl bg-zinc-900 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-zinc-700 hover:border-amber-500/60 transition flex items-center justify-center shrink-0 cursor-pointer shadow-sm active:scale-95"
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+            )}
 
             {/* Send Text Button */}
             <button
@@ -508,13 +691,15 @@ export default function ChatPanel({
               disabled={!text.trim()}
               className={`p-2 sm:p-2.5 rounded-xl font-bold transition flex items-center justify-center shrink-0 ${
                 text.trim()
-                  ? !isAlive
+                  ? editingMessage
+                    ? 'bg-cyan-500 hover:bg-cyan-400 text-black shadow-md shadow-cyan-500/30 cursor-pointer'
+                    : !isAlive
                     ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30 cursor-pointer'
                     : 'bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/20 cursor-pointer'
                   : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
               }`}
             >
-              <Send className="w-4 h-4" />
+              {editingMessage ? <Check className="w-4 h-4" /> : <Send className="w-4 h-4" />}
             </button>
           </form>
         )}

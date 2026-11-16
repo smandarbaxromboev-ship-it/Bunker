@@ -1507,7 +1507,7 @@ class GameManager {
     this.broadcastRoom(code);
   }
 
-  addChatMessage(code, senderId, text, sticker = null, voice = null) {
+  addChatMessage(code, senderId, text, sticker = null, voice = null, replyTo = null) {
     const room = this.rooms.get(code);
     if (!room) return;
 
@@ -1530,6 +1530,14 @@ class GameManager {
         audioData: voice.audioData,
         duration: Math.round(Number(voice.duration) || 0)
       } : null,
+      replyTo: replyTo && replyTo.id ? {
+        id: replyTo.id,
+        senderName: replyTo.senderName,
+        text: (replyTo.text || '').substring(0, 80),
+        isVoice: Boolean(replyTo.isVoice),
+        isSticker: Boolean(replyTo.isSticker)
+      } : null,
+      isEdited: false,
       isGhost: isGhostMessage,
       timestamp: formatServerTime(nowMs),
       createdAt: nowMs,
@@ -1545,6 +1553,45 @@ class GameManager {
         if (!isGhostMessage || !p.isAlive) {
           this.io.to(p.socketId).emit('chatMessage', msg);
         }
+      }
+    });
+  }
+
+  editChatMessage(code, senderId, messageId, newText) {
+    const room = this.rooms.get(code);
+    if (!room) return;
+    const msg = room.messages.find(m => m.id === messageId);
+    if (!msg || msg.senderId !== senderId) return;
+    msg.text = (newText || '').trim().substring(0, 300);
+    msg.isEdited = true;
+    room.players.forEach(p => {
+      if (p.socketId) {
+        this.io.to(p.socketId).emit('chatMessageEdited', { id: messageId, text: msg.text, isEdited: true });
+      }
+    });
+  }
+
+  deleteChatMessage(code, senderId, messageId) {
+    const room = this.rooms.get(code);
+    if (!room) return;
+    const msgIndex = room.messages.findIndex(m => m.id === messageId);
+    if (msgIndex === -1) return;
+    const msg = room.messages[msgIndex];
+    if (msg.senderId !== senderId && room.hostId !== senderId) return;
+    room.messages.splice(msgIndex, 1);
+    room.players.forEach(p => {
+      if (p.socketId) {
+        this.io.to(p.socketId).emit('chatMessageDeleted', { id: messageId });
+      }
+    });
+  }
+
+  setPlayerTyping(code, senderId, senderName) {
+    const room = this.rooms.get(code);
+    if (!room) return;
+    room.players.forEach(p => {
+      if (p.socketId && p.id !== senderId) {
+        this.io.to(p.socketId).emit('playerTyping', { senderId, senderName, timestamp: Date.now() });
       }
     });
   }

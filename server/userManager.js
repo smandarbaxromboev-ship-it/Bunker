@@ -345,7 +345,7 @@ class UserManager {
   }
 
   // Прямой 1-клик вход и регистрация через Google (не требует ручной настройки Google Cloud Console)
-  googleDirectLogin({ email, name, avatarUrl, googleId }) {
+  googleDirectLogin({ email, name, avatarUrl, googleId, clientUser = null }) {
     const rawEmail = (email || '').trim().toLowerCase();
     const rawName = (name || '').trim();
     if (!rawEmail && !rawName && !googleId) {
@@ -355,10 +355,10 @@ class UserManager {
     // Идентификатор Google: либо переданный googleId, либо хеш от email
     const gid = googleId ? String(googleId) : (rawEmail ? `g_${rawEmail}` : `g_${rawName.toLowerCase()}`);
 
-    // Ищем существующего пользователя по googleId или googleEmail или имени
+    // Ищем существующего пользователя по googleId, email, userId или имени
     let existing = null;
     for (const u of this.users.values()) {
-      if (u.googleId && u.googleId === gid) {
+      if (u.googleId && (u.googleId === gid || (rawEmail && u.googleId === `g_${rawEmail}`))) {
         existing = u;
         break;
       }
@@ -366,7 +366,19 @@ class UserManager {
         existing = u;
         break;
       }
+      if (clientUser && clientUser.userId && String(u.userId) === String(clientUser.userId)) {
+        existing = u;
+        break;
+      }
+      if (clientUser && clientUser.username && u.username.toLowerCase() === clientUser.username.toLowerCase()) {
+        existing = u;
+        break;
+      }
       if (rawEmail && u.username && u.username.toLowerCase() === rawEmail.split('@')[0].toLowerCase()) {
+        existing = u;
+        break;
+      }
+      if (rawName && u.username && u.username.toLowerCase() === rawName.toLowerCase()) {
         existing = u;
         break;
       }
@@ -379,6 +391,22 @@ class UserManager {
       if (!existing.googleId) existing.googleId = gid;
       if (!existing.googleEmail && rawEmail) existing.googleEmail = rawEmail;
       if (avatarUrl) existing.avatarUrl = avatarUrl;
+
+      // Если в сохраненном профиле было больше монет (например 1000), сохраняем баланс!
+      const clientCoins = clientUser && typeof clientUser.bunCoins === 'number' ? clientUser.bunCoins : 0;
+      if (clientCoins > (existing.bunCoins || 0)) {
+        existing.bunCoins = clientCoins;
+      } else if ((existing.bunCoins || 0) < 1000) {
+        existing.bunCoins = 1000; // Гарантированный стартовый баланс 1000 BunCoins для Google аккаунтов!
+      }
+
+      // Объединяем купленные предметы
+      if (clientUser && Array.isArray(clientUser.inventory)) {
+        clientUser.inventory.forEach(item => {
+          if (!existing.inventory) existing.inventory = [];
+          if (!existing.inventory.includes(item)) existing.inventory.push(item);
+        });
+      }
 
       // Если текущий ник технический ("user" или "user_1"), обновляем его на настоящее имя из Google!
       const targetName = rawName || (rawEmail ? rawEmail.split('@')[0] : '');
@@ -418,22 +446,25 @@ class UserManager {
     // Генерируем красивый фирменный аватар Google
     const finalAvatar = avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(candidate)}&background=4285F4&color=fff&size=256&bold=true`;
 
+    const clientCoins = clientUser && typeof clientUser.bunCoins === 'number' ? clientUser.bunCoins : 1000;
+    const initialCoins = Math.max(1000, clientCoins);
+
     const newUser = {
-      userId: this.generateUniqueUserId(),
+      userId: clientUser?.userId || this.generateUniqueUserId(),
       username: candidate,
       password: 'g_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2),
       googleId: gid,
       googleEmail: rawEmail || null,
       avatarUrl: finalAvatar,
-      bunCoins: 500, // Бонус новичку!
-      friends: [],
-      inventory: ['char_stalker', 'frame_default', 'title_survivor'],
-      equipped: {
+      bunCoins: initialCoins, // Приветственные 1000 BunCoins для аккаунта Google!
+      friends: clientUser?.friends || [],
+      inventory: clientUser?.inventory || ['char_stalker', 'frame_default', 'title_survivor'],
+      equipped: clientUser?.equipped || {
         character: 'char_stalker',
         frame: 'frame_default',
         title: 'title_survivor'
       },
-      stats: { gamesPlayed: 0, wins: 0, roundsSurvived: 0 },
+      stats: clientUser?.stats || { gamesPlayed: 0, wins: 0, roundsSurvived: 0 },
       rulesAccepted: false,
       createdAt: new Date().toISOString()
     };
