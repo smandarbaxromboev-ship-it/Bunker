@@ -16,6 +16,7 @@ export default function VoiceChatBar({
   onOpenModal
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [mutedPeers, setMutedPeers] = useState(new Set());
   const t = translations[lang] || translations.ru;
 
@@ -34,8 +35,35 @@ export default function VoiceChatBar({
 
   const totalConnected = (isConnected ? 1 : 0) + peers.length;
 
+  if (isConnected && isMinimized) {
+    return (
+      <div className="fixed bottom-24 md:bottom-4 left-3 z-40 animate-fadeIn">
+        <button
+          onClick={() => {
+            soundManager.playBeep(650, 0.05);
+            setIsMinimized(false);
+          }}
+          className={`w-12 h-12 rounded-full border-2 shadow-2xl flex items-center justify-center transition active:scale-95 cursor-pointer ${
+            isMuted
+              ? 'bg-red-600/95 border-red-300 text-white shadow-red-600/50'
+              : isSpeaking
+              ? 'bg-emerald-500 border-white text-black shadow-emerald-500/60 animate-pulse'
+              : 'bg-emerald-600/95 border-emerald-300 text-white shadow-emerald-600/50'
+          }`}
+          title={lang === 'uz' ? "Ovozli panelni ochish" : lang === 'en' ? "Expand Voice Panel" : "Развернуть панель аудиочата"}
+        >
+          {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="hidden md:block fixed bottom-4 left-4 z-40 max-w-sm font-sans select-none animate-fadeIn">
+    <div className={`fixed z-40 font-sans select-none animate-fadeIn transition-all duration-300 ${
+      !isConnected 
+        ? 'hidden md:block bottom-4 left-4 max-w-sm' 
+        : 'bottom-24 md:bottom-4 left-3 right-3 md:right-auto md:left-4 md:max-w-sm'
+    }`}>
       <div className="bg-slate-900/95 dark:bg-zinc-950/95 border border-slate-700/80 dark:border-zinc-800 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden transition-all duration-300">
         {/* Main Bar */}
         <div className="p-2 sm:p-2.5 flex items-center gap-2">
@@ -109,6 +137,15 @@ export default function VoiceChatBar({
                   {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                 </button>
               )}
+
+              {/* Minimize to tiny floating icon button */}
+              <button
+                onClick={() => setIsMinimized(true)}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700/60 transition cursor-pointer"
+                title={lang === 'uz' ? "Kichraytirish" : lang === 'en' ? "Minimize" : "Свернуть в кружок"}
+              >
+                <span className="text-xs font-bold leading-none block px-0.5">—</span>
+              </button>
 
               {/* Leave Voice Button */}
               <button
