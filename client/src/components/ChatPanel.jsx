@@ -167,7 +167,7 @@ export default function ChatPanel({
       id: msg.id,
       senderName: getLocalized(msg.senderName, lang) || msg.senderName,
       text: msg.voice ? (lang === 'uz' ? '🎙️ Ovozli xabar' : lang === 'en' ? '🎙️ Voice message' : '🎙️ Голосовое сообщение')
-            : msg.sticker ? `${msg.sticker.emoji || '☢️'} Стикер`
+            : msg.sticker ? `${msg.sticker.emoji || '☢️'} ${lang === 'uz' ? 'Stiker' : lang === 'en' ? 'Sticker' : 'Стикер'}`
             : msg.text,
       isVoice: Boolean(msg.voice),
       isSticker: Boolean(msg.sticker)

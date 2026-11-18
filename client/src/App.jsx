@@ -1137,7 +1137,7 @@ export default function App() {
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold">
-                  💬 Сообщение от друга {pendingDmNotice.from}:
+                  💬 {lang === 'uz' ? `Do'stdan xabar (${pendingDmNotice.from}):` : lang === 'en' ? `Message from ${pendingDmNotice.from}:` : `Сообщение от друга ${pendingDmNotice.from}:`}
                 </div>
                 <div className="text-xs font-mono text-zinc-100 truncate mt-0.5">
                   «{pendingDmNotice.text}»
@@ -1153,7 +1153,7 @@ export default function App() {
                   }}
                   className="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs transition cursor-pointer"
                 >
-                  Ответить
+                  {lang === 'uz' ? 'Javob berish' : lang === 'en' ? 'Reply' : 'Ответить'}
                 </button>
                 <button
                   onClick={() => setPendingDmNotice(null)}
@@ -1943,7 +1943,11 @@ export default function App() {
             </div>
             <span>
               {isVoiceConnected 
-                ? (isVoiceSpeaking ? 'Говорит' : isVoiceMuted ? 'Мут' : (lang === 'uz' ? 'Efirda' : lang === 'en' ? 'Live' : 'В эфире')) 
+                ? (isVoiceSpeaking 
+                    ? (lang === 'uz' ? 'Gapirmoqda' : lang === 'en' ? 'Speaking' : 'Говорит') 
+                    : isVoiceMuted 
+                    ? (lang === 'uz' ? 'Ovozsiz' : lang === 'en' ? 'Muted' : 'Мут') 
+                    : (lang === 'uz' ? 'Efirda' : lang === 'en' ? 'Live' : 'В эфире')) 
                 : (lang === 'uz' ? 'Ovoz' : lang === 'en' ? 'Voice' : 'Голос')}
             </span>
           </button>
@@ -2190,7 +2194,11 @@ export default function App() {
           </div>
           <span>
             {isVoiceConnected 
-              ? (isVoiceSpeaking ? 'Говорит' : isVoiceMuted ? 'Мут' : (lang === 'uz' ? 'Efirda' : lang === 'en' ? 'Live' : 'В эфире')) 
+              ? (isVoiceSpeaking 
+                  ? (lang === 'uz' ? 'Gapirmoqda' : lang === 'en' ? 'Speaking' : 'Говорит') 
+                  : isVoiceMuted 
+                  ? (lang === 'uz' ? 'Ovozsiz' : lang === 'en' ? 'Muted' : 'Мут') 
+                  : (lang === 'uz' ? 'Efirda' : lang === 'en' ? 'Live' : 'В эфире')) 
               : (lang === 'uz' ? 'Ovoz' : lang === 'en' ? 'Voice' : 'Голос')}
           </span>
         </button>

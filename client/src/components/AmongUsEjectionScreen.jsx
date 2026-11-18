@@ -243,7 +243,7 @@ export default function AmongUsEjectionScreen({
         <div className="flex items-center gap-2 bg-zinc-950/80 px-3 py-1.5 rounded-xl border border-red-900/60 text-red-400">
           <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
           <span className="font-bold tracking-widest uppercase">
-            [ ПРОТОКОЛ ИЗГНАНИЯ // ГЕРМОШЛЮЗ №7 РАЗГЕРМЕТИЗИРОВАН ]
+            {lang === 'uz' ? "[ QUVG'IN PROTOKOLI // №7 LYUK BOSIMSIZLANDI ]" : lang === 'en' ? '[ EJECTION PROTOCOL // AIRLOCK #7 DEPRESSURIZED ]' : '[ ПРОТОКОЛ ИЗГНАНИЯ // ГЕРМОШЛЮЗ №7 РАЗГЕРМЕТИЗИРОВАН ]'}
           </span>
         </div>
 
@@ -325,7 +325,7 @@ export default function AmongUsEjectionScreen({
                 {exiledPlayer.name}
               </div>
               <div className="text-[10px] font-mono text-red-400 font-bold tracking-wider flex items-center justify-center gap-1">
-                <span>[ СВЯЗЬ ПОТЕРЯНА // 0% СИГНАЛ ]</span>
+                <span>{lang === 'uz' ? "[ ALOQA YO'QOLDI // 0% SIGNAL ]" : lang === 'en' ? '[ SIGNAL LOST // 0% SIGNAL ]' : '[ СВЯЗЬ ПОТЕРЯНА // 0% СИГНАЛ ]'}</span>
               </div>
             </div>
           </div>
@@ -337,7 +337,7 @@ export default function AmongUsEjectionScreen({
         {/* Terminal Header */}
         <div className="text-[11px] font-mono text-zinc-500 uppercase tracking-widest flex items-center justify-center gap-2">
           <Flame className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-          <span>АТМОСФЕРА: РАДИАЦИОННЫЙ УРАГАН (-76°C // 14,500 мЗв/ч)</span>
+          <span>{lang === 'uz' ? "ATMOSFERA: RADIATSIYALI BO'RON (-76°C // 14,500 mZv/s)" : lang === 'en' ? 'ATMOSPHERE: RADIATION STORM (-76°C // 14,500 mSv/h)' : 'АТМОСФЕРА: РАДИАЦИОННЫЙ УРАГАН (-76°C // 14,500 мЗв/ч)'}</span>
           <Wind className="w-3.5 h-3.5 text-red-500 animate-pulse" />
         </div>
 

@@ -132,7 +132,9 @@ export default function VoiceChatModal({
           <button
             onClick={() => setIsMinimized(!isMinimized)}
             className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
-            title={isMinimized ? "Развернуть" : "Свернуть"}
+            title={isMinimized 
+              ? (lang === 'uz' ? "Kattalashtirish" : lang === 'en' ? "Expand" : "Развернуть") 
+              : (lang === 'uz' ? "Kichraytirish" : lang === 'en' ? "Minimize" : "Свернуть")}
           >
             {isMinimized ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
           </button>
@@ -268,7 +270,7 @@ export default function VoiceChatModal({
                   />
                   <div className="min-w-0">
                     <div className="font-bold text-xs text-white truncate flex items-center gap-1">
-                      <span>{myPlayerObj?.name || 'Вы'}</span>
+                      <span>{myPlayerObj?.name || (lang === 'uz' ? 'Siz' : lang === 'en' ? 'You' : 'Вы')}</span>
                       <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-400 font-mono">
                         {lang === 'uz' ? 'SIZ' : lang === 'en' ? 'YOU' : 'ВЫ'}
                       </span>
@@ -346,7 +348,9 @@ export default function VoiceChatModal({
                           ? 'bg-red-950/60 border-red-800 text-red-400 hover:bg-red-900'
                           : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-700'
                       }`}
-                      title={isPeerMuted ? "Включить звук игрока" : "Заглушить этого игрока для себя"}
+                      title={isPeerMuted 
+                        ? (lang === 'uz' ? "O'yinchining ovozini yoqish" : lang === 'en' ? "Unmute player" : "Включить звук игрока") 
+                        : (lang === 'uz' ? "O'yinchi ovozini o'zim uchun o'chirish" : lang === 'en' ? "Mute player for me" : "Заглушить этого игрока для себя")}
                     >
                       {isPeerMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                     </button>

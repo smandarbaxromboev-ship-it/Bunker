@@ -132,7 +132,7 @@ export default function VoiceChatBar({
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
-                  title="Список участников"
+                  title={lang === 'uz' ? "Ishtirokchilar ro'yxati" : lang === 'en' ? "Participants List" : "Список участников"}
                 >
                   {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                 </button>
@@ -154,7 +154,7 @@ export default function VoiceChatBar({
                   onToggleVoice();
                 }}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-red-950/70 text-slate-400 hover:text-red-400 border border-slate-700/60 hover:border-red-800 transition cursor-pointer"
-                title={t.voiceDisconnect || "Отключить аудиочат"}
+                title={t.voiceDisconnect || (lang === 'uz' ? "Audiochatdan chiqish" : lang === 'en' ? "Leave Audio Chat" : "Отключить аудиочат")}
               >
                 <PhoneOff className="w-3.5 h-3.5" />
               </button>
@@ -166,7 +166,7 @@ export default function VoiceChatBar({
         {isConnected && isExpanded && peers.length > 0 && (
           <div className="border-t border-slate-800 p-2 space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
             <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 px-1">
-              {t.voiceOnlineCount || "Участники в эфире"}:
+              {lang === 'uz' ? "Efirdagi ishtirokchilar" : lang === 'en' ? "Online participants" : (t.voiceOnlineCount || "Участники в эфире")}:
             </div>
             {peers.map((peer) => {
               const isPeerMuted = mutedPeers.has(peer.socketId);
@@ -203,7 +203,9 @@ export default function VoiceChatBar({
                         ? 'text-red-400 bg-red-950/60 hover:bg-red-900/60'
                         : 'text-slate-400 hover:text-white hover:bg-slate-700'
                     }`}
-                    title={isPeerMuted ? "Включить звук" : "Заглушить для себя"}
+                    title={isPeerMuted 
+                      ? (lang === 'uz' ? "Ovozini yoqish" : lang === 'en' ? "Unmute" : "Включить звук") 
+                      : (lang === 'uz' ? "O'zim uchun o'chirish" : lang === 'en' ? "Mute for me" : "Заглушить для себя")}
                   >
                     {isPeerMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                   </button>

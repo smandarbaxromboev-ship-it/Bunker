@@ -322,7 +322,7 @@ export default function HeaderTerminal({
           <button
             onClick={toggleSound}
             className="p-1 sm:p-1.5 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 transition cursor-pointer shrink-0"
-            title={isMuted ? "Включить звук" : "Выключить звук"}
+            title={isMuted ? (lang === 'uz' ? "Ovozni yoqish" : lang === 'en' ? "Unmute sound" : "Включить звук") : (lang === 'uz' ? "Ovozni o'chirish" : lang === 'en' ? "Mute sound" : "Выключить звук")}
           >
             {isMuted ? <VolumeX className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500" /> : <Volume2 className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />}
           </button>
@@ -354,7 +354,13 @@ export default function HeaderTerminal({
                 <Mic className={`w-3.5 h-3.5 ${isVoiceSpeaking ? (isVoiceLoud ? 'animate-mic-loud text-amber-300' : 'animate-mic-calm') : ''}`} />
               )}
               <span className="font-display font-bold text-xs">
-                {isVoiceConnected ? (isVoiceSpeaking ? 'Говорит' : isVoiceMuted ? 'Мут' : 'В эфире') : (lang === 'uz' ? 'Ovoz' : lang === 'en' ? 'Voice' : 'Голос')}
+                {isVoiceConnected 
+                  ? (isVoiceSpeaking 
+                      ? (lang === 'uz' ? 'Gapirmoqda' : lang === 'en' ? 'Speaking' : 'Говорит') 
+                      : isVoiceMuted 
+                      ? (lang === 'uz' ? 'Ovozsiz' : lang === 'en' ? 'Muted' : 'Мут') 
+                      : (lang === 'uz' ? 'Efirda' : lang === 'en' ? 'Live' : 'В эфире')) 
+                  : (lang === 'uz' ? 'Ovoz' : lang === 'en' ? 'Voice' : 'Голос')}
               </span>
               {isVoiceConnected ? (
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold">
@@ -374,7 +380,7 @@ export default function HeaderTerminal({
             }}
             className="p-1.5 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 hover:text-amber-500 transition shadow-sm active:scale-95 cursor-pointer flex items-center justify-center shrink-0"
             aria-label="Menu"
-            title="Меню"
+            title={lang === 'uz' ? "Menyu" : lang === 'en' ? "Menu" : "Меню"}
           >
             {mobileMenuOpen ? <X className="w-5 h-5 text-amber-500" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -460,7 +466,7 @@ export default function HeaderTerminal({
                   className="w-full p-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-black font-display font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition cursor-pointer"
                 >
                   <User className="w-4 h-4" />
-                  <span>{t.btnAuth || 'Войти в аккаунт'}</span>
+                  <span>{t.btnAuth || (lang === 'uz' ? "Kirish / Ro'yxatdan o'tish" : lang === 'en' ? 'Login / Register' : 'Войти в аккаунт')}</span>
                 </button>
               )}
 
@@ -479,7 +485,7 @@ export default function HeaderTerminal({
                       <span>{lang === 'uz' ? 'Ovozli chat' : lang === 'en' ? 'Voice Chat' : 'Голосовой чат'}</span>
                     </span>
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">
-                      {isVoiceConnected ? `${(voicePeers?.length || 0) + 1} в эфире` : 'Открыть'}
+                      {isVoiceConnected ? `${(voicePeers?.length || 0) + 1} ${lang === 'uz' ? 'efirda' : lang === 'en' ? 'live' : 'в эфире'}` : (lang === 'uz' ? 'Kirish' : lang === 'en' ? 'Join' : 'Открыть')}
                     </span>
                   </button>
                 )}
@@ -493,9 +499,11 @@ export default function HeaderTerminal({
                 >
                   <span className="flex items-center gap-2">
                     <ShoppingBag className="w-4 h-4 text-amber-400" />
-                    <span>{t.shopBtn || 'Магазин предметов'}</span>
+                    <span>{t.shopBtn || (lang === 'uz' ? "Do'kon" : lang === 'en' ? 'Shop' : 'Магазин')}</span>
                   </span>
-                  <span className="text-[10px] text-amber-400 font-bold">150+ скинов</span>
+                  <span className="text-[10px] text-amber-400 font-bold">
+                    {lang === 'uz' ? '150+ buyumlar' : lang === 'en' ? '150+ items' : '150+ скинов'}
+                  </span>
                 </button>
 
                 {onOpenFriends && user && (
@@ -520,7 +528,7 @@ export default function HeaderTerminal({
                     className="w-full p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-amber-300 text-xs font-mono font-bold flex items-center gap-2 transition cursor-pointer"
                   >
                     <BookOpen className="w-4 h-4 text-amber-400" />
-                    <span>{t.btnRules || 'Правила игры'}</span>
+                    <span>{t.btnRules || (lang === 'uz' ? 'Qoidalar' : lang === 'en' ? 'Rules' : 'Правила игры')}</span>
                   </button>
                 )}
               </div>
@@ -537,7 +545,7 @@ export default function HeaderTerminal({
                     className="p-2 rounded-xl bg-slate-800 border border-slate-700/60 text-xs font-mono font-bold text-slate-200 flex items-center justify-center gap-1.5 transition cursor-pointer"
                   >
                     {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5" />}
-                    <span>{theme === 'dark' ? 'Светлая' : 'Тёмная'}</span>
+                    <span>{theme === 'dark' ? (lang === 'uz' ? 'Yorug‘' : lang === 'en' ? 'Light' : 'Светлая') : (lang === 'uz' ? 'Qorong‘i' : lang === 'en' ? 'Dark' : 'Тёмная')}</span>
                   </button>
 
                   <button
@@ -545,7 +553,7 @@ export default function HeaderTerminal({
                     className="p-2 rounded-xl bg-slate-800 border border-slate-700/60 text-xs font-mono font-bold text-slate-200 flex items-center justify-center gap-1.5 transition cursor-pointer"
                   >
                     {isMuted ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 text-amber-400" />}
-                    <span>{isMuted ? 'Без звука' : 'Звук: Вкл'}</span>
+                    <span>{isMuted ? (lang === 'uz' ? 'Ovozsiz' : lang === 'en' ? 'Muted' : 'Без звука') : (lang === 'uz' ? 'Ovoz: Yoqiq' : lang === 'en' ? 'Sound: On' : 'Звук: Вкл')}</span>
                   </button>
                 </div>
 
@@ -563,9 +571,9 @@ export default function HeaderTerminal({
                   >
                     <span className="flex items-center gap-1.5">
                       <span>☢️</span>
-                      <span>{t.btnAtmosphere || 'Атмосфера бункера'}</span>
+                      <span>{t.btnAtmosphere || (lang === 'uz' ? 'Atmosfera' : lang === 'en' ? 'Atmosphere' : 'Атмосфера бункера')}</span>
                     </span>
-                    <span className="text-[10px]">{atmosphereEnabled ? 'ВКЛ' : 'ВЫКЛ'}</span>
+                    <span className="text-[10px]">{atmosphereEnabled ? (lang === 'uz' ? 'YONIQ' : lang === 'en' ? 'ON' : 'ВКЛ') : (lang === 'uz' ? 'O‘CHIQ' : lang === 'en' ? 'OFF' : 'ВЫКЛ')}</span>
                   </button>
                 )}
               </div>

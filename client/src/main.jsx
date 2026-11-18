@@ -19,15 +19,20 @@ class RootErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
+      const savedLang = (typeof localStorage !== 'undefined' && localStorage.getItem('bunker_lang')) || 'ru';
       return (
         <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-6 text-center font-mono">
           <div className="max-w-md w-full bg-zinc-900 border-2 border-amber-500/60 rounded-3xl p-6 space-y-4 shadow-2xl">
             <div className="text-3xl">☢️</div>
             <h2 className="text-lg font-bold text-amber-400">
-              Терминал перезагружен
+              {savedLang === 'uz' ? 'Terminal qayta yuklandi' : savedLang === 'en' ? 'Terminal rebooted' : 'Терминал перезагружен'}
             </h2>
             <p className="text-xs text-zinc-400">
-              Обнаружен сбой отображения интерфейса. Нажмите кнопку ниже, чтобы мгновенно продолжить игру.
+              {savedLang === 'uz' 
+                ? 'Interfeys ko‘rsatilishida nosozlik aniqlandi. O‘yinni davom ettirish uchun quyidagi tugmani bosing.'
+                : savedLang === 'en'
+                ? 'UI glitch detected. Click the button below to resume the game immediately.'
+                : 'Обнаружен сбой отображения интерфейса. Нажмите кнопку ниже, чтобы мгновенно продолжить игру.'}
             </p>
             {this.state.error && (
               <div className="p-2.5 rounded-xl bg-black/60 border border-red-500/30 text-left text-[11px] text-red-400 overflow-x-auto max-h-24">
@@ -42,7 +47,7 @@ class RootErrorBoundary extends React.Component {
                 }}
                 className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs cursor-pointer shadow-md"
               >
-                🔄 Продолжить игру
+                🔄 {savedLang === 'uz' ? 'O‘yinni davom ettirish' : savedLang === 'en' ? 'Resume game' : 'Продолжить игру'}
               </button>
               <button
                 onClick={() => {
@@ -55,7 +60,7 @@ class RootErrorBoundary extends React.Component {
                 }}
                 className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs cursor-pointer"
               >
-                ← В главное меню
+                ← {savedLang === 'uz' ? 'Asosiy menyuga' : savedLang === 'en' ? 'Main menu' : 'В главное меню'}
               </button>
             </div>
           </div>

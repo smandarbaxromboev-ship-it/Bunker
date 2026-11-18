@@ -166,7 +166,7 @@ export default function ProfileModal({ user, socket, lang = 'ru', onClose, onPro
                   type="submit"
                   disabled={loading}
                   className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-black font-bold text-[11px] transition cursor-pointer"
-                  title="Сохранить"
+                  title={lang === 'uz' ? "Saqlash" : lang === 'en' ? "Save" : "Сохранить"}
                 >
                   ✓
                 </button>
@@ -174,7 +174,7 @@ export default function ProfileModal({ user, socket, lang = 'ru', onClose, onPro
                   type="button"
                   onClick={() => { setIsEditingNick(false); setNewNick(user?.username || ''); }}
                   className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] transition cursor-pointer"
-                  title="Отмена"
+                  title={lang === 'uz' ? "Bekor qilish" : lang === 'en' ? "Cancel" : "Отмена"}
                 >
                   ✕
                 </button>
@@ -188,7 +188,7 @@ export default function ProfileModal({ user, socket, lang = 'ru', onClose, onPro
                   type="button"
                   onClick={() => { setNewNick(user?.username || ''); setIsEditingNick(true); }}
                   className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-amber-400 font-mono transition cursor-pointer px-1.5 py-0.5 rounded hover:bg-zinc-800"
-                  title="Изменить никнейм"
+                  title={lang === 'uz' ? "Nikni o'zgartirish" : lang === 'en' ? "Change nickname" : "Изменить никнейм"}
                 >
                   <Pencil className="w-3 h-3 text-amber-500" />
                   <span>{lang === 'uz' ? "o'zgartirish" : lang === 'en' ? 'edit' : 'изменить'}</span>

@@ -291,7 +291,7 @@ export default function FriendsModal({
             <div>
               <h2 className="text-base sm:text-lg font-display font-bold text-white tracking-wide">
                 {liveChatFriend
-                  ? `💬 Чат с ${liveChatFriend.username}`
+                  ? (lang === 'uz' ? `💬 ${liveChatFriend.username} bilan chat` : lang === 'en' ? `💬 Chat with ${liveChatFriend.username}` : `💬 Чат с ${liveChatFriend.username}`)
                   : lang === 'uz'
                   ? "DO'STLAR, CHAT VA ID"
                   : lang === 'en'
@@ -300,7 +300,7 @@ export default function FriendsModal({
               </h2>
               <p className="text-[11px] text-zinc-400 font-mono">
                 {liveChatFriend
-                  ? `ID: #${liveChatFriend.userId || '------'} • ${liveChatFriend.isOnline ? '🟢 Онлайн' : '⚫ Оффлайн'}`
+                  ? `ID: #${liveChatFriend.userId || '------'} • ${liveChatFriend.isOnline ? (lang === 'uz' ? '🟢 Onlayn' : lang === 'en' ? '🟢 Online' : '🟢 Онлайн') : (lang === 'uz' ? '⚫ Oflayn' : lang === 'en' ? '⚫ Offline' : '⚫ Оффлайн')}`
                   : lang === 'uz'
                   ? "ID orqali do'st qo'shing, yozishing va birga o'ynang"
                   : lang === 'en'
@@ -324,7 +324,11 @@ export default function FriendsModal({
             <div className="flex-1 overflow-y-auto space-y-2.5 p-3 rounded-2xl bg-zinc-900/70 border border-zinc-800 mb-3">
               {chatMessages.length === 0 ? (
                 <div className="text-center py-12 text-zinc-500 font-mono text-xs">
-                  Напишите первое сообщение другу <strong className="text-cyan-400">{liveChatFriend.username}</strong>!
+                  {lang === 'uz' 
+                    ? <>Do'stingiz <strong className="text-cyan-400">{liveChatFriend.username}</strong> ga birinchi xabarni yozing!</>
+                    : lang === 'en'
+                    ? <>Send the first message to your friend <strong className="text-cyan-400">{liveChatFriend.username}</strong>!</>
+                    : <>Напишите первое сообщение другу <strong className="text-cyan-400">{liveChatFriend.username}</strong>!</>}
                 </div>
               ) : (
                 chatMessages.map((m) => {
@@ -506,15 +510,15 @@ export default function FriendsModal({
                           </div>
                           <div className="text-[11px] font-mono flex items-center gap-2 mt-0.5">
                             {f.isOnline ? (
-                              <span className="text-emerald-400 font-bold">● Онлайн</span>
+                              <span className="text-emerald-400 font-bold">● {lang === 'uz' ? 'Onlayn' : lang === 'en' ? 'Online' : 'Онлайн'}</span>
                             ) : (
-                              <span className="text-zinc-500">● Оффлайн</span>
+                              <span className="text-zinc-500">● {lang === 'uz' ? 'Oflayn' : lang === 'en' ? 'Offline' : 'Оффлайн'}</span>
                             )}
                             {f.currentRoomCode && (
                               <span className={f.currentRoomStatus === 'LOBBY' ? 'text-amber-400 font-bold' : 'text-red-400 font-bold'}>
                                 {f.currentRoomStatus === 'LOBBY'
-                                  ? `• В лобби #${f.currentRoomCode}`
-                                  : `• 🔒 В игре (#${f.currentRoomCode})`}
+                                  ? `• ${lang === 'uz' ? `Lobbi #${f.currentRoomCode}` : lang === 'en' ? `In Lobby #${f.currentRoomCode}` : `В лобби #${f.currentRoomCode}`}`
+                                  : `• 🔒 ${lang === 'uz' ? `O'yinda (#${f.currentRoomCode})` : lang === 'en' ? `In Game (#${f.currentRoomCode})` : `В игре (#${f.currentRoomCode})`}`}
                               </span>
                             )}
                           </div>
