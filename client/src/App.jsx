@@ -1910,6 +1910,43 @@ export default function App() {
             <span>{lang === 'uz' ? 'Lobbi' : lang === 'en' ? 'Lobby' : 'Лобби'} ({roomState?.players?.length || 0})</span>
           </button>
 
+          {/* Direct Voice Chat Button in Bottom Bar */}
+          <button
+            onClick={() => {
+              soundManager.playBeep(850, 0.05);
+              handleOpenVoiceChat();
+            }}
+            className={`flex-1 py-1.5 rounded-xl text-xs font-display font-bold flex flex-col items-center justify-center gap-0.5 transition active:scale-95 cursor-pointer ${
+              isVoiceConnected
+                ? isVoiceSpeaking
+                  ? 'text-emerald-500 bg-emerald-500/20 animate-pulse'
+                  : isVoiceMuted
+                  ? 'text-red-400 bg-red-500/15'
+                  : 'text-emerald-400 bg-emerald-500/10'
+                : 'text-emerald-600 dark:text-emerald-400 hover:text-emerald-300'
+            }`}
+          >
+            <div className="relative">
+              {isVoiceMuted ? (
+                <MicOff className="w-4 h-4 text-red-400" />
+              ) : (
+                <Mic className={`w-4 h-4 ${isVoiceSpeaking ? (isVoiceLoud ? 'animate-mic-loud text-amber-300' : 'animate-mic-calm') : ''}`} />
+              )}
+              {isVoiceConnected ? (
+                <span className="absolute -top-1 -right-2 px-1 py-0.2 rounded-full bg-emerald-600 text-[8px] text-white font-bold">
+                  {(voicePeers?.length || 0) + 1}
+                </span>
+              ) : (
+                <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              )}
+            </div>
+            <span>
+              {isVoiceConnected 
+                ? (isVoiceSpeaking ? 'Говорит' : isVoiceMuted ? 'Мут' : (lang === 'uz' ? 'Efirda' : lang === 'en' ? 'Live' : 'В эфире')) 
+                : (lang === 'uz' ? 'Ovoz' : lang === 'en' ? 'Voice' : 'Голос')}
+            </span>
+          </button>
+
           <button
             onClick={() => handleSwitchMobileTab('chat')}
             className={`flex-1 py-1.5 rounded-xl text-xs font-display font-bold flex flex-col items-center justify-center gap-0.5 transition relative ${
@@ -1986,6 +2023,12 @@ export default function App() {
         onOpenProfile={() => setShowProfileModal(true)}
         onOpenRules={() => { setIsRulesMandatory(false); setShowRulesModal(true); }}
         onOpenFriends={() => setShowFriendsModal(true)}
+        onOpenVoiceChat={handleOpenVoiceChat}
+        isVoiceConnected={isVoiceConnected}
+        isVoiceMuted={isVoiceMuted}
+        isVoiceSpeaking={isVoiceSpeaking}
+        isVoiceLoud={isVoiceLoud}
+        voicePeers={voicePeers}
         atmosphereEnabled={atmosphereEnabled}
         setAtmosphereEnabled={handleToggleAtmosphere}
         onLeaveRoom={handleLeaveRoom}
@@ -2112,6 +2155,43 @@ export default function App() {
         >
           <Users className="w-4 h-4" />
           <span>{t.mobileTabBunker} ({roomState?.players?.length || 0})</span>
+        </button>
+
+        {/* Direct Voice Chat Button in Bottom Bar */}
+        <button
+          onClick={() => {
+            soundManager.playBeep(850, 0.05);
+            handleOpenVoiceChat();
+          }}
+          className={`flex-1 py-1.5 rounded-xl text-xs font-display font-bold flex flex-col items-center justify-center gap-0.5 transition active:scale-95 cursor-pointer ${
+            isVoiceConnected
+              ? isVoiceSpeaking
+                ? 'text-emerald-500 bg-emerald-500/20 animate-pulse'
+                : isVoiceMuted
+                ? 'text-red-400 bg-red-500/15'
+                : 'text-emerald-400 bg-emerald-500/10'
+              : 'text-emerald-600 dark:text-emerald-400 hover:text-emerald-300'
+          }`}
+        >
+          <div className="relative">
+            {isVoiceMuted ? (
+              <MicOff className="w-4 h-4 text-red-400" />
+            ) : (
+              <Mic className={`w-4 h-4 ${isVoiceSpeaking ? (isVoiceLoud ? 'animate-mic-loud text-amber-300' : 'animate-mic-calm') : ''}`} />
+            )}
+            {isVoiceConnected ? (
+              <span className="absolute -top-1 -right-2 px-1 py-0.2 rounded-full bg-emerald-600 text-[8px] text-white font-bold">
+                {(voicePeers?.length || 0) + 1}
+              </span>
+            ) : (
+              <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+            )}
+          </div>
+          <span>
+            {isVoiceConnected 
+              ? (isVoiceSpeaking ? 'Говорит' : isVoiceMuted ? 'Мут' : (lang === 'uz' ? 'Efirda' : lang === 'en' ? 'Live' : 'В эфире')) 
+              : (lang === 'uz' ? 'Ovoz' : lang === 'en' ? 'Voice' : 'Голос')}
+          </span>
         </button>
 
         <button
