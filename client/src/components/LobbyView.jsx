@@ -10,6 +10,7 @@ export default function LobbyView({
   onStartGame, 
   onAddBot, 
   onRemoveBot, 
+  onKickPlayer,
   onLeaveLobby,
   onOpenFriends,
   speakingPlayerIds = new Set(),
@@ -190,17 +191,28 @@ export default function LobbyView({
                 </div>
               </div>
 
-              {/* Delete / Kick Button for Host */}
-              {isHost && p.isBot ? (
+              {/* Delete / Kick Button for Host (Bots OR Human Participants before game starts) */}
+              {isHost && p.id !== myPlayerId ? (
                 <button
                   onClick={() => {
                     soundManager.playBeep(500, 0.06);
-                    onRemoveBot(p.id);
+                    if (p.isBot) {
+                      if (onRemoveBot) onRemoveBot(p.id);
+                    } else {
+                      const confirmMsg = typeof t.confirmKickPlayer === 'function'
+                        ? t.confirmKickPlayer(p.name)
+                        : (lang === 'uz' ? `«${p.name}» o'yinchisini lobbidan chiqarishni xohlaysizmi?` : lang === 'en' ? `Kick player "${p.name}" from lobby?` : `Исключить игрока «${p.name}» из комнаты?`);
+                      if (window.confirm(confirmMsg)) {
+                        if (onKickPlayer) onKickPlayer(p.id, p.name);
+                      }
+                    }
                   }}
-                  title={lang === 'ru' ? "Исключить участника" : lang === 'uz' ? "Ishtirokchini chiqarish" : "Remove participant"}
-                  className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-950/60 dark:hover:bg-red-900 text-red-600 dark:text-red-400 transition cursor-pointer"
+                  title={p.isBot
+                    ? (lang === 'uz' ? "Botni o'chirish" : lang === 'en' ? "Remove bot" : "Удалить бота")
+                    : (t.btnKickPlayer || (lang === 'uz' ? "Ishtirokchini chiqarish" : lang === 'en' ? "Kick participant" : "Исключить участника"))}
+                  className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-950/60 dark:hover:bg-red-900 text-red-600 dark:text-red-400 transition cursor-pointer flex items-center justify-center group shadow-sm active:scale-95"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <UserMinus className="w-4 h-4 group-hover:scale-110 transition" />
                 </button>
               ) : (
                 <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>

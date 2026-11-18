@@ -249,6 +249,43 @@ class GameManager {
     return { code, playerId, room: this.getSanitizedRoomState(room, playerId) };
   }
 
+  joinRandomRoom(playerName, socketId, userProfile = null) {
+    // 1. Поиск открытых комнат в статусе LOBBY со свободными местами
+    const candidates = [];
+    for (const [code, room] of this.rooms.entries()) {
+      if (room.status === 'LOBBY' && room.players.length < 12) {
+        // Проверяем, не находится ли уже игрок в этой комнате
+        const alreadyIn = room.players.some(p => 
+          (userProfile?.username && p.username && p.username.toLowerCase() === userProfile.username.toLowerCase()) || 
+          p.socketId === socketId
+        );
+        if (!alreadyIn) {
+          candidates.push(room);
+        }
+      }
+    }
+
+    // 2. Приоритет комнатам, где уже ждут игроки (от большего к меньшему, чтобы игра быстрее началась)
+    candidates.sort((a, b) => {
+      if (b.players.length !== a.players.length) {
+        return b.players.length - a.players.length;
+      }
+      return Math.random() - 0.5;
+    });
+
+    if (candidates.length > 0) {
+      const chosenRoom = candidates[0];
+      const res = this.joinRoom(chosenRoom.code, playerName, socketId, userProfile);
+      if (!res.error) {
+        return { ...res, isNewRoom: false };
+      }
+    }
+
+    // 3. Если открытых комнат нет — автоматически создаем новый бункер!
+    const createRes = this.createRoom(playerName, socketId, userProfile);
+    return { ...createRes, isNewRoom: true };
+  }
+
   reconnectPlayer(code, playerId, socketId) {
     const room = this.rooms.get(code);
     if (!room) return { error: 'Сессия не найдена.' };
@@ -379,6 +416,47 @@ class GameManager {
       });
       this.broadcastRoom(code);
     }
+  }
+
+  kickPlayerFromLobby(code, targetPlayerId, requesterId) {
+    const room = this.rooms.get(code);
+    if (!room) return { error: 'Комната не найдена.' };
+    if (room.status !== 'LOBBY') return { error: 'Удалять участников можно только до начала игры (в лобби).' };
+    if (room.hostId !== requesterId) return { error: 'Только создатель комнаты может исключать участников.' };
+    if (targetPlayerId === room.hostId) return { error: 'Создатель комнаты не может исключить сам себя.' };
+
+    const idx = room.players.findIndex(p => p.id === targetPlayerId);
+    if (idx === -1) return { error: 'Игрок не найден в лобби.' };
+
+    const targetPlayer = room.players[idx];
+
+    // Если у игрока есть активный сокет — отправляем ему событие исключения и отключаем из комнаты сокетов
+    if (targetPlayer.socketId && this.io) {
+      const targetSocket = this.io.sockets.sockets.get(targetPlayer.socketId);
+      if (targetSocket) {
+        targetSocket.leave(room.code);
+        targetSocket.emit('kickedFromLobby', {
+          reason: 'Вы были исключены создателем комнаты',
+          roomCode: room.code
+        });
+      }
+    }
+
+    room.players.splice(idx, 1);
+    room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
+
+    this.addSystemMessage(room, {
+      ru: `🚫 Создатель комнаты исключил ${targetPlayer.name} из лобби (Осталось участников: ${room.players.length}/12).`,
+      en: `🚫 Room creator kicked ${targetPlayer.name} from the lobby (${room.players.length}/12 players remaining).`,
+      uz: `🚫 Xona yaratuvchisi ${targetPlayer.name} ni lobbidan chetlatdi (Qolgan o'yinchilar: ${room.players.length}/12).`
+    });
+
+    this.broadcastRoom(code);
+    if (this.io) {
+      this.io.emit('publicRoomsUpdated', this.getPublicLobbyRooms());
+    }
+
+    return { success: true, kickedPlayerName: targetPlayer.name };
   }
 
   startGame(code, requesterId) {

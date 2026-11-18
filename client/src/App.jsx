@@ -4,7 +4,7 @@ import {
   ShieldAlert, Users, LogIn, PlusCircle, Radio, 
   Terminal, AlertOctagon, HelpCircle, Trophy, Ghost,
   MessageSquare, Sparkles, CheckSquare, Sun, Moon, Vote,
-  Mic, MicOff
+  Mic, MicOff, Shuffle
 } from 'lucide-react';
 import { soundManager } from './utils/audio';
 import { translations, getLocalized } from './utils/translations';
@@ -338,6 +338,7 @@ export default function App() {
   const [pendingDmNotice, setPendingDmNotice] = useState(null);
   const [showDailyModal, setShowDailyModal] = useState(false);
   const [publicRooms, setPublicRooms] = useState([]);
+  const [isQuickJoining, setIsQuickJoining] = useState(false);
   const [pendingInvite, setPendingInvite] = useState(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isRulesMandatory, setIsRulesMandatory] = useState(false);
@@ -781,6 +782,23 @@ export default function App() {
       handleLeaveRoom();
     });
 
+    socket.on('kickedFromLobby', ({ reason, roomCode }) => {
+      soundManager.playBeep(350, 0.15);
+      localStorage.removeItem('bunker_room_code');
+      localStorage.removeItem('bunker_player_id');
+      setInRoom(false);
+      setRoomState(null);
+      setMyPlayerId(null);
+      alert(
+        t.kickedFromLobbyMsg || 
+        (lang === 'uz'
+          ? "⚠️ Xona yaratuvchisi sizni lobbidan chetlatdi."
+          : lang === 'en'
+          ? "⚠️ You have been removed from the lobby by the room host."
+          : "⚠️ Создатель комнаты исключил вас из лобби.")
+      );
+    });
+
     socket.on('roomInvite', (invite) => {
       if (!invite || !invite.roomCode) return;
       const mySaved = localStorage.getItem('bunker_user_v3');
@@ -805,6 +823,7 @@ export default function App() {
       socket.off('userProfileUpdated');
       socket.off('userBlocked');
       socket.off('roomClosedByAdmin');
+      socket.off('kickedFromLobby');
       socket.off('roomInvite');
       socket.off('messagesReadUpdate');
     };
@@ -1027,6 +1046,64 @@ export default function App() {
   const handleRemoveBot = (botId) => {
     if (!roomState?.code) return;
     socket.emit('removeBot', { roomCode: roomState.code, botId, requesterId: myPlayerId });
+  };
+
+  const handleKickPlayer = (targetPlayerId, targetPlayerName) => {
+    if (!roomState?.code) return;
+    soundManager.playBeep(450, 0.08);
+    socket.emit('kickPlayer', {
+      roomCode: roomState.code,
+      targetPlayerId,
+      requesterId: myPlayerId
+    }, (res) => {
+      if (res?.error) {
+        alert(res.error);
+      }
+    });
+  };
+
+  const handleQuickJoinRoom = () => {
+    setErrorMessage('');
+
+    if (!user) {
+      setErrorMessage(
+        lang === 'uz'
+          ? "⚠️ Tezkor bunker qidirish uchun tizimga kiring yoki ro'yxatdan o'ting!"
+          : lang === 'en'
+          ? "⚠️ Registration or login required for quick match!"
+          : "⚠️ Для быстрого поиска бункера необходимо зарегистрироваться или войти в аккаунт!"
+      );
+      setShowAuthModal(true);
+      return;
+    }
+
+    const defaultSurvivor = lang === 'uz' ? 'Omon qolgan' : lang === 'en' ? 'Survivor' : 'Выживший';
+    const name = (user.username || playerName).trim() || defaultSurvivor;
+    localStorage.setItem('bunker_player_name', name);
+    soundManager.playBeep(900, 0.08);
+
+    const currentCode = roomState?.code || localStorage.getItem('bunker_room_code');
+    const currentPid = myPlayerId || localStorage.getItem('bunker_player_id');
+    if (currentCode) {
+      socket.emit('leaveRoom', { roomCode: currentCode, playerId: currentPid });
+      localStorage.removeItem('bunker_room_code');
+      localStorage.removeItem('bunker_player_id');
+    }
+
+    setIsQuickJoining(true);
+
+    socket.emit('joinRandomRoom', { playerName: name, userProfile: user }, (res) => {
+      setIsQuickJoining(false);
+      if (res?.error) {
+        setErrorMessage(res.error);
+        return;
+      }
+      setMyPlayerId(res.playerId);
+      localStorage.setItem('bunker_player_id', res.playerId);
+      localStorage.setItem('bunker_room_code', res.code);
+      applyNormalizedRoomState(res.room);
+      setInRoom(true);
+    });
   };
 
   const handleRevealCard = (cardId) => {
@@ -1443,6 +1520,47 @@ export default function App() {
             </div>
           )}
 
+          {/* Quick Match / Random Room Matchmaking Banner */}
+          <div className="mb-4 sm:mb-6 max-w-3xl mx-auto">
+            <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-cyan-500/10 dark:from-amber-500/15 dark:via-emerald-500/15 dark:to-cyan-500/15 border-2 border-emerald-500/50 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 text-left">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-500 dark:text-emerald-400 border border-emerald-500/40 flex items-center justify-center shrink-0 text-2xl shadow-inner">
+                  🎲
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display font-black text-base sm:text-lg text-slate-900 dark:text-white">
+                      {t.quickMatchTitle || (lang === 'uz' ? "Tasodifiy Bunker (Tezkor o'yin)" : lang === 'en' ? "Random Bunker (Quick Match)" : "Случайный Бункер (Быстрая игра)")}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40 text-[10px] font-mono font-bold animate-pulse">
+                      ONLINE
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-zinc-300 font-mono mt-0.5 max-w-md">
+                    {t.quickMatchDesc || (lang === 'uz'
+                      ? "Do'stlar bo'lmasa o'yinchilar kutayotgan ochiq bunkerga 1 bosishda kiring yoki yangi xona oching!"
+                      : lang === 'en'
+                      ? "No friends online? Instantly join an open bunker waiting for survivors or create a match in 1 click!"
+                      : "Нет друзей онлайн? Мгновенно подключитесь к открытому бункеру, где ждут игроков, или создайте игру в 1 клик!")}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleQuickJoinRoom}
+                disabled={isQuickJoining}
+                className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-black font-display font-black text-xs sm:text-sm tracking-wider flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.4)] transition cursor-pointer shrink-0 active:scale-95"
+              >
+                <Shuffle className={`w-4 h-4 stroke-[2.5] ${isQuickJoining ? 'animate-spin' : ''}`} />
+                <span>
+                  {isQuickJoining
+                    ? (t.quickMatchSearching || (lang === 'uz' ? 'Qidirilmoqda...' : lang === 'en' ? 'Searching...' : 'Поиск бункера...'))
+                    : (t.quickMatchBtn || (lang === 'uz' ? "🎲 TASODIFIY O'YIN" : lang === 'en' ? "🎲 QUICK MATCH" : "🎲 СЛУЧАЙНАЯ ИГРА"))}
+                </span>
+              </button>
+            </div>
+          </div>
+
           {/* Action Cards: Create / Join */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-3xl mx-auto">
             {/* Create Room */}
@@ -1558,17 +1676,28 @@ export default function App() {
                         : `🌐 СПИСОК ОТКРЫТЫХ КОМНАТ (${openLobbyRooms.length})`}
                     </h3>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      socket.emit('getPublicRooms', {}, (res) => {
-                        if (res && res.success) setPublicRooms(res.rooms || []);
-                      });
-                    }}
-                    className="text-[11px] font-mono text-cyan-500 hover:underline cursor-pointer"
-                  >
-                    {lang === 'uz' ? '↻ Yangilash' : lang === 'en' ? '↻ Refresh' : '↻ Обновить'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleQuickJoinRoom}
+                      disabled={isQuickJoining}
+                      className="px-2.5 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 text-xs font-mono font-bold flex items-center gap-1 transition cursor-pointer"
+                    >
+                      <Shuffle className={`w-3.5 h-3.5 ${isQuickJoining ? 'animate-spin' : ''}`} />
+                      <span>{t.quickJoinAnyBtn || (lang === 'uz' ? "Tasodifiy kirish" : lang === 'en' ? "Quick Join" : "Случайный вход")}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        socket.emit('getPublicRooms', {}, (res) => {
+                          if (res && res.success) setPublicRooms(res.rooms || []);
+                        });
+                      }}
+                      className="text-[11px] font-mono text-cyan-500 hover:underline cursor-pointer"
+                    >
+                      {lang === 'uz' ? '↻ Yangilash' : lang === 'en' ? '↻ Refresh' : '↻ Обновить'}
+                    </button>
+                  </div>
                 </div>
 
                 {openLobbyRooms.length === 0 ? (
@@ -1869,6 +1998,7 @@ export default function App() {
               onStartGame={handleStartGame}
               onAddBot={handleAddBot}
               onRemoveBot={handleRemoveBot}
+              onKickPlayer={handleKickPlayer}
               onLeaveLobby={handleLeaveRoom}
               onOpenFriends={() => setShowFriendsModal(true)}
               speakingPlayerIds={speakingPlayerIds}

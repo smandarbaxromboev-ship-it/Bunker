@@ -919,6 +919,23 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Быстрое подключение к случайной открытой комнате (matchmaking без друзей)
+  socket.on('joinRandomRoom', ({ playerName, userProfile }, callback) => {
+    try {
+      if (userProfile?.username) bindUserSocket(userProfile.username, socket.id);
+      const res = gameManager.joinRandomRoom(playerName || 'Выживший', socket.id, userProfile);
+      if (res.error) {
+        if (typeof callback === 'function') callback(res);
+        return;
+      }
+      socket.join(res.code);
+      if (typeof callback === 'function') callback(res);
+    } catch (e) {
+      console.error('Ошибка joinRandomRoom:', e);
+      if (typeof callback === 'function') callback({ error: 'Ошибка подключения к случайной комнате' });
+    }
+  });
+
   // Восстановление сессии при обновлении страницы
   socket.on('reconnectSession', ({ roomCode, playerId }, callback) => {
     try {
@@ -940,6 +957,17 @@ io.on('connection', (socket) => {
   // Удаление бота из лобби
   socket.on('removeBot', ({ roomCode, botId, requesterId }) => {
     gameManager.removeBot(roomCode, botId, requesterId);
+  });
+
+  // Исключение участника из комнаты создателем (до начала игры)
+  socket.on('kickPlayer', ({ roomCode, targetPlayerId, requesterId }, callback) => {
+    try {
+      const res = gameManager.kickPlayerFromLobby(roomCode, targetPlayerId, requesterId);
+      if (typeof callback === 'function') callback(res);
+    } catch (e) {
+      console.error('Ошибка kickPlayer:', e);
+      if (typeof callback === 'function') callback({ error: 'Ошибка исключения игрока' });
+    }
   });
 
   // Старт игры (только хост)
