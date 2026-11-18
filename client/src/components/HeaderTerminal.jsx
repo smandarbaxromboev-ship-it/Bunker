@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Radio, Volume2, VolumeX, Flame,
   ChevronDown, ChevronUp, Sun, Moon,
   ShoppingBag, User, Users, Coins, LogOut, ArrowLeft,
-  BookOpen, Sparkles, Mic, MicOff
+  BookOpen, Sparkles, Mic, MicOff, Menu, X
 } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 import { translations, getLocalized } from '../utils/translations';
@@ -37,7 +38,18 @@ export default function HeaderTerminal({
   isAlive = true
 }) {
   const [showDisaster, setShowDisaster] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const t = translations[lang] || translations.ru;
+
+  // Lock body scroll and handle Escape key when mobile menu is open
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mobileMenuOpen]);
 
   const toggleSound = () => {
     const next = !isMuted;
@@ -125,8 +137,8 @@ export default function HeaderTerminal({
           </div>
         )}
 
-        {/* Right Navigation: All Buttons in One Line */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 justify-end flex-nowrap">
+        {/* Desktop Right Navigation: All Buttons in One Line (NO BURGER) */}
+        <div className="hidden md:flex items-center gap-1 sm:gap-1.5 shrink-0 justify-end flex-nowrap">
           {/* 1. Voice Chat Button */}
           {roomState && onOpenVoiceChat && (
             <button
@@ -315,7 +327,277 @@ export default function HeaderTerminal({
             {isMuted ? <VolumeX className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500" /> : <Volume2 className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />}
           </button>
         </div>
+
+        {/* Mobile Right Navigation: Voice Chat + Burger Button (ONLY ON PHONES) */}
+        <div className="flex md:hidden items-center gap-1.5 shrink-0">
+          {/* Mobile Voice Chat Button */}
+          {roomState && onOpenVoiceChat && (
+            <button
+              onClick={() => {
+                soundManager.playBeep(850, 0.05);
+                onOpenVoiceChat();
+              }}
+              title={lang === 'uz' ? "Ovozli chat" : lang === 'en' ? "Voice Chat" : "Голосовой чат"}
+              className={`px-2.5 py-1.5 rounded-xl border text-xs font-mono font-bold transition flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer shrink-0 ${
+                isVoiceConnected
+                  ? isVoiceSpeaking
+                    ? 'bg-emerald-500 text-black border-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] animate-pulse'
+                    : isVoiceMuted
+                    ? 'bg-red-500/20 text-red-400 border-red-500/50'
+                    : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50'
+                  : 'bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/40'
+              }`}
+            >
+              {isVoiceMuted ? (
+                <MicOff className="w-3.5 h-3.5 text-red-400" />
+              ) : (
+                <Mic className={`w-3.5 h-3.5 ${isVoiceSpeaking ? (isVoiceLoud ? 'animate-mic-loud text-amber-300' : 'animate-mic-calm') : ''}`} />
+              )}
+              <span className="font-display font-bold text-xs">
+                {isVoiceConnected ? (isVoiceSpeaking ? 'Говорит' : isVoiceMuted ? 'Мут' : 'В эфире') : (lang === 'uz' ? 'Ovoz' : lang === 'en' ? 'Voice' : 'Голос')}
+              </span>
+              {isVoiceConnected ? (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold">
+                  {(voicePeers?.length || 0) + 1}
+                </span>
+              ) : (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              )}
+            </button>
+          )}
+
+          {/* Mobile Hamburger Menu Toggle Button */}
+          <button
+            onClick={() => {
+              soundManager.playBeep(700, 0.05);
+              setMobileMenuOpen(!mobileMenuOpen);
+            }}
+            className="p-1.5 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 hover:text-amber-500 transition shadow-sm active:scale-95 cursor-pointer flex items-center justify-center shrink-0"
+            aria-label="Menu"
+            title="Меню"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5 text-amber-500" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
+
+      {/* Mobile Burger Menu Portal (Mounted directly to document.body, NEVER behind textures!) */}
+      {mobileMenuOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex justify-end font-sans select-none animate-fadeIn">
+          {/* Full Screen Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity cursor-pointer"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+
+          {/* Slide-out Drawer Panel */}
+          <div className="relative w-[82%] max-w-xs h-full bg-slate-900/98 dark:bg-zinc-950/98 border-l border-slate-700/80 dark:border-zinc-800 p-4 shadow-2xl flex flex-col justify-between overflow-y-auto z-10 animate-slideLeft">
+            <div className="space-y-4">
+              {/* Drawer Top Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800 dark:border-zinc-800">
+                <BunkerLogo size="sm" lang={lang} hideTextOnMobile={false} compact={true} />
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* User Profile Card */}
+              {user ? (
+                <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {user.characterDetails?.avatarUrl ? (
+                      <img 
+                        src={user.characterDetails.avatarUrl} 
+                        alt="Avatar" 
+                        className="w-10 h-10 rounded-xl object-cover border border-amber-500/50 shrink-0" 
+                      />
+                    ) : (
+                      <span className="text-2xl">{user.characterDetails?.avatar || '🥷'}</span>
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-display font-bold text-sm text-white truncate">
+                        {user.username}
+                      </div>
+                      <div className="text-xs font-mono text-amber-400 font-bold flex items-center gap-1">
+                        <Coins className="w-3.5 h-3.5" />
+                        <span>{(user.bunCoins || 0).toLocaleString()} 🪙</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        if (onOpenProfile) onOpenProfile();
+                      }}
+                      className="px-3 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <User className="w-3.5 h-3.5" />
+                      <span>{lang === 'uz' ? 'Profil' : lang === 'en' ? 'Profile' : 'Профиль'}</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        if (onLogout) onLogout();
+                      }}
+                      className="px-3 py-2 rounded-xl bg-red-950/60 hover:bg-red-900/60 text-red-400 border border-red-800/60 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>{lang === 'uz' ? 'Chiqish' : lang === 'en' ? 'Logout' : 'Выйти'}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (onOpenAuth) onOpenAuth();
+                  }}
+                  className="w-full p-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-black font-display font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition cursor-pointer"
+                >
+                  <User className="w-4 h-4" />
+                  <span>{t.btnAuth || 'Войти в аккаунт'}</span>
+                </button>
+              )}
+
+              {/* Navigation Action Links */}
+              <div className="space-y-1.5">
+                {roomState && onOpenVoiceChat && (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onOpenVoiceChat();
+                    }}
+                    className="w-full p-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold flex items-center justify-between transition cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Mic className="w-4 h-4 text-emerald-400" />
+                      <span>{lang === 'uz' ? 'Ovozli chat' : lang === 'en' ? 'Voice Chat' : 'Голосовой чат'}</span>
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">
+                      {isVoiceConnected ? `${(voicePeers?.length || 0) + 1} в эфире` : 'Открыть'}
+                    </span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (onOpenShop) onOpenShop();
+                  }}
+                  className="w-full p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-200 text-xs font-mono font-bold flex items-center justify-between transition cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-amber-400" />
+                    <span>{t.shopBtn || 'Магазин предметов'}</span>
+                  </span>
+                  <span className="text-[10px] text-amber-400 font-bold">150+ скинов</span>
+                </button>
+
+                {onOpenFriends && user && (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onOpenFriends();
+                    }}
+                    className="w-full p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-cyan-300 text-xs font-mono font-bold flex items-center gap-2 transition cursor-pointer"
+                  >
+                    <Users className="w-4 h-4 text-cyan-400" />
+                    <span>{lang === 'uz' ? "Do'stlar (ID orqali)" : lang === 'en' ? 'Friends (by ID)' : 'Друзья по ID'}</span>
+                  </button>
+                )}
+
+                {onOpenRules && (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onOpenRules();
+                    }}
+                    className="w-full p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-amber-300 text-xs font-mono font-bold flex items-center gap-2 transition cursor-pointer"
+                  >
+                    <BookOpen className="w-4 h-4 text-amber-400" />
+                    <span>{t.btnRules || 'Правила игры'}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Settings: Theme, Atmosphere, Sounds */}
+              <div className="pt-2 border-t border-slate-800 dark:border-zinc-800 space-y-2">
+                <div className="text-[10px] font-mono uppercase text-slate-400 font-bold px-1">
+                  {lang === 'uz' ? 'Sozlamalar' : lang === 'en' ? 'Settings' : 'Настройки'}:
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={toggleTheme}
+                    className="p-2 rounded-xl bg-slate-800 border border-slate-700/60 text-xs font-mono font-bold text-slate-200 flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  >
+                    {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5" />}
+                    <span>{theme === 'dark' ? 'Светлая' : 'Тёмная'}</span>
+                  </button>
+
+                  <button
+                    onClick={toggleSound}
+                    className="p-2 rounded-xl bg-slate-800 border border-slate-700/60 text-xs font-mono font-bold text-slate-200 flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  >
+                    {isMuted ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 text-amber-400" />}
+                    <span>{isMuted ? 'Без звука' : 'Звук: Вкл'}</span>
+                  </button>
+                </div>
+
+                {setAtmosphereEnabled && (
+                  <button
+                    onClick={() => {
+                      soundManager.playBeep(750, 0.05);
+                      setAtmosphereEnabled(!atmosphereEnabled);
+                    }}
+                    className={`w-full p-2 rounded-xl text-xs font-mono font-bold flex items-center justify-between border transition cursor-pointer ${
+                      atmosphereEnabled
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                        : 'bg-slate-800 text-slate-400 border-slate-700/60'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span>☢️</span>
+                      <span>{t.btnAtmosphere || 'Атмосфера бункера'}</span>
+                    </span>
+                    <span className="text-[10px]">{atmosphereEnabled ? 'ВКЛ' : 'ВЫКЛ'}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Language Selector */}
+              <div className="pt-2 border-t border-slate-800 dark:border-zinc-800 space-y-1.5">
+                <div className="text-[10px] font-mono uppercase text-slate-400 font-bold px-1">
+                  {lang === 'uz' ? 'Til' : lang === 'en' ? 'Language' : 'Язык'}:
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60">
+                  {['ru', 'uz', 'en'].map(l => (
+                    <button
+                      key={l}
+                      onClick={() => setLang(l)}
+                      className={`py-1.5 rounded-lg text-xs font-mono font-bold uppercase transition cursor-pointer ${
+                        lang === l ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 text-center text-[10px] font-mono text-slate-500">
+              Bunker Survival Online
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Disaster Banner */}
       {roomState?.disaster && (
