@@ -67,6 +67,7 @@ export default function ChatPanel({
   onStartVoting,
   isHost,
   canStartVoting,
+  onMarkMessagesRead,
   lang = 'ru'
 }) {
   const [text, setText] = useState('');
@@ -97,6 +98,16 @@ export default function ChatPanel({
       container.scrollTop = container.scrollHeight;
     }
   }, [messages, typingUsers]);
+
+  useEffect(() => {
+    if (!onMarkMessagesRead || !messages || messages.length === 0 || !myPlayerId) return;
+    const unreadIds = messages
+      .filter(m => m.senderId !== myPlayerId && (!m.readBy || !m.readBy.some(r => r.id === myPlayerId)))
+      .map(m => m.id);
+    if (unreadIds.length > 0) {
+      onMarkMessagesRead(unreadIds);
+    }
+  }, [messages, myPlayerId, onMarkMessagesRead]);
 
   useEffect(() => {
     return () => {
@@ -374,6 +385,7 @@ export default function ChatPanel({
           const isGhostMsg = Boolean(msg.isGhost);
           const canDelete = isMe || isHost;
           const canEdit = isMe && !msg.voice && !msg.sticker;
+          const otherReaders = (msg.readBy || []).filter(r => r.id !== myPlayerId);
 
           return (
             <div
@@ -396,6 +408,25 @@ export default function ChatPanel({
                     ? new Date(msg.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false })
                     : msg.timestamp}
                 </span>
+                {isMe && (
+                  <span 
+                    title={otherReaders.length > 0 
+                      ? `${lang === 'uz' ? "O'qiganlar" : lang === 'en' ? 'Read by' : 'Прочитали'}: ${otherReaders.map(r => r.name).join(', ')}` 
+                      : (lang === 'uz' ? 'Yuborildi' : lang === 'en' ? 'Sent' : 'Отправлено')}
+                    className={`text-[10px] font-bold flex items-center gap-0.5 cursor-help ${
+                      otherReaders.length > 0 ? 'text-emerald-400' : 'text-zinc-500'
+                    }`}
+                  >
+                    {otherReaders.length > 0 ? (
+                      <>
+                        <span>✓✓</span>
+                        <span className="text-[9px]">({otherReaders.length})</span>
+                      </>
+                    ) : (
+                      <span>✓</span>
+                    )}
+                  </span>
+                )}
                 {msg.isEdited && (
                   <span className="text-[9px] text-zinc-400 italic">
                     ({lang === 'uz' ? 'tahrirlangan' : lang === 'en' ? 'edited' : 'изм.'})
@@ -495,6 +526,19 @@ export default function ChatPanel({
                   }`}
                 >
                   {getLocalized(msg.text, lang)}
+                </div>
+              )}
+
+              {/* Readers list badge for message author */}
+              {isMe && otherReaders.length > 0 && (
+                <div 
+                  className="mt-0.5 px-1 text-[9px] font-mono text-emerald-400/90 flex items-center gap-1 select-none"
+                  title={`${lang === 'uz' ? "O'qiganlar" : lang === 'en' ? 'Read by' : 'Прочитали'}: ${otherReaders.map(r => r.name).join(', ')}`}
+                >
+                  <span>👁️</span>
+                  <span className="truncate max-w-[220px]">
+                    {otherReaders.map(r => r.name).join(', ')}
+                  </span>
                 </div>
               )}
             </div>

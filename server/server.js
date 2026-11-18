@@ -1011,6 +1011,10 @@ io.on('connection', (socket) => {
     gameManager.deleteChatMessage(roomCode, senderId, messageId);
   });
 
+  socket.on('markMessagesRead', ({ roomCode, playerId, playerName, messageIds }) => {
+    gameManager.markMessagesRead(roomCode, playerId, playerName, messageIds);
+  });
+
   socket.on('typing', ({ roomCode, senderId, senderName }) => {
     gameManager.setPlayerTyping(roomCode, senderId, senderName);
   });

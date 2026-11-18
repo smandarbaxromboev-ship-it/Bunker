@@ -715,6 +715,28 @@ export default function App() {
       });
     });
 
+    socket.on('messagesReadUpdate', ({ messageIds, reader, readByList }) => {
+      setRoomState((prev) => {
+        if (!prev || !prev.messages) return prev;
+        return {
+          ...prev,
+          messages: prev.messages.map(m => {
+            if (messageIds && messageIds.includes(m.id)) {
+              if (readByList) {
+                return { ...m, readBy: readByList };
+              }
+              const currentReadBy = m.readBy ? [...m.readBy] : [];
+              if (reader && !currentReadBy.some(r => r.id === reader.id)) {
+                currentReadBy.push(reader);
+              }
+              return { ...m, readBy: currentReadBy };
+            }
+            return m;
+          })
+        };
+      });
+    });
+
     socket.on('playerTyping', ({ senderId, senderName }) => {
       setTypingUsers((prev) => ({
         ...prev,
@@ -781,6 +803,7 @@ export default function App() {
       socket.off('userBlocked');
       socket.off('roomClosedByAdmin');
       socket.off('roomInvite');
+      socket.off('messagesReadUpdate');
     };
   }, []);
 
@@ -1046,6 +1069,16 @@ export default function App() {
   const handleTyping = () => {
     if (!roomState?.code) return;
     socket.emit('typing', { roomCode: roomState.code, senderId: myPlayerId, senderName: myPlayer?.name || playerName });
+  };
+
+  const handleMarkMessagesRead = (messageIds) => {
+    if (!roomState?.code || !myPlayerId || !Array.isArray(messageIds) || messageIds.length === 0) return;
+    socket.emit('markMessagesRead', {
+      roomCode: roomState.code,
+      playerId: myPlayerId,
+      playerName: myPlayer?.name || playerName,
+      messageIds
+    });
   };
 
   const handleApplyTrump = (payload, callback) => {
@@ -1853,6 +1886,7 @@ export default function App() {
               onStartVoting={null}
               isHost={isHost}
               canStartVoting={false}
+              onMarkMessagesRead={handleMarkMessagesRead}
               lang={lang}
             />
           </div>
@@ -2040,6 +2074,7 @@ export default function App() {
             onStartVoting={handleStartVoting}
             isHost={isHost}
             canStartVoting={roomState?.status === 'ROUND_DISCUSSION' || roomState?.status === 'ROUND_VOTING'}
+            onMarkMessagesRead={handleMarkMessagesRead}
             lang={lang}
           />
         </div>

@@ -1,11 +1,14 @@
 // WebRTC Audio Mesh Voice Chat Manager for Bunker
-// Low-latency, high-quality audio with Web Audio API speech detection
+// Low-latency, high-quality audio with Web Audio API speech detection & auto-unmute
 
 const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' }
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' }
   ]
 };
 
@@ -15,6 +18,7 @@ export class VoiceChatManager {
     this.localStream = null;
     this.peerConnections = new Map(); // socketId -> RTCPeerConnection
     this.audioElements = new Map(); // socketId -> HTMLAudioElement
+    this.pendingCandidates = new Map(); // socketId -> RTCIceCandidateInit[]
     this.peers = new Map(); // socketId -> { playerId, playerName, isMuted, isSpeaking }
     this.roomCode = null;
     this.playerId = null;
@@ -34,6 +38,23 @@ export class VoiceChatManager {
     this.onError = null;
 
     this.bindSocketEvents();
+    this.setupAudioUnlocker();
+  }
+
+  setupAudioUnlocker() {
+    const unlock = () => {
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+      this.audioElements.forEach((audio) => {
+        if (audio && audio.paused) {
+          audio.play().catch(() => {});
+        }
+      });
+    };
+    window.addEventListener('click', unlock);
+    window.addEventListener('touchstart', unlock);
+    this._unlockHandler = unlock;
   }
 
   bindSocketEvents() {
@@ -43,7 +64,7 @@ export class VoiceChatManager {
       this.peers.set(socketId, { playerId, playerName, isMuted: Boolean(isMuted), isSpeaking: false });
       this.notifyPeersUpdate();
 
-      // We initiate offer to the newly joined peer
+      // Existing peers initiate offer to the newcomer
       if (this.localStream) {
         await this.createPeerConnection(socketId, true);
       }
@@ -58,6 +79,9 @@ export class VoiceChatManager {
 
         if (signal.type === 'offer') {
           await pc.setRemoteDescription(new RTCSessionDescription(signal));
+          // Drain pending candidates received before remoteDescription
+          await this.drainPendingCandidates(fromSocketId, pc);
+
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           this.socket.emit('voiceSignal', {
@@ -66,8 +90,19 @@ export class VoiceChatManager {
           });
         } else if (signal.type === 'answer') {
           await pc.setRemoteDescription(new RTCSessionDescription(signal));
+          // Drain pending candidates received before answer was set
+          await this.drainPendingCandidates(fromSocketId, pc);
         } else if (signal.candidate) {
-          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          if (!pc.remoteDescription || !pc.remoteDescription.type) {
+            if (!this.pendingCandidates.has(fromSocketId)) {
+              this.pendingCandidates.set(fromSocketId, []);
+            }
+            this.pendingCandidates.get(fromSocketId).push(signal.candidate);
+          } else {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch((e) => {
+              console.warn('[VOICE] Add ICE candidate warning:', e);
+            });
+          }
         }
       } catch (err) {
         console.warn('[VOICE] Signal handling error:', err);
@@ -90,6 +125,18 @@ export class VoiceChatManager {
     });
   }
 
+  async drainPendingCandidates(socketId, pc) {
+    const list = this.pendingCandidates.get(socketId) || [];
+    while (list.length > 0) {
+      const cand = list.shift();
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(cand));
+      } catch (e) {
+        console.warn('[VOICE] Drain candidate error:', e);
+      }
+    }
+  }
+
   async joinVoice(roomCode, playerId, playerName) {
     if (this.isConnected) return;
     this.roomCode = roomCode;
@@ -97,7 +144,7 @@ export class VoiceChatManager {
     this.playerName = playerName;
 
     try {
-      // 1. Get microphone audio stream
+      // 1. Get microphone audio stream with crystal-clear speech optimizations
       this.localStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -128,7 +175,12 @@ export class VoiceChatManager {
               isMuted: Boolean(peer.isMuted),
               isSpeaking: Boolean(peer.isSpeaking)
             });
-            // We wait for the existing peers to send us offers, or initiate if needed
+            // If existing peers haven't offered within 1.2s, newcomer initiates
+            setTimeout(async () => {
+              if (!this.peerConnections.has(peer.socketId) && this.localStream && this.isConnected) {
+                await this.createPeerConnection(peer.socketId, true);
+              }
+            }, 1200);
           }
           this.notifyPeersUpdate();
         }
@@ -145,12 +197,17 @@ export class VoiceChatManager {
   }
 
   async createPeerConnection(remoteSocketId, isInitiator) {
+    if (this.peerConnections.has(remoteSocketId)) {
+      return this.peerConnections.get(remoteSocketId);
+    }
+
     const pc = new RTCPeerConnection(ICE_SERVERS);
     this.peerConnections.set(remoteSocketId, pc);
 
     // Add local audio tracks to peer connection
     if (this.localStream) {
       this.localStream.getAudioTracks().forEach(track => {
+        track.enabled = !this.isMuted;
         pc.addTrack(track, this.localStream);
       });
     }
@@ -165,16 +222,23 @@ export class VoiceChatManager {
       }
     };
 
-    // Receive remote audio track
+    // Receive remote audio track - attach to DOM to guarantee autoplay in Chrome/Safari/Edge
     pc.ontrack = (event) => {
-      const [remoteStream] = event.streams;
-      if (!this.audioElements.has(remoteSocketId)) {
-        const audio = new Audio();
-        audio.srcObject = remoteStream;
+      const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
+      let audio = this.audioElements.get(remoteSocketId);
+      if (!audio) {
+        audio = document.createElement('audio');
+        audio.id = `remote_voice_${remoteSocketId}`;
         audio.autoplay = true;
         audio.playsInline = true;
+        audio.style.display = 'none';
+        document.body.appendChild(audio);
         this.audioElements.set(remoteSocketId, audio);
       }
+      audio.srcObject = stream;
+      audio.play().catch((err) => {
+        console.warn('[VOICE] Audio playback waiting for gesture:', err);
+      });
     };
 
     pc.onconnectionstatechange = () => {
@@ -186,7 +250,9 @@ export class VoiceChatManager {
     // If initiator, create and send offer
     if (isInitiator) {
       try {
-        const offer = await pc.createOffer();
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true
+        });
         await pc.setLocalDescription(offer);
         this.socket.emit('voiceSignal', {
           toSocketId: remoteSocketId,
@@ -354,6 +420,7 @@ export class VoiceChatManager {
       try {
         audio.pause();
         audio.srcObject = null;
+        audio.remove();
       } catch (e) {}
       this.audioElements.delete(socketId);
     }

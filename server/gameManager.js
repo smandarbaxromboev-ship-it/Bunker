@@ -1560,7 +1560,8 @@ class GameManager {
       isGhost: isGhostMessage,
       timestamp: formatServerTime(nowMs),
       createdAt: nowMs,
-      isSystem: false
+      isSystem: false,
+      readBy: [{ id: sender.id, name: sender.name }]
     };
 
     room.messages.push(msg);
@@ -1574,6 +1575,27 @@ class GameManager {
         }
       }
     });
+
+    // Боты читают сообщение через 1 секунду
+    if (room.players.some(p => p.isBot)) {
+      setTimeout(() => {
+        const liveRoom = this.rooms.get(code);
+        if (!liveRoom) return;
+        const targetMsg = liveRoom.messages.find(m => m.id === msg.id);
+        if (targetMsg) {
+          if (!targetMsg.readBy) targetMsg.readBy = [];
+          liveRoom.players.filter(p => p.isBot).forEach(b => {
+            if (!targetMsg.readBy.some(r => r.id === b.id)) {
+              targetMsg.readBy.push({ id: b.id, name: b.name });
+            }
+          });
+          this.io.to(code).emit('messagesReadUpdate', {
+            messageIds: [msg.id],
+            readByList: targetMsg.readBy
+          });
+        }
+      }, 1200);
+    }
 
     // Если реальный человек написал в чат во время дискуссии — бот вступает в живой диалог!
     if (!sender.isBot && room.status === 'ROUND_DISCUSSION' && text && text.trim().length > 1) {
@@ -1630,6 +1652,28 @@ class GameManager {
         this.io.to(p.socketId).emit('chatMessageDeleted', { id: messageId });
       }
     });
+  }
+
+  markMessagesRead(code, playerId, playerName, messageIds) {
+    const room = this.rooms.get(code);
+    if (!room || !Array.isArray(messageIds) || messageIds.length === 0) return;
+    let updated = false;
+    messageIds.forEach(mId => {
+      const msg = room.messages.find(m => m.id === mId);
+      if (msg) {
+        if (!msg.readBy) msg.readBy = [];
+        if (!msg.readBy.some(r => r.id === playerId)) {
+          msg.readBy.push({ id: playerId, name: playerName });
+          updated = true;
+        }
+      }
+    });
+    if (updated) {
+      this.io.to(room.code).emit('messagesReadUpdate', { 
+        reader: { id: playerId, name: playerName },
+        messageIds
+      });
+    }
   }
 
   setPlayerTyping(code, senderId, senderName) {
