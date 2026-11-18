@@ -3,14 +3,19 @@
 // 20-Minute Round Discussion & Voting (with auto-exile on timeout and +5 min Extra Time on ties)
 const { generateDecksForPlayers } = require('./cardGenerator');
 const { userManager, SHOP_ITEMS } = require('./userManager');
+const { botAiManager } = require('./botAiManager');
 
 const BOT_CHARACTERS = [
-  { avatar: '🤖', name: { ru: 'Киборг X-100', en: 'Cyborg X-100', uz: 'Kiborg X-100' }, borderClass: 'border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.5)]', glowClass: 'ring-2 ring-cyan-300', title: { ru: 'Кибер-Агент', en: 'Cyber-Agent', uz: 'Kiber-Agent' }, titleColor: 'text-cyan-400 font-bold' },
-  { avatar: '🩺', name: { ru: 'Боевой Медик', en: 'Combat Medic', uz: 'Harbiy Shifokor' }, borderClass: 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]', glowClass: 'ring-2 ring-emerald-400/60', title: { ru: 'Спаситель', en: 'Lifesaver', uz: 'Qutqaruvchi' }, titleColor: 'text-emerald-400 font-bold' },
-  { avatar: '☣️', name: { ru: 'Био-Ученый', en: 'Hazmat Scientist', uz: 'Bio Olim' }, borderClass: 'border-lime-500 shadow-[0_0_15px_rgba(132,204,22,0.5)]', glowClass: 'ring-2 ring-lime-400/60', title: { ru: 'Вирусолог', en: 'Virologist', uz: 'Virusolog' }, titleColor: 'text-lime-400 font-bold' },
-  { avatar: '🎖️', name: { ru: 'Командир Альфа', en: 'Alpha Commander', uz: 'Alfa Komandiri' }, borderClass: 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)]', glowClass: 'ring-2 ring-amber-400/60', title: { ru: 'Хозяин Бункера', en: 'Bunker Master', uz: 'Bunker Xo\'jayini' }, titleColor: 'text-amber-400 font-bold' },
-  { avatar: '🧬', name: { ru: 'Мутант Пустошей', en: 'Glowing Mutant', uz: 'Nurlangan Mutant' }, borderClass: 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]', glowClass: 'ring-2 ring-purple-400/60', title: { ru: 'Призрак Зоны', en: 'Zone Phantom', uz: 'Zona Arvohi' }, titleColor: 'text-purple-400 font-bold' },
-  { avatar: '🎯', name: { ru: 'Неоновый Снайпер', en: 'Neon Sniper', uz: 'Neon Mergan' }, borderClass: 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)]', glowClass: 'ring-2 ring-yellow-400', title: { ru: 'Легенда Пустошей', en: 'Wasteland Legend', uz: 'Sahro Afsonasi' }, titleColor: 'text-yellow-400 font-bold' }
+  { avatar: '👨‍⚕️', name: { ru: 'Терапевт', en: 'Physician', uz: 'Shifokor' }, borderClass: 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]', glowClass: 'ring-2 ring-emerald-400/60', title: { ru: 'Врач', en: 'Doctor', uz: 'Shifokor' }, titleColor: 'text-emerald-400 font-bold' },
+  { avatar: '👩‍🔬', name: { ru: 'Биохимик', en: 'Biochemist', uz: 'Kimyogar' }, borderClass: 'border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.4)]', glowClass: 'ring-2 ring-cyan-400/60', title: { ru: 'Ученый', en: 'Scientist', uz: 'Olim' }, titleColor: 'text-cyan-400 font-bold' },
+  { avatar: '👨‍🌾', name: { ru: 'Агроном', en: 'Agronomist', uz: 'Agronom' }, borderClass: 'border-lime-500 shadow-[0_0_15px_rgba(132,204,22,0.4)]', glowClass: 'ring-2 ring-lime-400/60', title: { ru: 'Фермер', en: 'Farmer', uz: 'Dehqon' }, titleColor: 'text-lime-400 font-bold' },
+  { avatar: '🕵️', name: { ru: 'Следопыт', en: 'Tracker', uz: 'Izquvar' }, borderClass: 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]', glowClass: 'ring-2 ring-amber-400/60', title: { ru: 'Разведчик', en: 'Scout', uz: 'Kuzatuvchi' }, titleColor: 'text-amber-400 font-bold' },
+  { avatar: '🧑‍🍳', name: { ru: 'Шеф-Повар', en: 'Head Chef', uz: 'Bosh Oshpaz' }, borderClass: 'border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]', glowClass: 'ring-2 ring-orange-400/60', title: { ru: 'Кулинар', en: 'Culinary Master', uz: 'Ta\'minotchi' }, titleColor: 'text-orange-400 font-bold' },
+  { avatar: '👩‍💻', name: { ru: 'IT-Инженер', en: 'IT Specialist', uz: 'IT Muhandis' }, borderClass: 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.4)]', glowClass: 'ring-2 ring-blue-400/60', title: { ru: 'Связист', en: 'Operator', uz: 'Aloqachi' }, titleColor: 'text-blue-400 font-bold' },
+  { avatar: '🧔', name: { ru: 'Механик', en: 'Mechanic', uz: 'Mexanik' }, borderClass: 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.4)]', glowClass: 'ring-2 ring-yellow-400/60', title: { ru: 'Техник', en: 'Technician', uz: 'Usta' }, titleColor: 'text-yellow-400 font-bold' },
+  { avatar: '👩‍🦰', name: { ru: 'Фельдшер', en: 'Paramedic', uz: 'Hamshira' }, borderClass: 'border-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.4)]', glowClass: 'ring-2 ring-teal-400/60', title: { ru: 'Спасатель', en: 'Rescuer', uz: 'Qutqaruvchi' }, titleColor: 'text-teal-400 font-bold' },
+  { avatar: '👮‍♂️', name: { ru: 'Офицер', en: 'Officer', uz: 'Zobit' }, borderClass: 'border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.4)]', glowClass: 'ring-2 ring-indigo-400/60', title: { ru: 'Защитник', en: 'Guardian', uz: 'Himoyachi' }, titleColor: 'text-indigo-400 font-bold' },
+  { avatar: '👷', name: { ru: 'Строитель', en: 'Builder', uz: 'Quruvchi' }, borderClass: 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)]', glowClass: 'ring-2 ring-rose-400/60', title: { ru: 'Архитектор', en: 'Architect', uz: 'Me\'mor' }, titleColor: 'text-rose-400 font-bold' }
 ];
 
 // Динамический расчет призовых мест:
@@ -330,10 +335,10 @@ class GameManager {
     };
     const botNames = botNamesByLang[lang] || botNamesByLang.ru;
     const availableNames = botNames.filter(name => !room.players.some(p => p.name === name));
-    const prefix = lang === 'uz' ? 'Bot_' : lang === 'en' ? 'Bot_' : 'Бот_';
-    const botName = availableNames[0] || `${prefix}${room.players.length + 1}`;
+    const fallbackName = lang === 'uz' ? `O'yinchi_${room.players.length + 1}` : lang === 'en' ? `Player_${room.players.length + 1}` : `Игрок_${room.players.length + 1}`;
+    const botName = availableNames[0] || fallbackName;
 
-    const botId = 'bot_' + Math.random().toString(36).substring(2, 9);
+    const botId = 'usr_' + Math.random().toString(36).substring(2, 9);
     const botChar = BOT_CHARACTERS[(room.players.length - 1) % BOT_CHARACTERS.length];
     room.players.push({
       id: botId,
@@ -351,9 +356,9 @@ class GameManager {
     room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
 
     this.addSystemMessage(room, {
-      ru: `Бот ${botName} вошел в лобби (Игроков: ${room.players.length}/12, Призовых мест: ${room.bunkerCapacity}).`,
-      en: `Bot ${botName} joined the lobby (Players: ${room.players.length}/12, Bunker spots: ${room.bunkerCapacity}).`,
-      uz: `${botName} boti lobbiga kirdi (O'yinchilar: ${room.players.length}/12, Bunkerda joylar: ${room.bunkerCapacity}).`
+      ru: `Игрок ${botName} вошел в лобби (Игроков: ${room.players.length}/12, Призовых мест: ${room.bunkerCapacity}).`,
+      en: `Player ${botName} joined the lobby (Players: ${room.players.length}/12, Bunker spots: ${room.bunkerCapacity}).`,
+      uz: `${botName} lobbiga kirdi (O'yinchilar: ${room.players.length}/12, Bunkerda joylar: ${room.bunkerCapacity}).`
     });
     this.broadcastRoom(code);
   }
@@ -368,9 +373,9 @@ class GameManager {
       const removed = room.players.splice(idx, 1)[0];
       room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
       this.addSystemMessage(room, {
-        ru: `Бот ${removed.name} удален из комнаты (Игроков: ${room.players.length}/12, Призовых мест: ${room.bunkerCapacity}).`,
-        en: `Bot ${removed.name} removed from the room (Players: ${room.players.length}/12, Bunker spots: ${room.bunkerCapacity}).`,
-        uz: `${removed.name} boti xonadan o'chirildi (O'yinchilar: ${room.players.length}/12, Bunkerda joylar: ${room.bunkerCapacity}).`
+        ru: `Игрок ${removed.name} покинул комнату (Игроков: ${room.players.length}/12, Призовых мест: ${room.bunkerCapacity}).`,
+        en: `Player ${removed.name} left the room (Players: ${room.players.length}/12, Bunker spots: ${room.bunkerCapacity}).`,
+        uz: `${removed.name} xonadan chiqdi (O'yinchilar: ${room.players.length}/12, Bunkerda joylar: ${room.bunkerCapacity}).`
       });
       this.broadcastRoom(code);
     }
@@ -529,10 +534,34 @@ class GameManager {
         });
       } else {
         this.addSystemMessage(room, {
-          ru: `🤖 ${bot.name} по очереди вскрыл: [${nameRu}] — "${valRu}"`,
-          en: `🤖 ${bot.name} revealed in turn: [${nameEn}] — "${valEn}"`,
-          uz: `🤖 ${bot.name} navbat bilan ochdi: [${nameUz}] — "${valUz}"`
+          ru: `${bot.name} открыл карту: [${nameRu}] — "${valRu}"`,
+          en: `${bot.name} revealed card: [${nameEn}] — "${valEn}"`,
+          uz: `${bot.name} kartani ochdi: [${nameUz}] — "${valUz}"`
         });
+
+        // Бот с вероятностью 45% дает живой комментарий своей открытой карты в чате (с анимацией набора текста)
+        if (Math.random() < 0.45) {
+          const reaction = botAiManager.generateRevealReaction(bot, chosen, room);
+          if (reaction) {
+            this.setPlayerTyping(room.code, bot.id, bot.name);
+            setTimeout(() => {
+              const currentRoom = this.rooms.get(room.code);
+              if (!currentRoom) return;
+              currentRoom.messages.push({
+                id: 'msg_bot_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+                senderId: bot.id,
+                senderName: bot.name,
+                senderAvatar: bot.character?.avatar || '🥷',
+                text: reaction,
+                timestamp: formatServerTime(),
+                createdAt: Date.now(),
+                isSystem: false,
+                isGhost: false
+              });
+              this.broadcastRoom(currentRoom.code);
+            }, 1800);
+          }
+        }
       }
     }
 
@@ -895,51 +924,32 @@ class GameManager {
         if (currentRoom.status !== 'ROUND_DISCUSSION' && currentRoom.status !== 'ROUND_VOTING') return;
         if (!bot.isAlive || bot.votedFor) return;
 
-        const target = this.chooseTargetForSingleBot(currentRoom, bot, orderIdx);
+        const target = botAiManager.chooseVotingTarget(currentRoom, bot) || this.chooseTargetForSingleBot(currentRoom, bot, orderIdx);
         if (!target) return;
 
         bot.votedFor = target.id;
 
-        // В каждом раунде 1-2 бота пишут живой комментарий в чат, объясняя свой голос по открытой карте!
+        // В каждом раунде 1-2 бота пишут живой комментарий в чат, объясняя свой голос по открытой карте (с живой анимацией набора текста)
         if (orderIdx === 0 || (orderIdx === 2 && Math.random() < 0.65)) {
-          const currentRoundCard = (target.deck || []).find(c => c.revealed && c.revealedInRound === currentRoom.currentRound)
-            || (target.deck || []).find(c => c.revealed);
-          const cardValRu = currentRoundCard ? (currentRoundCard.value?.ru || currentRoundCard.value) : '';
-          const cardValEn = currentRoundCard ? (currentRoundCard.value?.en || cardValRu) : '';
-          const cardValUz = currentRoundCard ? (currentRoundCard.value?.uz || cardValRu) : '';
+          const votingArg = botAiManager.generateVotingArgument(bot, target, currentRoom);
+          this.setPlayerTyping(currentRoom.code, bot.id, bot.name);
 
-          const phrasesRu = [
-            `Хм, у ${target.name} открылась карта «${cardValRu}» — для бункера это слабовато. Голосую против ${target.name}.`,
-            `В этом раунде больше всего сомнений вызывает ${target.name} (${cardValRu}). Мой голос против него.`,
-            `Я проанализировал открытые карты этого раунда: голосую против ${target.name}.`
-          ];
-          const phrasesEn = [
-            `Hmm, ${target.name} revealed "${cardValEn}" — looks risky for the bunker. Voting against ${target.name}.`,
-            `In this round ${target.name} (${cardValEn}) raises the most doubts. My vote goes to them.`,
-            `Looking at this round's cards, I'm voting against ${target.name}.`
-          ];
-          const phrasesUz = [
-            `Hmm, ${target.name}da «${cardValUz}» kartasi ochildi — bunker uchun xavfli. ${target.name}ga qarshi ovoz beraman.`,
-            `Bu raundda ${target.name} (${cardValUz}) eng ko'p shubha uyg'otdi. Ovozni unga qarshi beraman.`,
-            `Ushbu raundda ochilgan kartalarga qarab, ${target.name}ga qarshi ovoz beraman.`
-          ];
-          const pIdx = (currentRoom.currentRound + orderIdx) % phrasesRu.length;
-
-          currentRoom.messages.push({
-            id: 'msg_bot_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-            senderId: bot.id,
-            senderName: bot.name,
-            senderAvatar: bot.character?.avatar || '🤖',
-            text: {
-              ru: phrasesRu[pIdx],
-              en: phrasesEn[pIdx],
-              uz: phrasesUz[pIdx]
-            },
-            timestamp: formatServerTime(),
-            createdAt: Date.now(),
-            isSystem: false,
-            isGhost: false
-          });
+          setTimeout(() => {
+            const liveRoom = this.rooms.get(room.code);
+            if (!liveRoom) return;
+            liveRoom.messages.push({
+              id: 'msg_bot_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+              senderId: bot.id,
+              senderName: bot.name,
+              senderAvatar: bot.character?.avatar || '🥷',
+              text: votingArg,
+              timestamp: formatServerTime(),
+              createdAt: Date.now(),
+              isSystem: false,
+              isGhost: false
+            });
+            this.broadcastRoom(liveRoom.code);
+          }, 1600);
         }
 
         // Проверяем: если ВСЕ живые игроки (и люди, и боты) уже отдали свои голоса — завершаем голосование!
@@ -1227,7 +1237,7 @@ class GameManager {
         voteBreakdown.push({
           voterId: p.id,
           voterName: p.name,
-          voterAvatar: p.character?.avatar || (p.isBot ? '🤖' : '🥷'),
+          voterAvatar: p.character?.avatar || '🥷',
           targetId: p.votedFor,
           targetName: targetObj ? targetObj.name : '???',
           weight
@@ -1236,7 +1246,7 @@ class GameManager {
         voteBreakdown.push({
           voterId: p.id,
           voterName: p.name,
-          voterAvatar: p.character?.avatar || (p.isBot ? '🤖' : '🥷'),
+          voterAvatar: p.character?.avatar || '🥷',
           targetId: null,
           targetName: null,
           weight: 0
@@ -1365,6 +1375,31 @@ class GameManager {
           en: `BY MAJORITY VOTE (${maxVotes} votes)${extraNote}: ${exiledPlayer.name} HAS BEEN EXILED FROM THE BUNKER! Now a Ghost 👻.`,
           uz: `KO'PCHILIK OVOZI BILAN (${maxVotes} ovoz)${extraNote}: ${exiledPlayer.name} BUNKERDAN HAYDALDI! Endi u Arvoh 👻.`
         });
+
+        // Живая эмоциональная реакция в чате при изгнании (на выбранном языке комнаты)
+        const exileReaction = botAiManager.generateExileReaction(exiledPlayer, exiledPlayer.isBot);
+        if (exileReaction) {
+          const reactingBot = exiledPlayer.isBot ? exiledPlayer : alivePlayers.find(p => p.isBot);
+          if (reactingBot) {
+            this.setPlayerTyping(room.code, reactingBot.id, reactingBot.name);
+            setTimeout(() => {
+              const currentRoom = this.rooms.get(room.code);
+              if (!currentRoom) return;
+              currentRoom.messages.push({
+                id: 'msg_bot_exile_' + Date.now(),
+                senderId: reactingBot.id,
+                senderName: reactingBot.name,
+                senderAvatar: reactingBot.character?.avatar || '🥷',
+                text: exileReaction,
+                timestamp: formatServerTime(),
+                createdAt: Date.now(),
+                isSystem: false,
+                isGhost: !reactingBot.isAlive
+              });
+              this.broadcastRoom(currentRoom.code);
+            }, 1400);
+          }
+        }
       }
     }
 
@@ -1523,7 +1558,7 @@ class GameManager {
       id: 'msg_' + Math.random().toString(36).substring(2, 9),
       senderId: sender.id,
       senderName: sender.name,
-      senderAvatar: sender.character?.avatar || (sender.isBot ? '🤖' : '🥷'),
+      senderAvatar: sender.character?.avatar || '🥷',
       text: (text || '').trim().substring(0, 300),
       sticker: sticker || null,
       voice: voice && voice.audioData ? {

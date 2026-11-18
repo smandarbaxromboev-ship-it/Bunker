@@ -25,6 +25,7 @@ export default function PlayerCard({
   myHasVoted = false,
   onInspectCard,
   onUseTrump,
+  isSpeaking = false,
   lang = 'ru' 
 }) {
   const [expandedCardId, setExpandedCardId] = useState(null);
@@ -57,9 +58,11 @@ export default function PlayerCard({
       }`}
     >
       {/* Top Header Card Bar */}
-      <div className={`p-3 sm:p-3.5 border-b flex items-center justify-between gap-2 ${
+      <div className={`p-3 sm:p-3.5 border-b flex items-center justify-between gap-2 transition-colors ${
         !isAlive 
           ? 'border-red-900/50 bg-red-950/20 text-slate-500 dark:text-zinc-500' 
+          : isSpeaking
+          ? 'border-emerald-500/80 bg-emerald-500/15 shadow-[0_0_20px_rgba(52,211,153,0.35)]'
           : isSelf 
           ? 'border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10' 
           : 'border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/40'
@@ -69,6 +72,7 @@ export default function PlayerCard({
             character={character}
             isAlive={isAlive}
             isExiled={!isAlive}
+            isSpeaking={isSpeaking}
             size="md"
             lang={lang}
           />

@@ -1015,8 +1015,102 @@ io.on('connection', (socket) => {
     gameManager.setPlayerTyping(roomCode, senderId, senderName);
   });
 
+  // WebRTC Live Group Voice Chat Signaling
+  socket.on('voiceJoin', ({ roomCode, playerId, playerName, isMuted }, callback) => {
+    if (!roomCode || !playerId) {
+      if (typeof callback === 'function') callback({ error: 'Missing roomCode or playerId' });
+      return;
+    }
+    socket.join(`voice_${roomCode}`);
+    if (!global.voiceRooms) global.voiceRooms = new Map();
+    if (!global.voiceRooms.has(roomCode)) {
+      global.voiceRooms.set(roomCode, new Map());
+    }
+    const roomMap = global.voiceRooms.get(roomCode);
+
+    const existingPeers = [];
+    for (const [peerSocketId, peerData] of roomMap.entries()) {
+      if (peerSocketId !== socket.id) {
+        existingPeers.push({
+          socketId: peerSocketId,
+          ...peerData
+        });
+      }
+    }
+
+    const myData = { playerId, playerName: playerName || 'Survivor', isMuted: Boolean(isMuted), isSpeaking: false };
+    roomMap.set(socket.id, myData);
+    socket.voiceRoomCode = roomCode;
+    socket.voicePlayerId = playerId;
+
+    if (typeof callback === 'function') {
+      callback({ peers: existingPeers });
+    }
+
+    socket.to(`voice_${roomCode}`).emit('voiceUserJoined', {
+      socketId: socket.id,
+      ...myData
+    });
+  });
+
+  socket.on('voiceSignal', ({ toSocketId, signal }) => {
+    if (toSocketId && signal) {
+      io.to(toSocketId).emit('voiceSignal', {
+        fromSocketId: socket.id,
+        signal
+      });
+    }
+  });
+
+  socket.on('voiceState', ({ roomCode, isMuted, isSpeaking }) => {
+    const code = roomCode || socket.voiceRoomCode;
+    if (!code || !global.voiceRooms || !global.voiceRooms.has(code)) return;
+    const roomMap = global.voiceRooms.get(code);
+    const peerData = roomMap.get(socket.id);
+    if (peerData) {
+      if (isMuted !== undefined) peerData.isMuted = Boolean(isMuted);
+      if (isSpeaking !== undefined) peerData.isSpeaking = Boolean(isSpeaking);
+      socket.to(`voice_${code}`).emit('voiceStateUpdated', {
+        socketId: socket.id,
+        playerId: peerData.playerId,
+        isMuted: peerData.isMuted,
+        isSpeaking: peerData.isSpeaking
+      });
+    }
+  });
+
+  socket.on('voiceLeave', ({ roomCode }) => {
+    const code = roomCode || socket.voiceRoomCode;
+    if (code && global.voiceRooms && global.voiceRooms.has(code)) {
+      const roomMap = global.voiceRooms.get(code);
+      roomMap.delete(socket.id);
+      if (roomMap.size === 0) {
+        global.voiceRooms.delete(code);
+      }
+      socket.to(`voice_${code}`).emit('voiceUserLeft', {
+        socketId: socket.id,
+        playerId: socket.voicePlayerId
+      });
+      socket.leave(`voice_${code}`);
+    }
+    socket.voiceRoomCode = null;
+    socket.voicePlayerId = null;
+  });
+
   socket.on('disconnect', () => {
     unbindSocket(socket.id);
+    const code = socket.voiceRoomCode;
+    if (code && global.voiceRooms && global.voiceRooms.has(code)) {
+      const roomMap = global.voiceRooms.get(code);
+      roomMap.delete(socket.id);
+      if (roomMap.size === 0) {
+        global.voiceRooms.delete(code);
+      }
+      socket.to(`voice_${code}`).emit('voiceUserLeft', {
+        socketId: socket.id,
+        playerId: socket.voicePlayerId
+      });
+    }
     console.log(`[SOCKET] Клиент отключился: ${socket.id}`);
   });
 });

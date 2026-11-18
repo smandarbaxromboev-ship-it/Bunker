@@ -5,6 +5,7 @@ export default function CharacterAvatar({
   character,
   isAlive = true,
   isExiled = false,
+  isSpeaking = false,
   size = 'md', // 'sm', 'md', 'lg', 'xl'
   lang = 'ru',
   showTitle = false
@@ -38,6 +39,8 @@ export default function CharacterAvatar({
         className={`relative rounded-xl flex items-center justify-center transition-all duration-300 ${sizeClasses} ${
           !isAlive || isExiled
             ? 'border-red-600/80 bg-red-950/40 opacity-70 grayscale shadow-[0_0_12px_rgba(239,68,68,0.4)]'
+            : isSpeaking
+            ? 'border-emerald-400 ring-4 ring-emerald-400 shadow-[0_0_22px_rgba(52,211,153,0.9)] animate-pulse bg-emerald-950/40'
             : `${char.borderClass || 'border-amber-500/50'} ${char.glowClass || ''} bg-zinc-900/90 dark:bg-black/80 shadow-md`
         }`}
       >
@@ -65,6 +68,13 @@ export default function CharacterAvatar({
         {(!isAlive || isExiled) && (
           <div className="absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow animate-bounce">
             💀
+          </div>
+        )}
+
+        {/* Live Speaking Badge Overlay */}
+        {isSpeaking && isAlive && !isExiled && (
+          <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-black rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow-lg shadow-emerald-500/50 animate-bounce">
+            🎙️
           </div>
         )}
       </div>

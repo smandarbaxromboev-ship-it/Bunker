@@ -12,6 +12,7 @@ export default function LobbyView({
   onRemoveBot, 
   onLeaveLobby,
   onOpenFriends,
+  speakingPlayerIds = new Set(),
   lang = 'ru' 
 }) {
   const [copied, setCopied] = useState(false);
@@ -169,14 +170,14 @@ export default function LobbyView({
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="shrink-0">
-                  <CharacterAvatar character={p.character} isAlive={p.isAlive} size="sm" lang={lang} />
+                  <CharacterAvatar character={p.character} isAlive={p.isAlive} isSpeaking={speakingPlayerIds?.has(p.id)} size="sm" lang={lang} />
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-bold truncate text-slate-900 dark:text-white">
                     {p.name} {p.id === myPlayerId && <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono">{t.you}</span>}
                   </div>
                   <div className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono flex items-center space-x-1">
-                    <span>{p.isHost ? t.roleHost : p.isBot ? t.roleBot : t.rolePlayer}</span>
+                    <span>{p.isHost ? t.roleHost : t.rolePlayer}</span>
                     {p.character?.title && (
                       <>
                         <span>•</span>
@@ -189,14 +190,14 @@ export default function LobbyView({
                 </div>
               </div>
 
-              {/* Bot Delete Button for Host */}
+              {/* Delete / Kick Button for Host */}
               {isHost && p.isBot ? (
                 <button
                   onClick={() => {
                     soundManager.playBeep(500, 0.06);
                     onRemoveBot(p.id);
                   }}
-                  title={t.removeBotTooltip || (lang === 'ru' ? "Удалить этого бота" : lang === 'uz' ? "Botni o'chirish" : "Remove this bot")}
+                  title={lang === 'ru' ? "Исключить участника" : lang === 'uz' ? "Ishtirokchini chiqarish" : "Remove participant"}
                   className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-950/60 dark:hover:bg-red-900 text-red-600 dark:text-red-400 transition cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />

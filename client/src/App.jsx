@@ -31,6 +31,8 @@ import DailyCrateModal from './components/DailyCrateModal';
 import NotFoundView from './components/NotFoundView';
 import InstallAppModal from './components/InstallAppModal';
 import AmongUsEjectionScreen from './components/AmongUsEjectionScreen';
+import VoiceChatBar from './components/VoiceChatBar';
+import { VoiceChatManager } from './utils/voiceChat';
 
 const SECRET_ADMIN_PATH = import.meta.env.VITE_ADMIN_SECRET_PATH || '/samandar-bunker-hq-0505';
 
@@ -359,6 +361,41 @@ export default function App() {
   const [hasShownEjectionForRound, setHasShownEjectionForRound] = useState(null);
   const [typingUsers, setTypingUsers] = useState({});
 
+  // Live WebRTC Group Voice Chat
+  const voiceManagerRef = useRef(null);
+  const [isVoiceConnected, setIsVoiceConnected] = useState(false);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const [isVoiceSpeaking, setIsVoiceSpeaking] = useState(false);
+  const [voicePeers, setVoicePeers] = useState([]);
+
+  useEffect(() => {
+    const vm = new VoiceChatManager(socket);
+    vm.onPeersUpdate = (peersList) => {
+      setVoicePeers(peersList);
+    };
+    vm.onLocalSpeakingUpdate = (speaking) => {
+      setIsVoiceSpeaking(speaking);
+    };
+    vm.onError = (err) => {
+      console.warn('[VOICE] Error:', err);
+    };
+    voiceManagerRef.current = vm;
+
+    return () => {
+      vm.leaveVoice();
+    };
+  }, []);
+
+  const speakingPlayerIds = new Set();
+  if (isVoiceSpeaking && myPlayerId) {
+    speakingPlayerIds.add(myPlayerId);
+  }
+  voicePeers.forEach((peer) => {
+    if (peer.isSpeaking && peer.playerId) {
+      speakingPlayerIds.add(peer.playerId);
+    }
+  });
+
   const applyNormalizedRoomState = (newState) => {
     if (!newState) {
       setRoomState(null);
@@ -526,6 +563,11 @@ export default function App() {
     if (codeToLeave) {
       socket.emit('leaveRoom', { roomCode: codeToLeave, playerId: idToLeave });
     }
+
+    voiceManagerRef.current?.leaveVoice();
+    setIsVoiceConnected(false);
+    setIsVoiceSpeaking(false);
+    setVoicePeers([]);
 
     setShowVotingModal(false);
     setShowResultModal(false);
@@ -1768,6 +1810,7 @@ export default function App() {
               onRemoveBot={handleRemoveBot}
               onLeaveLobby={handleLeaveRoom}
               onOpenFriends={() => setShowFriendsModal(true)}
+              speakingPlayerIds={speakingPlayerIds}
               lang={lang}
             />
           </div>
@@ -1950,6 +1993,7 @@ export default function App() {
                 myHasVoted={Boolean(myPlayer?.hasVoted)}
                 onInspectCard={(data) => setInspectCardData(data)}
                 onUseTrump={(card) => setActiveTrumpCard(card)}
+                isSpeaking={speakingPlayerIds.has(player.id)}
                 lang={lang}
               />
             ))}
@@ -2194,6 +2238,35 @@ export default function App() {
           }}
           onUserUpdated={handleUserUpdated}
           lang={lang}
+        />
+      )}
+
+      {/* 11. Live WebRTC Group Voice Chat Bar */}
+      {roomState && (
+        <VoiceChatBar
+          voiceManager={voiceManagerRef.current}
+          isConnected={isVoiceConnected}
+          isMuted={isVoiceMuted}
+          isSpeaking={isVoiceSpeaking}
+          peers={voicePeers}
+          myPlayerId={myPlayerId}
+          lang={lang}
+          onToggleVoice={() => {
+            if (isVoiceConnected) {
+              voiceManagerRef.current?.leaveVoice();
+              setIsVoiceConnected(false);
+            } else {
+              voiceManagerRef.current?.joinVoice(roomState.code, myPlayerId, myPlayer?.name || playerName)
+                .then(() => setIsVoiceConnected(true))
+                .catch(() => {
+                  alert(t.voicePermissionError || (lang === 'uz' ? "Brauzerda mikrofonga ruxsat bering!" : lang === 'en' ? "Please allow microphone access in your browser!" : "Разрешите доступ к микрофону в браузере!"));
+                });
+            }
+          }}
+          onToggleMute={() => {
+            const nextMuted = voiceManagerRef.current?.toggleMute();
+            setIsVoiceMuted(Boolean(nextMuted));
+          }}
         />
       )}
     </div>
