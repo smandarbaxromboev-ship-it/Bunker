@@ -91,7 +91,7 @@ export default function PlayerCard({
               )}
             </div>
             
-            <div className="text-[10px] font-mono flex items-center gap-1.5 mt-1 flex-wrap">
+            <div className="text-[10px] font-mono flex items-center gap-1.5 mt-0.5 flex-wrap">
               {character?.title && (
                 <span className={`font-bold uppercase tracking-wider truncate max-w-[110px] ${
                   !isAlive ? 'line-through text-zinc-500' : (character.titleColor || 'text-slate-400')
@@ -111,19 +111,6 @@ export default function PlayerCard({
                 <span className="text-red-600 dark:text-red-400 font-extrabold flex items-center gap-1 shrink-0 uppercase">
                   <span>💀</span>
                   {t.exiled}
-                </span>
-              )}
-
-              {/* Voting status badge */}
-              {isVoting && isAlive && (
-                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${
-                  player.hasVoted
-                    ? 'bg-emerald-950/70 border border-emerald-500/50 text-emerald-400 font-bold'
-                    : 'bg-amber-950/60 border border-amber-500/40 text-amber-400 animate-pulse'
-                }`}>
-                  {player.hasVoted 
-                    ? (lang === 'uz' ? '✓ Ovoz berdi' : lang === 'en' ? '✓ Voted' : '✓ Проголосовал')
-                    : (lang === 'uz' ? '⏳ O\'ylamoqda...' : lang === 'en' ? '⏳ Thinking...' : '⏳ Думает...')}
                 </span>
               )}
             </div>
@@ -153,6 +140,24 @@ export default function PlayerCard({
           </button>
         )}
       </div>
+
+      {/* Dedicated Voting Status Bar to prevent any badge overlapping with buttons */}
+      {isVoting && isAlive && (
+        <div className="px-3 py-1 bg-zinc-950/60 border-b border-zinc-800/80 flex items-center justify-between gap-2 text-[10px] font-mono">
+          <span className="text-zinc-400 font-medium">
+            {lang === 'uz' ? 'Ovoz holati:' : lang === 'en' ? 'Vote status:' : 'Статус голосования:'}
+          </span>
+          <span className={`px-2 py-0.5 rounded-full flex items-center gap-1 font-bold ${
+            player.hasVoted
+              ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-400'
+              : 'bg-amber-950/80 border border-amber-500/40 text-amber-400 animate-pulse'
+          }`}>
+            {player.hasVoted 
+              ? (lang === 'uz' ? '✓ Ovoz berdi' : lang === 'en' ? '✓ Voted' : '✓ Проголосовал')
+              : (lang === 'uz' ? '⏳ O\'ylamoqda...' : lang === 'en' ? '⏳ Thinking...' : '⏳ Думает...')}
+          </span>
+        </div>
+      )}
 
       {/* 7 Clean Card Slots */}
       <div className="p-2 sm:p-3 space-y-1.5 flex-1">

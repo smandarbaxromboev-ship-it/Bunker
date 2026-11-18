@@ -310,7 +310,8 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
   const handleGrantCoins = (e, customTarget = null, customAmount = null) => {
     if (e) e.preventDefault();
     const target = (customTarget || coinTargetUser).trim();
-    const amt = parseInt(customAmount || coinAmount, 10) || 500;
+    const parsedAmt = parseInt(customAmount !== null && customAmount !== undefined ? customAmount : coinAmount, 10);
+    const amt = isNaN(parsedAmt) || parsedAmt <= 0 ? 5000 : parsedAmt;
     if (!target) return;
 
     socket.emit('adminAddCoins', {
@@ -320,7 +321,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
       amount: amt
     }, (res) => {
       if (res && res.success) {
-        setFeedback(`✓ Успешно начислено ${amt} BunCoins игроку "${target}"! Новый баланс: ${res.newBalance} 🪙`);
+        setFeedback(`✓ Успешно начислено ${amt.toLocaleString()} BunCoins игроку "${target}"! Новый баланс: ${(res.newBalance || 0).toLocaleString()} 🪙`);
         loadRegisteredUsers(adminLogin, adminPassword);
         setTimeout(() => setFeedback(''), 5000);
       } else {
@@ -603,27 +604,27 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                   />
                   <input
                     type="number"
-                    placeholder="500"
+                    placeholder="Сумма (любая)"
                     value={coinAmount}
                     onChange={(e) => setCoinAmount(e.target.value)}
-                    className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-zinc-100 outline-none font-mono focus:border-amber-500 w-24"
+                    className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-zinc-100 outline-none font-mono focus:border-amber-500 w-36"
                   />
                   <button
                     type="submit"
-                    className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl font-mono text-xs font-bold transition shadow cursor-pointer"
+                    className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl font-mono text-xs font-bold transition shadow cursor-pointer whitespace-nowrap"
                   >
                     + Начислить
                   </button>
 
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    {[500, 1000, 5000].map(amt => (
+                  <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+                    {[5000, 10000, 50000, 100000, 500000, 1000000].map(amt => (
                       <button
                         key={amt}
                         type="button"
                         onClick={() => setCoinAmount(String(amt))}
                         className="px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-amber-400 text-[10px] font-mono font-bold transition cursor-pointer"
                       >
-                        +{amt} 🪙
+                        +{amt >= 1000000 ? `${amt / 1000000}M` : amt >= 1000 ? `${amt / 1000}k` : amt} 🪙
                       </button>
                     ))}
                   </div>
@@ -718,19 +719,43 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                         <div className="flex items-center gap-1.5 flex-wrap self-end sm:self-auto">
                           <button
                             type="button"
-                            onClick={() => handleGrantCoins(null, u.username, 500)}
-                            className="px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500 hover:text-black border border-amber-500/40 text-amber-400 text-xs font-mono font-bold transition cursor-pointer"
-                            title="Добавить +500 BunCoins"
+                            onClick={() => handleGrantCoins(null, u.username, 5000)}
+                            className="px-2 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500 hover:text-black border border-amber-500/40 text-amber-400 text-xs font-mono font-bold transition cursor-pointer"
+                            title="Добавить +5 000 BunCoins"
                           >
-                            +500 🪙
+                            +5k 🪙
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleGrantCoins(null, u.username, 1000)}
-                            className="px-2.5 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500 hover:text-black border border-amber-500/60 text-amber-300 text-xs font-mono font-bold transition cursor-pointer"
-                            title="Добавить +1000 BunCoins"
+                            onClick={() => handleGrantCoins(null, u.username, 50000)}
+                            className="px-2 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500 hover:text-black border border-amber-500/60 text-amber-300 text-xs font-mono font-bold transition cursor-pointer"
+                            title="Добавить +50 000 BunCoins"
                           >
-                            +1000 🪙
+                            +50k 🪙
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const input = window.prompt(`Введите любое количество BunCoins для "${u.username}" (например: 100000, 1000000):`, '100000');
+                              if (input) {
+                                const parsed = parseInt(input.replace(/\s+/g, ''), 10);
+                                if (!isNaN(parsed) && parsed > 0) {
+                                  handleGrantCoins(null, u.username, parsed);
+                                }
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded-xl bg-amber-500/30 hover:bg-amber-400 hover:text-black border border-amber-400 text-amber-200 text-xs font-mono font-bold transition cursor-pointer shadow-sm"
+                            title="Выдать любую произвольную сумму BunCoins"
+                          >
+                            + Любая сумма 🪙
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCoinTargetUser(u.username)}
+                            className="px-2 py-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 text-xs font-mono transition cursor-pointer"
+                            title="Выбрать этого игрока в форме начисления"
+                          >
+                            В форму ↗
                           </button>
                           <button
                             type="button"
