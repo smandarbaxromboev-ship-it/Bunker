@@ -153,7 +153,7 @@ export default function HeaderTerminal({
               ) : (
                 <Mic className={`w-3.5 h-3.5 ${isVoiceSpeaking ? (isVoiceLoud ? 'animate-mic-loud text-amber-300' : 'animate-mic-calm') : ''}`} />
               )}
-              <span className="font-display font-bold">
+              <span className="hidden sm:inline font-display font-bold">
                 {lang === 'uz' ? 'Ovozli chat' : lang === 'en' ? 'Voice Chat' : 'Голосовой чат'}
               </span>
               {isVoiceConnected ? (

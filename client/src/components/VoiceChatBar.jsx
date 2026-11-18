@@ -35,7 +35,7 @@ export default function VoiceChatBar({
   const totalConnected = (isConnected ? 1 : 0) + peers.length;
 
   return (
-    <div className="fixed bottom-4 left-4 z-40 max-w-sm font-sans select-none animate-fadeIn">
+    <div className="hidden md:block fixed bottom-4 left-4 z-40 max-w-sm font-sans select-none animate-fadeIn">
       <div className="bg-slate-900/95 dark:bg-zinc-950/95 border border-slate-700/80 dark:border-zinc-800 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden transition-all duration-300">
         {/* Main Bar */}
         <div className="p-2 sm:p-2.5 flex items-center gap-2">

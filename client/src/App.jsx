@@ -1859,7 +1859,7 @@ export default function App() {
           onLogout={handleLogout}
         />
 
-        <main className="flex-1 max-w-7xl mx-auto w-full py-3 sm:py-6 relative z-10 grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-5">
+        <main className="flex-1 max-w-7xl mx-auto w-full py-3 sm:py-6 pb-24 md:pb-6 relative z-10 grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-5">
           {/* Left Column: Lobby View (Players, Settings, Bots, Start) */}
           <div className={`md:col-span-7 lg:col-span-8 ${mobileTab === 'chat' ? 'hidden md:block' : 'block'}`}>
             <LobbyView
@@ -1994,7 +1994,7 @@ export default function App() {
       />
 
       {/* Main Grid: Tablet & Desktop side-by-side (md:grid-cols-12), Phone stacked with bottom tabs */}
-      <main className="flex-1 max-w-7xl mx-auto w-full p-2.5 sm:p-4 md:p-6 grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-5 relative z-10">
+      <main className="flex-1 max-w-7xl mx-auto w-full p-2.5 sm:p-4 md:p-6 pb-24 md:pb-6 grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-5 relative z-10">
         
         {/* Left Side: Players Grid */}
         <div className={`md:col-span-7 lg:col-span-8 space-y-3 sm:space-y-4 ${

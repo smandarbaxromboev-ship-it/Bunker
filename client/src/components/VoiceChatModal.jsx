@@ -87,13 +87,13 @@ export default function VoiceChatModal({
     <div 
       ref={windowRef}
       style={{
-        left: position.x !== null ? `${position.x}px` : undefined,
-        top: position.y !== null ? `${position.y}px` : undefined,
-        right: position.x === null ? '16px' : undefined,
-        bottom: position.y === null ? '80px' : undefined,
+        left: position.x !== null ? `${position.x}px` : (typeof window !== 'undefined' && window.innerWidth < 640 ? '4vw' : undefined),
+        top: position.y !== null ? `${position.y}px` : (typeof window !== 'undefined' && window.innerWidth < 640 ? '60px' : undefined),
+        right: position.x === null && (typeof window === 'undefined' || window.innerWidth >= 640) ? '16px' : undefined,
+        bottom: position.y === null && (typeof window === 'undefined' || window.innerWidth >= 640) ? '80px' : undefined,
         touchAction: 'none'
       }}
-      className="fixed z-50 w-[94vw] sm:w-[380px] rounded-3xl bg-zinc-950/95 border-2 border-emerald-500/50 shadow-[0_15px_60px_rgba(0,0,0,0.85)] backdrop-blur-xl overflow-hidden flex flex-col transition-shadow animate-fadeIn select-none"
+      className="fixed z-50 w-[92vw] sm:w-[380px] rounded-3xl bg-zinc-950/95 border-2 border-emerald-500/50 shadow-[0_15px_60px_rgba(0,0,0,0.85)] backdrop-blur-xl overflow-hidden flex flex-col transition-shadow animate-fadeIn select-none"
     >
       {/* Draggable Header */}
       <div 
