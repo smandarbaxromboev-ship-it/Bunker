@@ -3,7 +3,8 @@ import { io } from 'socket.io-client';
 import { 
   ShieldAlert, Users, LogIn, PlusCircle, Radio, 
   Terminal, AlertOctagon, HelpCircle, Trophy, Ghost,
-  MessageSquare, Sparkles, CheckSquare, Sun, Moon, Vote
+  MessageSquare, Sparkles, CheckSquare, Sun, Moon, Vote,
+  Mic, MicOff
 } from 'lucide-react';
 import { soundManager } from './utils/audio';
 import { translations, getLocalized } from './utils/translations';
