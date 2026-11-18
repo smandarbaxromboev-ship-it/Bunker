@@ -44,35 +44,31 @@
   scrollbar-width: none;
 }
 
-/* Voice Chat Speaking Microphone Dance & Waves */
+/* Voice Chat Speaking Microphone Dance & Waves - Smooth & Calm */
 @keyframes micDance {
-  0% { transform: scale(1) translateY(0) rotate(0deg); }
-  20% { transform: scale(1.18) translateY(-4px) rotate(-6deg); }
-  40% { transform: scale(1.08) translateY(2px) rotate(4deg); }
-  60% { transform: scale(1.22) translateY(-6px) rotate(-4deg); }
-  80% { transform: scale(1.12) translateY(1px) rotate(5deg); }
-  100% { transform: scale(1) translateY(0) rotate(0deg); }
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.12) translateY(-2px); }
 }
 
 @keyframes soundWaveBar {
-  0%, 100% { height: 6px; opacity: 0.6; }
-  50% { height: 26px; opacity: 1; }
+  0%, 100% { height: 7px; opacity: 0.5; }
+  50% { height: 22px; opacity: 1; }
 }
 
 .animate-mic-dance {
-  animation: micDance 0.45s ease-in-out infinite;
+  animation: micDance 1.3s ease-in-out infinite;
 }
 
 .animate-wave-1 {
-  animation: soundWaveBar 0.5s ease-in-out infinite;
+  animation: soundWaveBar 1.2s ease-in-out infinite;
 }
 .animate-wave-2 {
-  animation: soundWaveBar 0.35s ease-in-out infinite 0.1s;
+  animation: soundWaveBar 0.9s ease-in-out infinite 0.2s;
 }
 .animate-wave-3 {
-  animation: soundWaveBar 0.6s ease-in-out infinite 0.2s;
+  animation: soundWaveBar 1.4s ease-in-out infinite 0.4s;
 }
 .animate-wave-4 {
-  animation: soundWaveBar 0.4s ease-in-out infinite 0.15s;
+  animation: soundWaveBar 1.0s ease-in-out infinite 0.3s;
 }
 

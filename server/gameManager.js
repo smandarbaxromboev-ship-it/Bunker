@@ -539,9 +539,9 @@ class GameManager {
           uz: `${bot.name} kartani ochdi: [${nameUz}] — "${valUz}"`
         });
 
-        // Бот всегда дает живой комментарий своей открытой карты в чате (с анимацией набора текста)
+        // Бот изредка (редко) комментирует свою карту, чтобы не спамить в чат
         const reaction = botAiManager.generateRevealReaction(bot, chosen, room);
-        if (reaction) {
+        if (reaction && Math.random() < 0.15) {
           this.setPlayerTyping(room.code, bot.id, bot.name);
           setTimeout(() => {
             const currentRoom = this.rooms.get(room.code);
@@ -685,9 +685,9 @@ class GameManager {
       this.handleRoundTimeout(room.code);
     });
 
-    // Живой старт дебатов: бот сразу открывает обсуждение в чате!
+    // Живой старт дебатов: только изредка бот пишет реплику
     const aliveBots = room.players.filter(p => p.isAlive && p.isBot);
-    if (aliveBots.length > 0) {
+    if (aliveBots.length > 0 && Math.random() < 0.2) {
       const firstSpeaker = aliveBots[0];
       this.setPlayerTyping(room.code, firstSpeaker.id, firstSpeaker.name);
       setTimeout(() => {
@@ -935,8 +935,8 @@ class GameManager {
 
         bot.votedFor = target.id;
 
-        // В каждом раунде 1-2 бота пишут живой комментарий в чат, объясняя свой голос по открытой карте (с живой анимацией набора текста)
-        if (orderIdx === 0 || (orderIdx === 2 && Math.random() < 0.65)) {
+        // Боты пишут в чат крайне редко, чтобы не засорять чат
+        if (orderIdx === 0 && Math.random() < 0.15) {
           const votingArg = botAiManager.generateVotingArgument(bot, target, currentRoom);
           this.setPlayerTyping(currentRoom.code, bot.id, bot.name);
 
@@ -1597,8 +1597,8 @@ class GameManager {
       }, 1200);
     }
 
-    // Если реальный человек написал в чат во время дискуссии — бот вступает в живой диалог!
-    if (!sender.isBot && room.status === 'ROUND_DISCUSSION' && text && text.trim().length > 1) {
+    // Если реальный человек написал в чат во время дискуссии — бот изредка (редко) отвечает
+    if (!sender.isBot && room.status === 'ROUND_DISCUSSION' && text && text.trim().length > 1 && Math.random() < 0.15) {
       const availableBots = room.players.filter(p => p.isAlive && p.isBot);
       if (availableBots.length > 0) {
         const replyingBot = availableBots[Math.floor(Math.random() * availableBots.length)];
@@ -1715,8 +1715,9 @@ class GameManager {
     const aliveBots = room.players.filter(p => p.isAlive && p.isBot);
     if (aliveBots.length === 0) return;
 
-    // Живой обмен репликами ботов в чате во время дебатов
-    const chatterDelays = [8000, 22000, 42000];
+    // Редкий обмен репликами ботов в чате (не чаще 1 раза за раунд и только с вероятностью 30%)
+    if (Math.random() > 0.3) return;
+    const chatterDelays = [22000];
     chatterDelays.forEach((delay, idx) => {
       const timer = setTimeout(() => {
         const live = this.rooms.get(room.code);

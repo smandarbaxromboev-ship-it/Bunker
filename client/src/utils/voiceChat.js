@@ -144,12 +144,19 @@ export class VoiceChatManager {
     this.playerName = playerName;
 
     try {
-      // 1. Get microphone audio stream with crystal-clear speech optimizations
+      // 1. Get microphone audio stream with advanced acoustic echo cancellation & noise suppression
       this.localStream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+          echoCancellation: { ideal: true },
+          noiseSuppression: { ideal: true },
+          autoGainControl: { ideal: true },
+          googEchoCancellation: { ideal: true },
+          googEchoCancellation2: { ideal: true },
+          googAutoGainControl: { ideal: true },
+          googNoiseSuppression: { ideal: true },
+          googHighpassFilter: { ideal: true },
+          googTypingNoiseDetection: { ideal: true },
+          channelCount: { ideal: 1 } // mono audio prevents acoustic speaker-mic phase echo
         },
         video: false
       });
@@ -224,6 +231,7 @@ export class VoiceChatManager {
 
     // Receive remote audio track - attach to DOM to guarantee autoplay in Chrome/Safari/Edge
     pc.ontrack = (event) => {
+      if (remoteSocketId === this.socket?.id) return; // Never play own voice locally (prevents self-echo)
       const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
       let audio = this.audioElements.get(remoteSocketId);
       if (!audio) {
@@ -235,7 +243,9 @@ export class VoiceChatManager {
         document.body.appendChild(audio);
         this.audioElements.set(remoteSocketId, audio);
       }
-      audio.srcObject = stream;
+      if (audio.srcObject !== stream) {
+        audio.srcObject = stream;
+      }
       audio.play().catch((err) => {
         console.warn('[VOICE] Audio playback waiting for gesture:', err);
       });
