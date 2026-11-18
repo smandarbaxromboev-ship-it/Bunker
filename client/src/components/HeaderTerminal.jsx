@@ -3,7 +3,7 @@ import {
   Radio, Volume2, VolumeX, Flame,
   ChevronDown, ChevronUp, Sun, Moon,
   ShoppingBag, User, Users, Coins, LogOut, ArrowLeft,
-  BookOpen, Sparkles
+  BookOpen, Sparkles, Mic, MicOff
 } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 import { translations, getLocalized } from '../utils/translations';
@@ -24,6 +24,11 @@ export default function HeaderTerminal({
   onOpenProfile,
   onOpenRules,
   onOpenFriends,
+  onOpenVoiceChat,
+  isVoiceConnected = false,
+  isVoiceMuted = false,
+  isVoiceSpeaking = false,
+  voicePeers = [],
   atmosphereEnabled = true,
   setAtmosphereEnabled,
   onLeaveRoom,
@@ -122,8 +127,39 @@ export default function HeaderTerminal({
           </div>
         )}
 
-        {/* Right: Friends, Rules, Atmosphere, Profile, Shop, Theme, Lang, Sound */}
+        {/* Right: Voice Chat, Friends, Rules, Atmosphere, Profile, Shop, Theme, Lang, Sound */}
         <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+          {/* Prominent Voice Chat (Telegram-Style) Button */}
+          {roomState && onOpenVoiceChat && (
+            <button
+              onClick={() => {
+                soundManager.playBeep(850, 0.05);
+                onOpenVoiceChat();
+              }}
+              title={lang === 'uz' ? "Ovozli chat (Telegram kabi)" : lang === 'en' ? "Voice Chat (Telegram style)" : "Голосовой чат (как в Telegram)"}
+              className={`p-1.5 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-mono font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer ${
+                isVoiceConnected
+                  ? isVoiceSpeaking
+                    ? 'bg-emerald-500 text-black border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.7)] animate-pulse'
+                    : isVoiceMuted
+                    ? 'bg-red-500/20 text-red-400 border-red-500/50'
+                    : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50'
+                  : 'bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 hover:border-emerald-400'
+              }`}
+            >
+              {isVoiceMuted ? <MicOff className="w-3.5 h-3.5 text-red-400" /> : <Mic className={`w-3.5 h-3.5 ${isVoiceSpeaking ? 'animate-bounce' : ''}`} />}
+              <span className="font-display font-bold">
+                {lang === 'uz' ? 'Ovozli chat' : lang === 'en' ? 'Voice Chat' : 'Голосовой чат'}
+              </span>
+              {isVoiceConnected ? (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold">
+                  {(voicePeers?.length || 0) + 1}
+                </span>
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              )}
+            </button>
+          )}
           {/* Friends by ID Button */}
           {onOpenFriends && user && (
             <button

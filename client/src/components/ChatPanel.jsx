@@ -79,6 +79,7 @@ export default function ChatPanel({
   const [micError, setMicError] = useState('');
 
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordTimerRef = useRef(null);
@@ -90,7 +91,11 @@ export default function ChatPanel({
   const phrases = QUICK_PHRASES[lang] || QUICK_PHRASES.ru;
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Scroll ONLY the inner chat feed, never scrolling the main page window!
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [messages, typingUsers]);
 
   useEffect(() => {
@@ -346,7 +351,7 @@ export default function ChatPanel({
       )}
 
       {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-2.5 sm:p-4 space-y-3 min-h-0">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-2.5 sm:p-4 space-y-3 min-h-0">
         {messages.map((msg) => {
           if (msg.isSystem) {
             return (

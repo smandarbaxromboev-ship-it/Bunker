@@ -32,6 +32,7 @@ import NotFoundView from './components/NotFoundView';
 import InstallAppModal from './components/InstallAppModal';
 import AmongUsEjectionScreen from './components/AmongUsEjectionScreen';
 import VoiceChatBar from './components/VoiceChatBar';
+import VoiceChatModal from './components/VoiceChatModal';
 import { VoiceChatManager } from './utils/voiceChat';
 
 const SECRET_ADMIN_PATH = import.meta.env.VITE_ADMIN_SECRET_PATH || '/samandar-bunker-hq-0505';
@@ -367,6 +368,7 @@ export default function App() {
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
   const [isVoiceSpeaking, setIsVoiceSpeaking] = useState(false);
   const [voicePeers, setVoicePeers] = useState([]);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
 
   useEffect(() => {
     const vm = new VoiceChatManager(socket);
@@ -1721,6 +1723,11 @@ export default function App() {
           onOpenProfile={() => setShowProfileModal(true)}
           onOpenRules={() => { setIsRulesMandatory(false); setShowRulesModal(true); }}
           onOpenFriends={() => setShowFriendsModal(true)}
+          onOpenVoiceChat={() => setShowVoiceModal(true)}
+          isVoiceConnected={isVoiceConnected}
+          isVoiceMuted={isVoiceMuted}
+          isVoiceSpeaking={isVoiceSpeaking}
+          voicePeers={voicePeers}
           atmosphereEnabled={atmosphereEnabled}
           setAtmosphereEnabled={handleToggleAtmosphere}
           onLeaveRoom={handleLeaveRoom}
@@ -1793,6 +1800,11 @@ export default function App() {
           onOpenProfile={() => setShowProfileModal(true)}
           onOpenRules={() => { setIsRulesMandatory(false); setShowRulesModal(true); }}
           onOpenFriends={() => setShowFriendsModal(true)}
+          onOpenVoiceChat={() => setShowVoiceModal(true)}
+          isVoiceConnected={isVoiceConnected}
+          isVoiceMuted={isVoiceMuted}
+          isVoiceSpeaking={isVoiceSpeaking}
+          voicePeers={voicePeers}
           atmosphereEnabled={atmosphereEnabled}
           setAtmosphereEnabled={handleToggleAtmosphere}
           onLeaveRoom={handleLeaveRoom}
@@ -2251,6 +2263,7 @@ export default function App() {
           peers={voicePeers}
           myPlayerId={myPlayerId}
           lang={lang}
+          onOpenModal={() => setShowVoiceModal(true)}
           onToggleVoice={() => {
             if (isVoiceConnected) {
               voiceManagerRef.current?.leaveVoice();
@@ -2269,6 +2282,36 @@ export default function App() {
           }}
         />
       )}
+
+      {/* 12. Telegram-Style Voice Chat Modal */}
+      <VoiceChatModal
+        isOpen={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        voiceManager={voiceManagerRef.current}
+        isConnected={isVoiceConnected}
+        isMuted={isVoiceMuted}
+        isSpeaking={isVoiceSpeaking}
+        peers={voicePeers}
+        myPlayerId={myPlayerId}
+        players={roomState?.players || []}
+        lang={lang}
+        onToggleVoice={() => {
+          if (isVoiceConnected) {
+            voiceManagerRef.current?.leaveVoice();
+            setIsVoiceConnected(false);
+          } else {
+            voiceManagerRef.current?.joinVoice(roomState.code, myPlayerId, myPlayer?.name || playerName)
+              .then(() => setIsVoiceConnected(true))
+              .catch(() => {
+                alert(t.voicePermissionError || (lang === 'uz' ? "Brauzerda mikrofonga ruxsat bering!" : lang === 'en' ? "Please allow microphone access in your browser!" : "Разрешите доступ к микрофону в браузере!"));
+              });
+          }
+        }}
+        onToggleMute={() => {
+          const nextMuted = voiceManagerRef.current?.toggleMute();
+          setIsVoiceMuted(Boolean(nextMuted));
+        }}
+      />
     </div>
   );
 }

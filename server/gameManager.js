@@ -539,28 +539,15 @@ class GameManager {
           uz: `${bot.name} kartani ochdi: [${nameUz}] — "${valUz}"`
         });
 
-        // Бот с вероятностью 45% дает живой комментарий своей открытой карты в чате (с анимацией набора текста)
-        if (Math.random() < 0.45) {
-          const reaction = botAiManager.generateRevealReaction(bot, chosen, room);
-          if (reaction) {
-            this.setPlayerTyping(room.code, bot.id, bot.name);
-            setTimeout(() => {
-              const currentRoom = this.rooms.get(room.code);
-              if (!currentRoom) return;
-              currentRoom.messages.push({
-                id: 'msg_bot_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-                senderId: bot.id,
-                senderName: bot.name,
-                senderAvatar: bot.character?.avatar || '🥷',
-                text: reaction,
-                timestamp: formatServerTime(),
-                createdAt: Date.now(),
-                isSystem: false,
-                isGhost: false
-              });
-              this.broadcastRoom(currentRoom.code);
-            }, 1800);
-          }
+        // Бот всегда дает живой комментарий своей открытой карты в чате (с анимацией набора текста)
+        const reaction = botAiManager.generateRevealReaction(bot, chosen, room);
+        if (reaction) {
+          this.setPlayerTyping(room.code, bot.id, bot.name);
+          setTimeout(() => {
+            const currentRoom = this.rooms.get(room.code);
+            if (!currentRoom) return;
+            this.sendBotChatMessage(currentRoom, bot, reaction);
+          }, 1500);
         }
       }
     }
@@ -697,6 +684,25 @@ class GameManager {
     this.setRoomTimer(room.code, 20 * 60 * 1000, () => {
       this.handleRoundTimeout(room.code);
     });
+
+    // Живой старт дебатов: бот сразу открывает обсуждение в чате!
+    const aliveBots = room.players.filter(p => p.isAlive && p.isBot);
+    if (aliveBots.length > 0) {
+      const firstSpeaker = aliveBots[0];
+      this.setPlayerTyping(room.code, firstSpeaker.id, firstSpeaker.name);
+      setTimeout(() => {
+        const live = this.rooms.get(room.code);
+        if (!live || live.status !== 'ROUND_DISCUSSION') return;
+        this.sendBotChatMessage(live, firstSpeaker, {
+          ru: `Все карты раунда ${live.currentRound} открыты! Давайте обсуждать: кто сейчас кажется самым слабым или опасным для бункера?`,
+          uz: `${live.currentRound}-raund kartalari ochildi! Keling, muhokama qilamiz: hozir kim bunker uchun eng zaif yoki xavfli?`,
+          en: `All cards for round ${live.currentRound} are revealed! Let's discuss: who seems the weakest or most dangerous for our shelter?`
+        });
+      }, 1800);
+    }
+
+    // Живой периодический обмен мнениями ботов во время дискуссии
+    this.scheduleDiscussionChatter(room);
 
     // Запускаем реалистичное поведение ботов: они думают, обсуждают новые карты в чате и голосуют по очереди!
     this.scheduleRealisticBotVotes(room);
@@ -937,18 +943,7 @@ class GameManager {
           setTimeout(() => {
             const liveRoom = this.rooms.get(room.code);
             if (!liveRoom) return;
-            liveRoom.messages.push({
-              id: 'msg_bot_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-              senderId: bot.id,
-              senderName: bot.name,
-              senderAvatar: bot.character?.avatar || '🥷',
-              text: votingArg,
-              timestamp: formatServerTime(),
-              createdAt: Date.now(),
-              isSystem: false,
-              isGhost: false
-            });
-            this.broadcastRoom(liveRoom.code);
+            this.sendBotChatMessage(liveRoom, bot, votingArg);
           }, 1600);
         }
 
@@ -1385,18 +1380,7 @@ class GameManager {
             setTimeout(() => {
               const currentRoom = this.rooms.get(room.code);
               if (!currentRoom) return;
-              currentRoom.messages.push({
-                id: 'msg_bot_exile_' + Date.now(),
-                senderId: reactingBot.id,
-                senderName: reactingBot.name,
-                senderAvatar: reactingBot.character?.avatar || '🥷',
-                text: exileReaction,
-                timestamp: formatServerTime(),
-                createdAt: Date.now(),
-                isSystem: false,
-                isGhost: !reactingBot.isAlive
-              });
-              this.broadcastRoom(currentRoom.code);
+              this.sendBotChatMessage(currentRoom, reactingBot, exileReaction);
             }, 1400);
           }
         }
@@ -1590,6 +1574,33 @@ class GameManager {
         }
       }
     });
+
+    // Если реальный человек написал в чат во время дискуссии — бот вступает в живой диалог!
+    if (!sender.isBot && room.status === 'ROUND_DISCUSSION' && text && text.trim().length > 1) {
+      const availableBots = room.players.filter(p => p.isAlive && p.isBot);
+      if (availableBots.length > 0) {
+        const replyingBot = availableBots[Math.floor(Math.random() * availableBots.length)];
+        const delay = 1800 + Math.floor(Math.random() * 1200);
+
+        setTimeout(() => {
+          const liveRoom = this.rooms.get(code);
+          if (!liveRoom || liveRoom.status !== 'ROUND_DISCUSSION') return;
+          if (!replyingBot.isAlive) return;
+
+          this.setPlayerTyping(code, replyingBot.id, replyingBot.name);
+
+          setTimeout(() => {
+            const finalRoom = this.rooms.get(code);
+            if (!finalRoom || finalRoom.status !== 'ROUND_DISCUSSION') return;
+
+            const remark = botAiManager.generateDiscussionRemark(replyingBot, finalRoom);
+            if (remark) {
+              this.sendBotChatMessage(finalRoom, replyingBot, remark);
+            }
+          }, 1600);
+        }, delay);
+      }
+    }
   }
 
   editChatMessage(code, senderId, messageId, newText) {
@@ -1628,6 +1639,60 @@ class GameManager {
       if (p.socketId && p.id !== senderId) {
         this.io.to(p.socketId).emit('playerTyping', { senderId, senderName, timestamp: Date.now() });
       }
+    });
+  }
+
+  sendBotChatMessage(room, bot, textObj) {
+    if (!room || !bot) return;
+    const nowMs = Date.now();
+    const msg = {
+      id: 'msg_bot_' + nowMs + '_' + Math.random().toString(36).substring(2, 6),
+      senderId: bot.id,
+      senderName: bot.name,
+      senderAvatar: bot.character?.avatar || '🥷',
+      text: textObj,
+      timestamp: formatServerTime(nowMs),
+      createdAt: nowMs,
+      isSystem: false,
+      isGhost: !bot.isAlive
+    };
+
+    room.messages.push(msg);
+    if (room.messages.length > 150) room.messages.shift();
+
+    if (this.io) {
+      this.io.to(room.code).emit('chatMessage', msg);
+    }
+    this.broadcastRoom(room.code);
+  }
+
+  scheduleDiscussionChatter(room) {
+    if (!room) return;
+    const aliveBots = room.players.filter(p => p.isAlive && p.isBot);
+    if (aliveBots.length === 0) return;
+
+    // Живой обмен репликами ботов в чате во время дебатов
+    const chatterDelays = [8000, 22000, 42000];
+    chatterDelays.forEach((delay, idx) => {
+      const timer = setTimeout(() => {
+        const live = this.rooms.get(room.code);
+        if (!live || live.status !== 'ROUND_DISCUSSION') return;
+        const available = live.players.filter(p => p.isAlive && p.isBot);
+        if (available.length === 0) return;
+        const speaker = available[(idx + 1) % available.length];
+        const remark = botAiManager.generateDiscussionRemark(speaker, live);
+        if (remark) {
+          this.setPlayerTyping(live.code, speaker.id, speaker.name);
+          setTimeout(() => {
+            const currentRoom = this.rooms.get(room.code);
+            if (!currentRoom || currentRoom.status !== 'ROUND_DISCUSSION') return;
+            this.sendBotChatMessage(currentRoom, speaker, remark);
+          }, 1800);
+        }
+      }, delay);
+
+      if (!this.botTimers.has(room.code)) this.botTimers.set(room.code, []);
+      this.botTimers.get(room.code).push(timer);
     });
   }
 

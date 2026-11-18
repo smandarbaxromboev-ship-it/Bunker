@@ -12,7 +12,8 @@ export default function VoiceChatBar({
   myPlayerId,
   lang = 'ru',
   onToggleVoice,
-  onToggleMute
+  onToggleMute,
+  onOpenModal
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [mutedPeers, setMutedPeers] = useState(new Set());
@@ -74,11 +75,15 @@ export default function VoiceChatBar({
                 )}
               </button>
 
-              {/* Status Info */}
-              <div className="flex-1 min-w-0 pr-1">
+              {/* Status Info (clickable to open full Telegram Voice Chat modal) */}
+              <div 
+                onClick={onOpenModal}
+                className="flex-1 min-w-0 pr-1 cursor-pointer hover:opacity-90 transition"
+                title="Нажмите, чтобы открыть окно голосового чата (Telegram)"
+              >
                 <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-emerald-400">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                  <span className="truncate">{t.voiceChatTitle || "РАЦИЯ"} • 142.8 MHz</span>
+                  <span className="truncate">{lang === 'uz' ? 'Ovozli chat' : lang === 'en' ? 'Voice Chat' : 'Голосовой чат'}</span>
                 </div>
                 <div className="text-[10px] font-mono text-slate-400 dark:text-zinc-500 flex items-center gap-1 mt-0.5">
                   <Users className="w-3 h-3 text-slate-400" />

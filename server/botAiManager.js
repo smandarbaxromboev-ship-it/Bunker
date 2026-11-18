@@ -304,9 +304,9 @@ class BotAiManager {
 
     const remarks = [
       {
-        ru: `Кто что думает про карту ${target.name} («${cardValRu}»)? Насколько это безопасно?`,
+        ru: `Кто что думает про карту ${target.name} («${cardValRu}»)? Насколько это безопасно для базы?`,
         uz: `${target.name}ning «${cardValUz}» kartasi haqida kim nima deb o'ylaydi? Bu qanchalik xavfsiz?`,
-        en: `What does everyone think about ${target.name}'s "${cardValEn}"? Is that safe enough?`
+        en: `What does everyone think about ${target.name}'s "${cardValEn}"? Is that safe enough for the bunker?`
       },
       {
         ru: `Нам в первую очередь нужны специалисты для жизнеобеспечения. Давайте взвешивать факты спокойно.`,
@@ -315,8 +315,23 @@ class BotAiManager {
       },
       {
         ru: `Учтите, что мест в бункере всего ${room.bunkerCapacity}. Слабые карты нам сейчас ни к чему.`,
-        uz: `Yodda tuting, bunkerda atigi ${room.bunkerCapacity} ta joy bor. Kuchli bo'lmagan kartalar bizga xalal beradi.`,
+        uz: `Yodda tuting, bunkerda atigi ${room.bunkerCapacity} ta joy bor. Zaif kartalar bizga xalal beradi.`,
         en: `Keep in mind there are only ${room.bunkerCapacity} spots in the bunker. We cannot carry passengers.`
+      },
+      {
+        ru: `Я считаю, нам нужно беречь медикаменты и фильтры. Давайте голосовать с холодной головой.`,
+        uz: `Mening fikrimcha, dorilar va filtrlarni asrashimiz kerak. Aql bilan ovoz beraylik.`,
+        en: `I think we need to conserve medicines and filters. Let's vote with a clear head.`
+      },
+      {
+        ru: `Смотрите на багаж и здоровье: бункер должен протянуть долгие месяцы под землей.`,
+        uz: `Yuklar va salomatlikka qarang: bunker yer ostida oylab chidashi shart.`,
+        en: `Look at the luggage and health records: the bunker must hold out for months underground.`
+      },
+      {
+        ru: `У кого какие мысли перед голосованием? Против кого отдавать голос?`,
+        uz: `Ovoz berishdan oldin kimda qanday fikrlar bor? Kimga qarshi ovoz beramiz?`,
+        en: `Any strong thoughts before voting? Who are we targeting?`
       }
     ];
 
