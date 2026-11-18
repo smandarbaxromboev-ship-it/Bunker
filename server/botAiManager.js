@@ -1,97 +1,132 @@
-// Secret Bot AI Engine for "Бункер: 7 Раундов Откровений"
-// Generates natural, human-like reactions, smart card evaluation, and believable voting behavior
-// Supports RU, UZ, EN with automatic localization
+// Advanced Human-Like Bot AI Engine for "Бункер: 7 Раундов Откровений"
+// Generates short, punchy, realistic human gamer chat messages,
+// deep disaster awareness, card evaluation, and intelligent voting behavior.
+// Supports RU, UZ, EN with authentic gaming tone.
 
 class BotAiManager {
   constructor() {
-    // Scoring weights for card evaluations
     this.professionRanks = {
-      // Top tier (crucial for bunker survival) - negative risk
-      doctor: -35, surgeon: -35, therapist: -30, paramedic: -28,
+      // Crucial skills in post-apocalypse (negative risk = highly valuable)
+      doctor: -35, surgeon: -35, therapist: -30, paramedic: -28, medic: -30,
       engineer: -30, builder: -25, electrician: -25, mechanic: -25,
       agronomist: -30, farmer: -25, botanist: -25,
-      military: -20, security: -15, firefighter: -22,
-      chemist: -20, physicist: -18, biologist: -22,
+      military: -22, security: -18, firefighter: -22,
+      chemist: -22, physicist: -20, biologist: -24,
       cook: -18, baker: -15, plumber: -18,
 
-      // Low utility / high risk in post-apocalypse - positive risk
+      // Low utility / high liability in bunker (positive risk = vote target)
       blogger: 35, influencer: 35, astrologer: 40, psychic: 40,
       actor: 25, comedian: 22, model: 28, stylist: 25,
-      gamer: 25, stream: 25, politician: 30, lawyer: 20,
+      gamer: 25, streamer: 25, politician: 30, lawyer: 20,
       banker: 20, broker: 22, critic: 25, sommelier: 28,
       unemployed: 30, prisoner: 28, gambler: 32
     };
 
     this.badHealthTerms = [
       'рак', 'чума', 'вич', 'туберкулез', 'инфаркт', 'психоз', 'шизофрения',
-      'слепота', 'кома', 'лихорадка', 'паралич', 'эпилепсия', 'бешенство',
+      'слепота', 'кома', 'лихорадка', 'паралич', 'эпилепсия', 'бешенство', 'кашель', 'зараза',
       'cancer', 'plague', 'hiv', 'tuberculosis', 'psychosis', 'schizophrenia',
-      'blindness', 'coma', 'fever', 'paralysis', 'epilepsy', 'rabies',
+      'blindness', 'coma', 'fever', 'paralysis', 'epilepsy', 'rabies', 'cough', 'infection',
       'saraton', 'vabo', 'oits', 'sil', 'infarkt', 'psixoz', 'shizofreniya',
-      'ko\'rlik', 'falaj', 'tutqanoq', 'quturish'
+      'ko\'rlik', 'falaj', 'tutqanoq', 'quturish', 'yo\'tal', 'yuqumli'
     ];
 
     this.goodHealthTerms = [
-      'абсолютно здоров', 'идеальное', 'спортсмен', 'крепкий иммунитет', 'вынослив',
-      'completely healthy', 'perfect health', 'athlete', 'strong immunity', 'endurance',
-      'mutlaqo sog\'lom', 'ideal salomatlik', 'sportchi', 'kuchli immunitet', 'bardoshli'
+      'абсолютно здоров', 'идеальное', 'спортсмен', 'крепкий иммунитет', 'вынослив', 'здоров',
+      'completely healthy', 'perfect health', 'athlete', 'strong immunity', 'endurance', 'healthy',
+      'mutlaqo sog\'lom', 'ideal salomatlik', 'sportchi', 'kuchli immunitet', 'bardoshli', 'sog\'lom'
     ];
 
     this.badLuggageTerms = [
-      'пустая', 'сломан', 'песок', 'мусор', 'яд', 'радиоактив', 'кирпич', 'доллары', 'фантики',
-      'empty', 'broken', 'sand', 'trash', 'poison', 'radioactive', 'brick', 'cash', 'useless',
-      'bo\'sh', 'singan', 'qum', 'chiqindi', 'zahar', 'radioaktiv', 'g\'isht', 'keraksiz'
+      'пустая', 'сломан', 'песок', 'мусор', 'яд', 'радиоактив', 'кирпич', 'доллары', 'фантики', 'плюшев', 'косметика',
+      'empty', 'broken', 'sand', 'trash', 'poison', 'radioactive', 'brick', 'cash', 'useless', 'makeup',
+      'bo\'sh', 'singan', 'qum', 'chiqindi', 'zahar', 'radioaktiv', 'g\'isht', 'keraksiz', 'pardoz'
     ];
 
     this.goodLuggageTerms = [
-      'аптечка', 'оружие', 'семена', 'генератор', 'фильтр', 'инструменты', 'консервы', 'вода', 'рация',
-      'first aid', 'weapon', 'seeds', 'generator', 'filter', 'tools', 'canned food', 'water', 'radio',
-      'dori-darmon', 'qurol', 'urug\'lar', 'generator', 'filtr', 'asboblar', 'konserva', 'suv', 'ratsiya'
+      'аптечка', 'оружие', 'семена', 'генератор', 'фильтр', 'инструменты', 'консервы', 'вода', 'рация', 'костюм',
+      'first aid', 'weapon', 'seeds', 'generator', 'filter', 'tools', 'canned food', 'water', 'radio', 'suit',
+      'dori-darmon', 'qurol', 'urug\'lar', 'generator', 'filtr', 'asboblar', 'konserva', 'suv', 'ratsiya', 'kostyum'
     ];
   }
 
-  // Оценка риска одного игрока на основе всех его открытых карт
-  // Чем выше число — тем выше риск и тем сильнее боты захотят выгнать игрока
-  evaluatePlayerRisk(player) {
+  // Определение типа катастрофы (радиация / вирус / ледниковый период / потоп / общая)
+  getDisasterType(disaster) {
+    if (!disaster) return 'generic';
+    const text = `${disaster.title?.ru || disaster.title || ''} ${disaster.desc?.ru || disaster.desc || ''}`.toLowerCase();
+    if (text.includes('радиац') || text.includes('ядерн') || text.includes('radiation') || text.includes('nuclear') || text.includes('yadro')) {
+      return 'radiation';
+    }
+    if (text.includes('вирус') || text.includes('эпидеми') || text.includes('мутаген') || text.includes('virus') || text.includes('outbreak') || text.includes('infeksiy')) {
+      return 'virus';
+    }
+    if (text.includes('ледник') || text.includes('холод') || text.includes('-70') || text.includes('ice') || text.includes('cold') || text.includes('muzlik')) {
+      return 'ice_age';
+    }
+    if (text.includes('потоп') || text.includes('наводнен') || text.includes('flood') || text.includes('suv toshqini')) {
+      return 'flood';
+    }
+    return 'generic';
+  }
+
+  // Оценка опасности/бесполезности игрока с учетом конкретной катастрофы и свежести открытых карт
+  evaluatePlayerRisk(player, disaster = null, currentRound = 1) {
     if (!player || !player.deck) return 0;
     let score = 0;
-
+    const disType = this.getDisasterType(disaster);
     const revealedCards = player.deck.filter(c => c.revealed);
 
     revealedCards.forEach(card => {
       const type = card.type || card.id;
       const rawText = `${card.value?.ru || card.value || ''} ${card.description?.ru || card.description || ''}`.toLowerCase();
+      const isFresh = card.revealedInRound === currentRound;
+      const freshFactor = isFresh ? 1.5 : 1.0;
 
       // 1. Профессия
       if (type === 'profession') {
         let matched = false;
         for (const [key, weight] of Object.entries(this.professionRanks)) {
           if (rawText.includes(key) || this.matchesProfessionKey(rawText, key)) {
-            score += weight;
+            let modWeight = weight;
+            // Коррекция под катастрофу
+            if (disType === 'virus' && (key.includes('doctor') || key.includes('chemist') || key.includes('biologist'))) {
+              modWeight -= 20; // Врач при эпидемии ещё важнее
+            } else if (disType === 'ice_age' && (key.includes('electrician') || key.includes('engineer') || key.includes('mechanic'))) {
+              modWeight -= 15; // Инженер при холоде спасает генератор
+            } else if (disType === 'radiation' && (key.includes('physicist') || key.includes('chemist') || key.includes('military'))) {
+              modWeight -= 15;
+            }
+            score += modWeight * freshFactor;
             matched = true;
             break;
           }
         }
-        if (!matched) score += 5; // Нейтральная профессия
+        if (!matched) score += 5 * freshFactor;
       }
 
       // 2. Здоровье
       else if (type === 'health') {
         const isBad = this.badHealthTerms.some(term => rawText.includes(term));
         const isGood = this.goodHealthTerms.some(term => rawText.includes(term));
-        if (isBad) score += 35;
-        else if (isGood) score -= 25;
-        else score += 5;
+        if (isBad) {
+          const delta = (disType === 'virus') ? 50 : 35;
+          score += delta * freshFactor;
+        } else if (isGood) {
+          const delta = (disType === 'virus') ? -30 : -22;
+          score += delta * freshFactor;
+        } else {
+          score += 5 * freshFactor;
+        }
       }
 
       // 3. Возраст
       else if (type === 'age') {
         const num = parseInt(rawText, 10);
         if (!isNaN(num)) {
-          if (num >= 70) score += 30;
-          else if (num >= 55) score += 15;
-          else if (num <= 14) score += 18;
-          else if (num >= 20 && num <= 35) score -= 15;
+          if (num >= 70) score += 30 * freshFactor;
+          else if (num >= 55) score += 15 * freshFactor;
+          else if (num <= 14) score += 18 * freshFactor;
+          else if (num >= 20 && num <= 35) score -= 15 * freshFactor;
         }
       }
 
@@ -99,15 +134,26 @@ class BotAiManager {
       else if (type === 'luggage') {
         const isBad = this.badLuggageTerms.some(term => rawText.includes(term));
         const isGood = this.goodLuggageTerms.some(term => rawText.includes(term));
-        if (isBad) score += 25;
-        else if (isGood) score -= 20;
+        if (isBad) {
+          score += 25 * freshFactor;
+        } else if (isGood) {
+          let bonus = 20;
+          if (disType === 'ice_age' && (rawText.includes('генератор') || rawText.includes('generator') || rawText.includes('обогрев'))) {
+            bonus = 40;
+          } else if (disType === 'radiation' && (rawText.includes('фильтр') || rawText.includes('filter') || rawText.includes('костюм'))) {
+            bonus = 35;
+          } else if (disType === 'virus' && (rawText.includes('аптечка') || rawText.includes('first aid') || rawText.includes('dori'))) {
+            bonus = 35;
+          }
+          score -= bonus * freshFactor;
+        }
       }
 
       // 5. Биология / Факт
       else if (type === 'fact' || type === 'biology') {
-        if (rawText.includes('бесплод') || rawText.includes('infert') || rawText.includes('bepusht')) score += 12;
-        if (rawText.includes('преступ') || rawText.includes('убий') || rawText.includes('crim') || rawText.includes('jinoyat')) score += 25;
-        if (rawText.includes('гений') || rawText.includes('наград') || rawText.includes('genius') || rawText.includes('chempion')) score -= 15;
+        if (rawText.includes('бесплод') || rawText.includes('infert') || rawText.includes('bepusht')) score += 18 * freshFactor;
+        if (rawText.includes('преступ') || rawText.includes('убий') || rawText.includes('crim') || rawText.includes('jinoyat')) score += 32 * freshFactor;
+        if (rawText.includes('гений') || rawText.includes('наград') || rawText.includes('genius') || rawText.includes('chempion')) score -= 16 * freshFactor;
       }
     });
 
@@ -116,46 +162,98 @@ class BotAiManager {
 
   matchesProfessionKey(text, key) {
     const dict = {
-      doctor: ['врач', 'доктор', 'медик', 'хирург', 'терапевт', 'shifokor', 'doktor'],
-      engineer: ['инженер', 'механик', 'строитель', 'электрик', 'muhandis', 'quruvchi'],
-      agronomist: ['агроном', 'фермер', 'ботаник', 'agronom', 'fermer'],
-      military: ['военный', 'солдат', 'офицер', 'спецназ', 'harbiy', 'askor'],
-      blogger: ['блогер', 'тиктокер', 'инфлюенсер', 'strimer', 'bloger'],
-      actor: ['актер', 'артист', 'модель', 'aktrisa', 'aktyor'],
-      psychic: ['экстрасенс', 'астролог', 'гадалка', 'munajjim', 'folbin']
+      doctor: ['врач', 'доктор', 'медик', 'хирург', 'терапевт', 'shifokor', 'doktor', 'physician', 'surgeon'],
+      engineer: ['инженер', 'механик', 'строитель', 'электрик', 'muhandis', 'quruvchi', 'engineer', 'mechanic'],
+      agronomist: ['агроном', 'фермер', 'ботаник', 'agronom', 'fermer', 'farmer', 'botanist'],
+      military: ['военный', 'солдат', 'офицер', 'спецназ', 'harbiy', 'askor', 'military', 'officer'],
+      blogger: ['блогер', 'тиктокер', 'инфлюенсер', 'strimer', 'bloger', 'blogger', 'influencer'],
+      actor: ['актер', 'артист', 'модель', 'aktrisa', 'aktyor', 'actor', 'model'],
+      psychic: ['экстрасенс', 'астролог', 'гадалка', 'munajjim', 'folbin', 'psychic', 'astrologer']
     };
     return (dict[key] || []).some(k => text.includes(k));
   }
 
-  // Выбор наилучшей цели для голосования конкретного бота
+  // Определение ключевой определяющей карты игрока (для точных аргументов в чате)
+  findKeyTrait(player) {
+    if (!player || !player.deck) return null;
+    const revealed = player.deck.filter(c => c.revealed);
+    if (revealed.length === 0) return null;
+
+    // Сначала ищем опасные болезни
+    for (const c of revealed) {
+      if ((c.type || c.id) === 'health') {
+        const text = `${c.value?.ru || c.value || ''}`.toLowerCase();
+        if (this.badHealthTerms.some(t => text.includes(t))) {
+          return { type: 'bad_health', card: c };
+        }
+      }
+    }
+
+    // Затем бесполезные профессии
+    for (const c of revealed) {
+      if ((c.type || c.id) === 'profession') {
+        const text = `${c.value?.ru || c.value || ''}`.toLowerCase();
+        for (const [key, weight] of Object.entries(this.professionRanks)) {
+          if (weight >= 25 && (text.includes(key) || this.matchesProfessionKey(text, key))) {
+            return { type: 'bad_profession', card: c };
+          }
+        }
+      }
+    }
+
+    // Затем плохой багаж
+    for (const c of revealed) {
+      if ((c.type || c.id) === 'luggage') {
+        const text = `${c.value?.ru || c.value || ''}`.toLowerCase();
+        if (this.badLuggageTerms.some(t => text.includes(t))) {
+          return { type: 'bad_luggage', card: c };
+        }
+      }
+    }
+
+    // Иначе берем последнюю открытую
+    return { type: 'generic', card: revealed[revealed.length - 1] };
+  }
+
+  // Умный выбор цели голосования с памятью и оценкой карт
   chooseVotingTarget(room, bot) {
-    const aliveTargets = room.players.filter(p => p.isAlive && p.id !== bot.id && !p.hasLeft);
+    const aliveTargets = room.players.filter(p => p.isAlive && p.id !== bot.id && !p.hasLeft && !p.hasImmunityThisRound);
     if (aliveTargets.length === 0) return null;
 
-    // Считаем полезность/опасность каждого кандидата
     const ranked = aliveTargets.map(player => {
-      let risk = this.evaluatePlayerRisk(player);
+      let risk = this.evaluatePlayerRisk(player, room.disaster, room.currentRound || 1);
 
-      // Самозащита: если этот игрок голосовал против бота в прошлом раунде, бот помнит об этом!
+      // Ответка: если этот игрок голосовал против бота в прошлых раундах, бот отвечает тем же
       if (player.lastRoundVotedFor === bot.id) {
+        risk += 25;
+      }
+      if (Array.isArray(bot.lastVotedAgainstBy) && bot.lastVotedAgainstBy.includes(player.id)) {
         risk += 22;
       }
+      if (player.votedFor === bot.id) {
+        risk += 20;
+      }
 
-      // Небольшая индивидуальная вариативность у каждого бота (10-15%), чтобы не все голосовали одинаково
+      // Не голосовать повторно против того же выжившего кандидата, если есть другие цели
+      if (bot.lastRoundVotedFor && bot.lastRoundVotedFor === player.id) {
+        risk -= 22;
+      }
+
+      // Небольшая индивидуальная вариация у ботов
       const noise = (Math.random() - 0.5) * 8;
       return { player, finalScore: risk + noise };
     });
 
     ranked.sort((a, b) => b.finalScore - a.finalScore);
 
-    // 80% времени выбираем самую опасную цель, 20% — вторую по опасности
-    if (ranked.length > 1 && Math.random() < 0.2) {
+    // 85% выбираем самую слабую/опасную цель
+    if (ranked.length > 1 && Math.random() < 0.15) {
       return ranked[1].player;
     }
     return ranked[0].player;
   }
 
-  // Генерация естественного сообщения от бота при вскрытии карты
+  // Короткая, человеческая реакция на вскрытие своей карты (макс 5-8 слов)
   generateRevealReaction(bot, card, room) {
     const type = card.type || card.id;
     const valRu = card.value?.ru || card.value || '';
@@ -163,21 +261,42 @@ class BotAiManager {
     const valEn = card.value?.en || valRu;
 
     if (type === 'profession') {
-      const goodProf = ['врач', 'инженер', 'строитель', 'агроном', 'военный', 'повар', 'электрик'];
+      const goodProf = ['врач', 'инженер', 'строитель', 'агроном', 'военный', 'повар', 'электрик', 'хирург'];
       const isGood = goodProf.some(p => valRu.toLowerCase().includes(p));
 
       if (isGood) {
-        return {
-          ru: `Моя профессия «${valRu}» — это критически важный навык. Без таких людей бункер просто не протянет.`,
-          uz: `Mening kasbim «${valUz}» — bu bunker uchun juda muhim soha. Mensiz uzoqqa borib bo'lmaydi.`,
-          en: `My profession is "${valEn}" — absolutely vital for the bunker. We need functional skills to survive.`
-        };
+        const phrases = [
+          {
+            ru: `«${valRu}» — это база, бункер без меня встанет.`,
+            uz: `«${valUz}» — bu baza, mensiz stansiya ishlamaydi.`,
+            en: `"${valEn}" is vital, shelter won't run without me.`
+          },
+          {
+            ru: `Я «${valRu}», берегите меня для финала.`,
+            uz: `Men «${valUz}»man, final uchun asranglar.`,
+            en: `I am a "${valEn}", keep me around for the end.`
+          },
+          {
+            ru: `Отличная профессия: «${valRu}». Не сливайте.`,
+            uz: `Ajoyib kasb: «${valUz}». Ovoz bermanglar.`,
+            en: `Top tier job: "${valEn}". Don't vote me out.`
+          }
+        ];
+        return phrases[Math.floor(Math.random() * phrases.length)];
       } else {
-        return {
-          ru: `Да, у меня «${valRu}», но не спешите делать выводы — подождите, пока я открою багаж и здоровье!`,
-          uz: `Ha, menda «${valUz}», lekin shoshilmang — qolgan kartalarim va yukimni ham ko'ring!`,
-          en: `Yes, I got "${valEn}", but don't jump to conclusions yet — wait until you see my luggage and health!`
-        };
+        const phrases = [
+          {
+            ru: `Профессия средняя, но здоровье топ.`,
+            uz: `Kasb o'rtacha, lekin sog'ligim a'lo.`,
+            en: `Average profession, but my health is solid.`
+          },
+          {
+            ru: `Не спешите сливать, дальше мощные карты.`,
+            uz: `Shoshilmanglar, keyingi kartalarim kuchli.`,
+            en: `Don't rush to vote me, my next cards are strong.`
+          }
+        ];
+        return phrases[Math.floor(Math.random() * phrases.length)];
       }
     }
 
@@ -185,157 +304,272 @@ class BotAiManager {
       const isBad = this.badHealthTerms.some(term => valRu.toLowerCase().includes(term));
       if (isBad) {
         return {
-          ru: `Да, по здоровью есть нюансы («${valRu}»), но я всё ещё полностью дееспособен и полезен команде.`,
-          uz: `Salomatligimda biroz muammo bor («${valUz}»), lekin men baribir jamoaga juda ko'p foyda bera olaman.`,
-          en: `I have a health condition ("${valEn}"), but I can still work hard and contribute to our survival.`
+          ru: `Есть нюанс со здоровьем, но работать смогу на все 100%.`,
+          uz: `Salomatlikda nuqson bor, lekin to'liq ishlay olaman.`,
+          en: `Minor health issue, but I can work at 100%.`
         };
       } else {
         return {
-          ru: `Отличное здоровье («${valRu}»)! Никаких заразных болезней, крепкий организм для выживания.`,
-          uz: `Salomatligim a'lo darajada («${valUz}»)! Hech qanday yuqumli kasallik yo'q, baquvvatman.`,
-          en: `Clean health record ("${valEn}")! No infectious risks, robust constitution for the bunker.`
+          ru: `Здоровье чистое («${valRu}»), нулевой риск заразы.`,
+          uz: `Salomatlik a'lo («${valUz}»), hech qanday yuqumli xavf yo'q.`,
+          en: `Clean health record ("${valEn}"), zero infection risk.`
         };
       }
     }
 
     if (type === 'luggage') {
+      const isBad = this.badLuggageTerms.some(term => valRu.toLowerCase().includes(term));
+      if (isBad) {
+        return {
+          ru: `Багаж так себе, зато навыки полезные.`,
+          uz: `Yuk oddiy, lekin kasbim foydali.`,
+          en: `Luggage is simple, but my skills compensate.`
+        };
+      }
       return {
-        ru: `В моём багаже: «${valRu}». Это обязательно пригодится при обустройстве убежища.`,
-        uz: `Yukimda: «${valUz}». Bu buyum bunker ichida barchamizga asqotadi.`,
-        en: `In my luggage: "${valEn}". This will be extremely useful for establishing the shelter.`
+        ru: `Полезный багаж: «${valRu}». Всем пригодится.`,
+        uz: `Foydali yuk: «${valUz}». Hammamizga kerak.`,
+        en: `Great item: "${valEn}". We will definitely use it.`
       };
     }
 
     return null;
   }
 
-  // Генерация сообщения аргументации при голосовании
+  // Короткий, точный аргумент при голосовании (5-10 слов, четко по картам)
   generateVotingArgument(bot, target, room) {
-    const revealedCards = (target.deck || []).filter(c => c.revealed);
-    const targetCard = revealedCards.find(c => c.revealedInRound === room.currentRound) || revealedCards[0];
+    const keyTrait = this.findKeyTrait(target);
+    const cardRu = keyTrait?.card ? (keyTrait.card.value?.ru || keyTrait.card.value) : '';
+    const cardUz = keyTrait?.card ? (keyTrait.card.value?.uz || cardRu) : '';
+    const cardEn = keyTrait?.card ? (keyTrait.card.value?.en || cardRu) : '';
 
-    const cardValRu = targetCard ? (targetCard.value?.ru || targetCard.value) : '';
-    const cardValUz = targetCard ? (targetCard.value?.uz || cardValRu) : '';
-    const cardValEn = targetCard ? (targetCard.value?.en || cardValRu) : '';
+    if (keyTrait?.type === 'bad_health') {
+      const phrases = [
+        {
+          ru: `Голос в ${target.name}. Болезнь «${cardRu}» опасна для бункера.`,
+          uz: `${target.name}ga ovoz. «${cardUz}» kasalligi bunkerga xavf tug'diradi.`,
+          en: `Voting ${target.name}. That disease ("${cardEn}") is dangerous for us.`
+        },
+        {
+          ru: `Сливаю ${target.name}. С такой болезнью не выживем.`,
+          uz: `${target.name}ni chiqaramiz. Bu kasallik bilan omon qolmaymiz.`,
+          en: `Eliminating ${target.name}. Shelter won't survive that infection.`
+        }
+      ];
+      return phrases[Math.floor(Math.random() * phrases.length)];
+    }
 
-    const templates = [
+    if (keyTrait?.type === 'bad_profession') {
+      const phrases = [
+        {
+          ru: `Голосую за ${target.name}. «${cardRu}» нам в бункере не поможет.`,
+          uz: `${target.name}ga ovoz. «${cardUz}» bunkerda yordam bermaydi.`,
+          en: `Voting ${target.name}. "${cardEn}" won't help us down there.`
+        },
+        {
+          ru: `${target.name}, сорян, но профессия бесполезна для базы.`,
+          uz: `${target.name}, xafa bo'lma, lekin bu kasb baza uchun keraksiz.`,
+          en: `${target.name}, sorry, but that job has zero value for the bunker.`
+        }
+      ];
+      return phrases[Math.floor(Math.random() * phrases.length)];
+    }
+
+    const genericPhrases = [
       {
-        ru: `Голосую против ${target.name}. Карта «${cardValRu}» несёт слишком большой риск для нашей команды.`,
-        uz: `${target.name}ga qarshi ovoz beraman. «${cardValUz}» kartasi jamoamiz uchun xavfli.`,
-        en: `Voting against ${target.name}. The card "${cardValEn}" poses too much risk for our shelter.`
+        ru: `Мой голос за ${target.name}. Мест всего ${room.bunkerCapacity || 2}, надо чистить слабых.`,
+        uz: `Mening ovozim ${target.name}ga. Joy atigi ${room.bunkerCapacity || 2} ta, zaiflarni chiqaramiz.`,
+        en: `My vote goes to ${target.name}. Only ${room.bunkerCapacity || 2} spots left, cutting weak cards.`
       },
       {
-        ru: `Посмотрел на карты ${target.name} (${cardValRu}). Сейчас это самый слабый участник для бункера.`,
-        uz: `${target.name}ning kartalarini ko'rib chiqdim (${cardValUz}). Hozir u eng zaif ishtirokchi bo'lib turibdi.`,
-        en: `Looking at ${target.name}'s cards (${cardValEn}), they currently have the least utility for our bunker.`
-      },
-      {
-        ru: `Нам нужно беречь ресурсы базы. Мой голос против ${target.name}.`,
-        uz: `Bunker resurslarini asrashimiz kerak. Ovozim ${target.name}ga qarshi.`,
-        en: `We need to conserve our supplies. My vote goes against ${target.name}.`
-      },
-      {
-        ru: `Ничего личного, но у ${target.name} с «${cardValRu}» шансы вытащить бункер минимальные. Отдаю голос за изгнание.`,
-        uz: `Shaxsiy adovatim yo'q, lekin ${target.name} «${cardValUz}» bilan jamoani torta olmaydi. Uni chiqarishga ovoz beraman.`,
-        en: `Nothing personal, but ${target.name} with "${cardValEn}" won't pull their weight. Voting them out.`
+        ru: `Сливаю ${target.name}, по картам наименьшая польза.`,
+        uz: `${target.name}ni chiqaramiz, kartalari eng kam foyda beradi.`,
+        en: `Voting ${target.name}, lowest utility for the team.`
       }
     ];
-
-    const idx = Math.floor(Math.random() * templates.length);
-    return templates[idx];
+    return genericPhrases[Math.floor(Math.random() * genericPhrases.length)];
   }
 
-  // Реакция на изгнание
+  // Живая эмоциональная реакция на изгнание
   generateExileReaction(exiledPlayer, isBotExiled) {
     if (isBotExiled) {
-      const botExiledPhrases = [
+      const phrases = [
         {
-          ru: `Серьёзно?! Вы совершаете критическую ошибку. Удачи выжить без моих навыков!`,
-          uz: `Rostdanmi?! Katta xatoga yo'l qo'yyapsizlar. Mensiz omon qolishga omad!`,
-          en: `Seriously?! You're making a massive mistake. Good luck surviving without my skills!`
+          ru: `Серьёзно?! Без моих навыков станция не вытянет.`,
+          uz: `Rostdanmi?! Mensiz bunker uzoqqa bormaydi.`,
+          en: `Seriously?! You won't last long without my skills.`
         },
         {
-          ru: `Зря вы так... Я был готов сделать всё для бункера. Пустошь меня не сломает!`,
-          uz: `Bekor qildingiz... Men bunker uchun hamma narsaga tayyor edim. Tashqarida ham yashab ketaman!`,
-          en: `Big mistake... I was ready to do whatever it takes for our base. The wasteland won't break me!`
+          ru: `Критическая ошибка команды. Удачи в пустоши.`,
+          uz: `Katta xato qildinglar. Qolganlarga omad.`,
+          en: `Huge mistake, guys. Good luck in the wasteland.`
         },
         {
-          ru: `Что ж, посмотрим, как долго вы протянете без меня, когда закончатся припасы!`,
-          uz: `Mayli, zaxiralar tugaganda mensiz qancha vaqt chidashingizni ko'ramiz!`,
-          en: `Well, let's see how long you last once your supplies run out without me!`
+          ru: `Зря слили... Я бы вытащил команду до победы.`,
+          uz: `Bekor qildingiz... Men komandani g'alabagacha tortardim.`,
+          en: `Wrong call... I could have carried us to victory.`
         }
       ];
-      return botExiledPhrases[Math.floor(Math.random() * botExiledPhrases.length)];
+      return phrases[Math.floor(Math.random() * phrases.length)];
     } else {
-      const spectatorPhrases = [
+      const phrases = [
         {
-          ru: `Решение тяжёлое, но места в бункере строго ограничены. Двигаемся дальше.`,
-          uz: `Qiyin qaror bo'ldi, lekin bunkerda joylar juda cheklangan. Davom etamiz.`,
-          en: `Tough decision, but bunker spots are strictly limited. Moving forward.`
+          ru: `Шлюз закрыт. Мест мало, идём дальше.`,
+          uz: `Eshiklar yopildi. Joy kam qoldi, davom etamiz.`,
+          en: `Airlock sealed. Spots running out, moving on.`
         },
         {
-          ru: `Логичный выбор большинства. Бункер стал безопаснее.`,
-          uz: `Ko'pchilikning mantiqiy tanlovi. Bunker ancha xavfsizroq bo'ldi.`,
-          en: `Logical choice by the majority. The bunker is safer now.`
+          ru: `Логичное решение большинства.`,
+          uz: `Ko'pchilikning mantiqiy qarori.`,
+          en: `Logical choice by the majority.`
         },
         {
-          ru: `Гермошлюз закрыт. Теперь нужно внимательно оценивать оставшихся.`,
-          uz: `Eshiklar yopildi. Endi qolganlarni diqqat bilan tahlil qilishimiz kerak.`,
-          en: `The airlock is sealed. Now we must evaluate the remaining survivors carefully.`
+          ru: `Минус балласт. Смотрим на оставшихся.`,
+          uz: `Baland kamaydi. Qolganlarga qaraymiz.`,
+          en: `One less liability. Watch the remaining players.`
         }
       ];
-      return spectatorPhrases[Math.floor(Math.random() * spectatorPhrases.length)];
+      return phrases[Math.floor(Math.random() * phrases.length)];
     }
   }
 
-  // Обсуждение между выжившими в фазе дискуссии (живой чат)
+  // Короткие, живые реплики в чате дискуссии (макс 6-10 слов)
   generateDiscussionRemark(bot, room) {
     const aliveOthers = room.players.filter(p => p.isAlive && p.id !== bot.id && !p.hasLeft);
     if (aliveOthers.length === 0) return null;
 
-    const target = aliveOthers[Math.floor(Math.random() * aliveOthers.length)];
-    const revealedCards = (target.deck || []).filter(c => c.revealed);
-    if (revealedCards.length === 0) return null;
+    // Ищем игрока с опасной болезнью
+    const diseased = aliveOthers.find(p => {
+      const hCard = (p.deck || []).find(c => c.revealed && (c.type || c.id) === 'health');
+      if (!hCard) return false;
+      const text = `${hCard.value?.ru || hCard.value || ''}`.toLowerCase();
+      return this.badHealthTerms.some(t => text.includes(t));
+    });
 
-    const randomCard = revealedCards[Math.floor(Math.random() * revealedCards.length)];
-    const cardValRu = randomCard.value?.ru || randomCard.value || '';
-    const cardValUz = randomCard.value?.uz || cardValRu;
-    const cardValEn = randomCard.value?.en || cardValRu;
+    if (diseased) {
+      return {
+        ru: `Смотрите на ${diseased.name}. С такой болезнью в бункер нельзя.`,
+        uz: `${diseased.name}ga qaranglar. Bu kasallik bilan bunkerga kirib bo'lmaydi.`,
+        en: `Look at ${diseased.name}. That illness cannot enter the shelter.`
+      };
+    }
 
-    const remarks = [
+    // Ищем игрока с бесполезной профессией
+    const uselessProf = aliveOthers.find(p => {
+      const pCard = (p.deck || []).find(c => c.revealed && (c.type || c.id) === 'profession');
+      if (!pCard) return false;
+      const text = `${pCard.value?.ru || pCard.value || ''}`.toLowerCase();
+      return Object.entries(this.professionRanks).some(([k, w]) => w >= 30 && text.includes(k));
+    });
+
+    if (uselessProf) {
+      return {
+        ru: `Зачем нам ${uselessProf.name}? Нам инженеры и врачи нужны.`,
+        uz: `${uselessProf.name} bunkerda nima qilib beradi? Bizga mutaxassislar kerak.`,
+        en: `Why do we need ${uselessProf.name}? We need engineers and doctors.`
+      };
+    }
+
+    const generalRemarks = [
       {
-        ru: `Кто что думает про карту ${target.name} («${cardValRu}»)? Насколько это безопасно для базы?`,
-        uz: `${target.name}ning «${cardValUz}» kartasi haqida kim nima deb o'ylaydi? Bu qanchalik xavfsiz?`,
-        en: `What does everyone think about ${target.name}'s "${cardValEn}"? Is that safe enough for the bunker?`
+        ru: `Мест всего ${room.bunkerCapacity || 2}, голосуем с холодной головой.`,
+        uz: `Joy atigi ${room.bunkerCapacity || 2} ta, aql bilan ovoz beringlar.`,
+        en: `Only ${room.bunkerCapacity || 2} spots left, vote carefully.`
       },
       {
-        ru: `Нам в первую очередь нужны специалисты для жизнеобеспечения. Давайте взвешивать факты спокойно.`,
-        uz: `Bizga birinchi navbatda hayotni saqlab qoluvchi mutaxassislar kerak. Keling, barchasini xotirjam tahlil qilaylik.`,
-        en: `We primarily need life-support specialists. Let's weigh the facts calmly.`
+        ru: `Кого сливаем? Кто самый слабый по картам?`,
+        uz: `Kimni chiqaramiz? Kartalari bo'yicha kim eng zaif?`,
+        en: `Who are we voting out? Who has the lowest utility?`
       },
       {
-        ru: `Учтите, что мест в бункере всего ${room.bunkerCapacity}. Слабые карты нам сейчас ни к чему.`,
-        uz: `Yodda tuting, bunkerda atigi ${room.bunkerCapacity} ta joy bor. Zaif kartalar bizga xalal beradi.`,
-        en: `Keep in mind there are only ${room.bunkerCapacity} spots in the bunker. We cannot carry passengers.`
-      },
-      {
-        ru: `Я считаю, нам нужно беречь медикаменты и фильтры. Давайте голосовать с холодной головой.`,
-        uz: `Mening fikrimcha, dorilar va filtrlarni asrashimiz kerak. Aql bilan ovoz beraylik.`,
-        en: `I think we need to conserve medicines and filters. Let's vote with a clear head.`
-      },
-      {
-        ru: `Смотрите на багаж и здоровье: бункер должен протянуть долгие месяцы под землей.`,
-        uz: `Yuklar va salomatlikka qarang: bunker yer ostida oylab chidashi shart.`,
-        en: `Look at the luggage and health records: the bunker must hold out for months underground.`
-      },
-      {
-        ru: `У кого какие мысли перед голосованием? Против кого отдавать голос?`,
-        uz: `Ovoz berishdan oldin kimda qanday fikrlar bor? Kimga qarshi ovoz beramiz?`,
-        en: `Any strong thoughts before voting? Who are we targeting?`
+        ru: `Врачей и техников не трогаем, это база выживания.`,
+        uz: `Shifokor va muhandislarga tegmanglar, ular tirik qolish asosi.`,
+        en: `Don't touch doctors or technicians, they are vital.`
       }
     ];
+    return generalRemarks[Math.floor(Math.random() * generalRemarks.length)];
+  }
 
-    return remarks[Math.floor(Math.random() * remarks.length)];
+  // Живой ответ бота на сообщение реального игрока в чате
+  generateChatReply(bot, sender, incomingText, room) {
+    if (!incomingText) return null;
+    const txt = incomingText.toLowerCase();
+
+    // 1. Игрок спрашивает кого выгонять ("кого", "кто", "кому", "кикаем", "сливаем", "kimni", "who", "vote")
+    if (txt.includes('кого') || txt.includes('кто') || txt.includes('кому') || txt.includes('слива') || txt.includes('кика') || txt.includes('who') || txt.includes('kim')) {
+      const target = this.chooseVotingTarget(room, bot);
+      if (target) {
+        const keyTrait = this.findKeyTrait(target);
+        const cardRu = keyTrait?.card ? (keyTrait.card.value?.ru || keyTrait.card.value) : '';
+        const cardUz = keyTrait?.card ? (keyTrait.card.value?.uz || cardRu) : '';
+        const cardEn = keyTrait?.card ? (keyTrait.card.value?.en || cardRu) : '';
+
+        if (keyTrait?.type === 'bad_health' && cardRu) {
+          return {
+            ru: `Думаю, надо убирать ${target.name}. Болезнь «${cardRu}» слишком опасна.`,
+            uz: `Menimcha ${target.name}ni chiqarish kerak. «${cardUz}» kasalligi xavfli.`,
+            en: `I think we should vote out ${target.name}. "${cardEn}" is too hazardous.`
+          };
+        }
+
+        if (keyTrait?.type === 'bad_profession' && cardRu) {
+          return {
+            ru: `Сливаем ${target.name}. От «${cardRu}» толку в бункере ноль.`,
+            uz: `${target.name}ni chiqaramiz. «${cardUz}» kasbining foydasi yo'q.`,
+            en: `Vote out ${target.name}. Zero shelter utility from "${cardEn}".`
+          };
+        }
+
+        return {
+          ru: `Думаю, надо голосовать за ${target.name}, слабый расклад.`,
+          uz: `Menimcha ${target.name}ga ovoz berish kerak, kartalari zaif.`,
+          en: `I say we vote ${target.name}, weakest cards by far.`
+        };
+      }
+    }
+
+    // 2. Вопрос "почему", "за что"
+    if (txt.includes('почему') || txt.includes('за что') || txt.includes('nima uchun') || txt.includes('nega') || txt.includes('why')) {
+      return {
+        ru: `Чисто холодный расчёт. Смотрю на полезность для базы.`,
+        uz: `Faqat sovuq hisob-kitob. Bunkerga kim foydali ekanligiga qarayapman.`,
+        en: `Pure calculation. Looking strictly at shelter utility.`
+      };
+    }
+
+    // 3. Игрок защищается ("не сливайте", "meni tegmang", "don't vote")
+    if (txt.includes('не слива') || txt.includes('не голосуй') || txt.includes('meni tegmang') || txt.includes('dont vote') || txt.includes('don\'t vote')) {
+      return {
+        ru: `Покажи следующие карты. Пока доверия мало.`,
+        uz: `Keyingi kartalaringni och. Hozircha xavfli ko'rinyapsan.`,
+        en: `Show your next cards. Risky bet so far.`
+      };
+    }
+
+    // 4. Игрок упомянул бота по имени или словом "бот"
+    if (txt.includes(bot.name.toLowerCase()) || txt.includes('бот') || txt.includes('bot')) {
+      return {
+        ru: `Я в игре. Карты топовые, играю на командную победу.`,
+        uz: `O'yindaman. Kartalarim zo'r, jamoaviy g'alaba uchun o'ynayman.`,
+        en: `I'm here. Strong deck, playing for team survival.`
+      };
+    }
+
+    // 5. Разговор о врачах / инженерах
+    if (txt.includes('врач') || txt.includes('доктор') || txt.includes('shifokor') || txt.includes('doctor') || txt.includes('инженер') || txt.includes('muhandis')) {
+      return {
+        ru: `Медиков и инженеров бережём, без них бункер умрёт.`,
+        uz: `Shifokor va muhandislarni asraymiz, ularsiz bunker yashamaydi.`,
+        en: `Keep medics and engineers alive, shelter dies without them.`
+      };
+    }
+
+    // 6. Обычный реалистичный ответ игрока
+    return {
+      ru: `Согласен. Надо внимательно смотреть на болезни и багаж.`,
+      uz: `Qo'shilaman. Kasalliklar va yuklarga diqqat bilan qarash kerak.`,
+      en: `Agreed. Watch the health and luggage closely.`
+    };
   }
 }
 

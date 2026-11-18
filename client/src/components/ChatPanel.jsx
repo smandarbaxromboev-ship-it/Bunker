@@ -481,8 +481,8 @@ export default function ChatPanel({
                     : 'bg-zinc-800/80 border-cyan-400 text-zinc-300'
                 }`}>
                   <CornerDownRight className="w-3 h-3 shrink-0 opacity-70" />
-                  <span className="font-bold shrink-0">{msg.replyTo.senderName}:</span>
-                  <span className="truncate opacity-90">{msg.replyTo.text}</span>
+                  <span className="font-bold shrink-0">{getLocalized(msg.replyTo.senderName, lang) || msg.replyTo.senderName}:</span>
+                  <span className="truncate opacity-90">{getLocalized(msg.replyTo.text, lang) || msg.replyTo.text}</span>
                 </div>
               )}
 

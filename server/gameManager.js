@@ -617,15 +617,15 @@ class GameManager {
           uz: `${bot.name} kartani ochdi: [${nameUz}] — "${valUz}"`
         });
 
-        // Бот изредка (редко) комментирует свою карту, чтобы не спамить в чат
+        // Бот с умеренной вероятностью (25%) комментирует свою карту коротко и по делу
         const reaction = botAiManager.generateRevealReaction(bot, chosen, room);
-        if (reaction && Math.random() < 0.15) {
+        if (reaction && Math.random() < 0.25) {
           this.setPlayerTyping(room.code, bot.id, bot.name);
           setTimeout(() => {
             const currentRoom = this.rooms.get(room.code);
             if (!currentRoom) return;
             this.sendBotChatMessage(currentRoom, bot, reaction);
-          }, 1500);
+          }, 1200);
         }
       }
     }
@@ -1013,16 +1013,18 @@ class GameManager {
 
         bot.votedFor = target.id;
 
-        // Боты пишут в чат крайне редко, чтобы не засорять чат
-        if (orderIdx === 0 && Math.random() < 0.15) {
+        // Бот с вероятностью 30% коротко поясняет свой голос в чате (четко по картам)
+        if (Math.random() < 0.3) {
           const votingArg = botAiManager.generateVotingArgument(bot, target, currentRoom);
-          this.setPlayerTyping(currentRoom.code, bot.id, bot.name);
+          if (votingArg) {
+            this.setPlayerTyping(currentRoom.code, bot.id, bot.name);
 
-          setTimeout(() => {
-            const liveRoom = this.rooms.get(room.code);
-            if (!liveRoom) return;
-            this.sendBotChatMessage(liveRoom, bot, votingArg);
-          }, 1600);
+            setTimeout(() => {
+              const liveRoom = this.rooms.get(room.code);
+              if (!liveRoom) return;
+              this.sendBotChatMessage(liveRoom, bot, votingArg);
+            }, 1200);
+          }
         }
 
         // Проверяем: если ВСЕ живые игроки (и люди, и боты) уже отдали свои голоса — завершаем голосование!
@@ -1675,30 +1677,40 @@ class GameManager {
       }, 1200);
     }
 
-    // Если реальный человек написал в чат во время дискуссии — бот изредка (редко) отвечает
-    if (!sender.isBot && room.status === 'ROUND_DISCUSSION' && text && text.trim().length > 1 && Math.random() < 0.15) {
-      const availableBots = room.players.filter(p => p.isAlive && p.isBot);
-      if (availableBots.length > 0) {
-        const replyingBot = availableBots[Math.floor(Math.random() * availableBots.length)];
-        const delay = 1800 + Math.floor(Math.random() * 1200);
+    // Если реальный человек написал в чат во время дискуссии — бот осмысленно отвечает или комментирует
+    if (!sender.isBot && room.status === 'ROUND_DISCUSSION' && text && text.trim().length > 1) {
+      const lower = text.toLowerCase();
+      const isQuestionOrMention = lower.includes('?') || lower.includes('кого') || lower.includes('кто') ||
+                                  lower.includes('кому') || lower.includes('ким') || lower.includes('kim') ||
+                                  lower.includes('who') || lower.includes('бот') || lower.includes('bot') ||
+                                  lower.includes('почему') || lower.includes('за что') || lower.includes('nega');
+      const replyChance = isQuestionOrMention ? 0.6 : 0.22;
 
-        setTimeout(() => {
-          const liveRoom = this.rooms.get(code);
-          if (!liveRoom || liveRoom.status !== 'ROUND_DISCUSSION') return;
-          if (!replyingBot.isAlive) return;
-
-          this.setPlayerTyping(code, replyingBot.id, replyingBot.name);
+      if (Math.random() < replyChance) {
+        const availableBots = room.players.filter(p => p.isAlive && p.isBot);
+        if (availableBots.length > 0) {
+          const replyingBot = availableBots[Math.floor(Math.random() * availableBots.length)];
+          const delay = 900 + Math.floor(Math.random() * 800);
 
           setTimeout(() => {
-            const finalRoom = this.rooms.get(code);
-            if (!finalRoom || finalRoom.status !== 'ROUND_DISCUSSION') return;
+            const liveRoom = this.rooms.get(code);
+            if (!liveRoom || liveRoom.status !== 'ROUND_DISCUSSION') return;
+            if (!replyingBot.isAlive) return;
 
-            const remark = botAiManager.generateDiscussionRemark(replyingBot, finalRoom);
-            if (remark) {
-              this.sendBotChatMessage(finalRoom, replyingBot, remark);
-            }
-          }, 1600);
-        }, delay);
+            this.setPlayerTyping(code, replyingBot.id, replyingBot.name);
+
+            setTimeout(() => {
+              const finalRoom = this.rooms.get(code);
+              if (!finalRoom || finalRoom.status !== 'ROUND_DISCUSSION') return;
+
+              const remark = botAiManager.generateChatReply(replyingBot, sender, text, finalRoom) ||
+                             botAiManager.generateDiscussionRemark(replyingBot, finalRoom);
+              if (remark) {
+                this.sendBotChatMessage(finalRoom, replyingBot, remark);
+              }
+            }, 1200);
+          }, delay);
+        }
       }
     }
   }
