@@ -427,7 +427,7 @@ export const translations = {
     votesRecorded: "Votes:",
     yourVoteRecorded: "YOUR SECRET VOTE IS RECORDED",
     waitingOtherVotes: "Waiting for remaining votes. Terminal will announce the exile shortly!",
-    btnVote: "VOTE TO EXILE",
+    btnVote: "EXILE",
     btnStartVoting: "START VOTING",
     votingShort: "VOTE",
     
@@ -763,7 +763,7 @@ export const translations = {
     votesRecorded: "Ovozlar:",
     yourVoteRecorded: "SIZNING YASHIRIN OVOZINGIZ QABUL QILINDI",
     waitingOtherVotes: "Qolgan ishtirokchilar qarori kutilmoqda. Tez orada haydalgan shaxs e'lon qilinadi!",
-    btnVote: "CHIQARIB YUBORISH",
+    btnVote: "CHIQARISH",
     btnStartVoting: "OVOZ BERISHNI BOSHLASH",
     votingShort: "OVOZ",
     

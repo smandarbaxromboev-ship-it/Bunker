@@ -367,6 +367,7 @@ export default function App() {
   const [isVoiceConnected, setIsVoiceConnected] = useState(false);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
   const [isVoiceSpeaking, setIsVoiceSpeaking] = useState(false);
+  const [isVoiceLoud, setIsVoiceLoud] = useState(false);
   const [voicePeers, setVoicePeers] = useState([]);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
 
@@ -375,8 +376,9 @@ export default function App() {
     vm.onPeersUpdate = (peersList) => {
       setVoicePeers(peersList);
     };
-    vm.onLocalSpeakingUpdate = (speaking) => {
+    vm.onLocalSpeakingUpdate = (speaking, isLoud) => {
       setIsVoiceSpeaking(speaking);
+      setIsVoiceLoud(Boolean(isLoud));
     };
     vm.onError = (err) => {
       console.warn('[VOICE] Error:', err);
@@ -1771,6 +1773,7 @@ export default function App() {
           isVoiceConnected={isVoiceConnected}
           isVoiceMuted={isVoiceMuted}
           isVoiceSpeaking={isVoiceSpeaking}
+          isVoiceLoud={isVoiceLoud}
           voicePeers={voicePeers}
           atmosphereEnabled={atmosphereEnabled}
           setAtmosphereEnabled={handleToggleAtmosphere}
@@ -1848,6 +1851,7 @@ export default function App() {
           isVoiceConnected={isVoiceConnected}
           isVoiceMuted={isVoiceMuted}
           isVoiceSpeaking={isVoiceSpeaking}
+          isVoiceLoud={isVoiceLoud}
           voicePeers={voicePeers}
           atmosphereEnabled={atmosphereEnabled}
           setAtmosphereEnabled={handleToggleAtmosphere}
@@ -2337,6 +2341,7 @@ export default function App() {
         isConnected={isVoiceConnected}
         isMuted={isVoiceMuted}
         isSpeaking={isVoiceSpeaking}
+        isLoud={isVoiceLoud}
         peers={voicePeers}
         myPlayerId={myPlayerId}
         players={roomState?.players || []}

@@ -1066,7 +1066,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('voiceState', ({ roomCode, isMuted, isSpeaking }) => {
+  socket.on('voiceState', ({ roomCode, isMuted, isSpeaking, isLoud }) => {
     const code = roomCode || socket.voiceRoomCode;
     if (!code || !global.voiceRooms || !global.voiceRooms.has(code)) return;
     const roomMap = global.voiceRooms.get(code);
@@ -1074,11 +1074,13 @@ io.on('connection', (socket) => {
     if (peerData) {
       if (isMuted !== undefined) peerData.isMuted = Boolean(isMuted);
       if (isSpeaking !== undefined) peerData.isSpeaking = Boolean(isSpeaking);
+      if (isLoud !== undefined) peerData.isLoud = Boolean(isLoud);
       socket.to(`voice_${code}`).emit('voiceStateUpdated', {
         socketId: socket.id,
         playerId: peerData.playerId,
         isMuted: peerData.isMuted,
-        isSpeaking: peerData.isSpeaking
+        isSpeaking: peerData.isSpeaking,
+        isLoud: peerData.isLoud
       });
     }
   });

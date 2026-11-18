@@ -58,7 +58,7 @@ export default function PlayerCard({
       }`}
     >
       {/* Top Header Card Bar */}
-      <div className={`p-3 sm:p-3.5 border-b flex items-center justify-between gap-2 transition-colors ${
+      <div className={`p-2.5 sm:p-3.5 border-b flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 transition-colors ${
         !isAlive 
           ? 'border-red-900/50 bg-red-950/20 text-slate-500 dark:text-zinc-500' 
           : isSpeaking
@@ -67,7 +67,7 @@ export default function PlayerCard({
           ? 'border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10' 
           : 'border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/40'
       }`}>
-        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
           <CharacterAvatar
             character={character}
             isAlive={isAlive}
@@ -77,9 +77,9 @@ export default function PlayerCard({
             lang={lang}
           />
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className={`font-display font-bold text-sm sm:text-base truncate ${
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`font-display font-bold text-sm sm:text-base truncate max-w-[140px] sm:max-w-[180px] ${
                 !isAlive ? 'line-through text-red-500 dark:text-red-400' : isSelf ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-white'
               }`}>
                 {player.name}
@@ -91,9 +91,9 @@ export default function PlayerCard({
               )}
             </div>
             
-            <div className="text-[10px] font-mono flex items-center gap-1.5 mt-0.5">
+            <div className="text-[10px] font-mono flex items-center gap-1.5 mt-1 flex-wrap">
               {character?.title && (
-                <span className={`font-bold uppercase tracking-wider truncate max-w-[120px] ${
+                <span className={`font-bold uppercase tracking-wider truncate max-w-[110px] ${
                   !isAlive ? 'line-through text-zinc-500' : (character.titleColor || 'text-slate-400')
                 }`}>
                   {getLocalized(character.title, lang)}
@@ -135,7 +135,7 @@ export default function PlayerCard({
           <button
             onClick={() => !myHasVoted && onVoteTarget(player.id)}
             disabled={myHasVoted}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition flex items-center gap-1 shrink-0 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition flex items-center gap-1 shrink-0 ml-auto whitespace-nowrap ${
               hasVotedForThis
                 ? 'bg-red-600 text-white shadow-md shadow-red-600/30 cursor-default ring-2 ring-red-400'
                 : myHasVoted

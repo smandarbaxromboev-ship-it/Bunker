@@ -1645,7 +1645,7 @@ class GameManager {
     const msgIndex = room.messages.findIndex(m => m.id === messageId);
     if (msgIndex === -1) return;
     const msg = room.messages[msgIndex];
-    if (msg.senderId !== senderId && room.hostId !== senderId) return;
+    if (msg.senderId !== senderId) return; // Разрешено удалять ТОЛЬКО свои собственные сообщения
     room.messages.splice(msgIndex, 1);
     room.players.forEach(p => {
       if (p.socketId) {

@@ -383,7 +383,7 @@ export default function ChatPanel({
 
           const isMe = msg.senderId === myPlayerId;
           const isGhostMsg = Boolean(msg.isGhost);
-          const canDelete = isMe || isHost;
+          const canDelete = isMe; // Можно удалять ТОЛЬКО свои собственные сообщения
           const canEdit = isMe && !msg.voice && !msg.sticker;
           const otherReaders = (msg.readBy || []).filter(r => r.id !== myPlayerId);
 

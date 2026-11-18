@@ -26,6 +26,7 @@ export class VoiceChatManager {
     this.isMuted = false;
     this.isConnected = false;
     this.isSpeaking = false;
+    this.isLoud = false;
 
     // Web Audio Volume Analyser
     this.audioCtx = null;
@@ -109,11 +110,12 @@ export class VoiceChatManager {
       }
     });
 
-    this.socket.on('voiceStateUpdated', ({ socketId, isMuted, isSpeaking }) => {
+    this.socket.on('voiceStateUpdated', ({ socketId, isMuted, isSpeaking, isLoud }) => {
       const peer = this.peers.get(socketId);
       if (peer) {
         if (isMuted !== undefined) peer.isMuted = isMuted;
         if (isSpeaking !== undefined) peer.isSpeaking = isSpeaking;
+        if (isLoud !== undefined) peer.isLoud = isLoud;
         this.notifyPeersUpdate();
       }
     });
@@ -298,7 +300,8 @@ export class VoiceChatManager {
         if (this.isMuted) {
           if (this.isSpeaking) {
             this.isSpeaking = false;
-            this.emitSpeaking(false);
+            this.isLoud = false;
+            this.emitSpeaking(false, false);
           }
           this.animFrameId = requestAnimationFrame(checkVolume);
           return;
@@ -311,8 +314,9 @@ export class VoiceChatManager {
         }
         const average = sum / bufferLength;
 
-        // Threshold for human speech detection
+        // Threshold for human speech detection & loud speech detection
         const nowSpeaking = average > 14;
+        const nowLoud = average > 42;
 
         if (nowSpeaking) {
           speakingCounter = 12; // hold speaking state for ~200ms
@@ -321,9 +325,12 @@ export class VoiceChatManager {
         }
 
         const isCurrentlySpeaking = speakingCounter > 0;
-        if (isCurrentlySpeaking !== this.isSpeaking) {
+        const isCurrentlyLoud = isCurrentlySpeaking && nowLoud;
+
+        if (isCurrentlySpeaking !== this.isSpeaking || isCurrentlyLoud !== this.isLoud) {
           this.isSpeaking = isCurrentlySpeaking;
-          this.emitSpeaking(this.isSpeaking);
+          this.isLoud = isCurrentlyLoud;
+          this.emitSpeaking(this.isSpeaking, this.isLoud);
         }
 
         this.animFrameId = requestAnimationFrame(checkVolume);
@@ -335,14 +342,15 @@ export class VoiceChatManager {
     }
   }
 
-  emitSpeaking(speaking) {
+  emitSpeaking(speaking, isLoud = false) {
     if (this.onLocalSpeakingUpdate) {
-      this.onLocalSpeakingUpdate(speaking);
+      this.onLocalSpeakingUpdate(speaking, isLoud);
     }
     if (this.socket && this.isConnected) {
       this.socket.emit('voiceState', {
         roomCode: this.roomCode,
         isSpeaking: speaking,
+        isLoud: isLoud,
         isMuted: this.isMuted
       });
     }
@@ -366,7 +374,8 @@ export class VoiceChatManager {
     }
     if (this.isMuted && this.isSpeaking) {
       this.isSpeaking = false;
-      this.emitSpeaking(false);
+      this.isLoud = false;
+      this.emitSpeaking(false, false);
     }
   }
 

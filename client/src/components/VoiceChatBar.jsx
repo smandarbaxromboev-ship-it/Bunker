@@ -72,7 +72,7 @@ export default function VoiceChatBar({
                 {isMuted ? (
                   <MicOff className="w-4 h-4 text-red-400" />
                 ) : (
-                  <Mic className={`w-4 h-4 ${isSpeaking ? 'animate-mic-dance' : ''}`} />
+                  <Mic className={`w-4 h-4 ${isSpeaking ? 'animate-mic-calm' : ''}`} />
                 )}
               </button>
 

@@ -11,6 +11,7 @@ export default function VoiceChatModal({
   isConnected,
   isMuted,
   isSpeaking,
+  isLoud = false,
   peers = [],
   myPlayerId,
   players = [],
@@ -107,7 +108,7 @@ export default function VoiceChatModal({
               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.3)]' 
               : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
           }`}>
-            <Mic className={`w-4 h-4 ${isConnected && isSpeaking ? 'animate-mic-dance text-emerald-400' : isConnected ? 'text-emerald-400' : ''}`} />
+            <Mic className={`w-4 h-4 ${isConnected && isSpeaking ? (isLoud ? 'animate-mic-loud text-amber-400' : 'animate-mic-calm text-emerald-400') : isConnected ? 'text-emerald-400' : ''}`} />
           </div>
           <div className="min-w-0">
             <h3 className="font-display font-extrabold text-sm text-white flex items-center gap-1.5 truncate">
@@ -165,29 +166,37 @@ export default function VoiceChatModal({
               </button>
             ) : (
               <div className="flex flex-col items-center w-full">
-                {/* Circular Pulsing Big Mic with Speaking Animation */}
+                {/* Circular Pulsing Big Mic with Speaking Animation (Normal vs Loud) */}
                 <div className="relative flex items-center justify-center my-2">
                   {/* Outer Ripple Rings when speaking */}
                   {isSpeaking && (
                     <>
-                      <span className="absolute w-36 h-36 rounded-full bg-emerald-500/15 animate-ping [animation-duration:1.2s]" />
-                      <span className="absolute w-28 h-28 rounded-full bg-emerald-500/25 animate-pulse" />
+                      <span className={`absolute rounded-full animate-ping ${
+                        isLoud 
+                          ? 'w-44 h-44 bg-orange-500/30 [animation-duration:0.6s]' 
+                          : 'w-36 h-36 bg-emerald-500/15 [animation-duration:1.5s]'
+                      }`} />
+                      <span className={`absolute rounded-full animate-pulse ${
+                        isLoud 
+                          ? 'w-36 h-36 bg-amber-500/40' 
+                          : 'w-28 h-28 bg-emerald-500/20'
+                      }`} />
                     </>
                   )}
 
                   {/* Animated Equalizer Waves on sides when speaking */}
                   {isSpeaking && (
-                    <div className="absolute -left-10 flex items-center gap-1 h-6">
-                      <span className="w-1 bg-emerald-400 rounded-full animate-wave-1" />
-                      <span className="w-1 bg-emerald-400 rounded-full animate-wave-2" />
-                      <span className="w-1 bg-emerald-400 rounded-full animate-wave-3" />
+                    <div className="absolute -left-10 flex items-center gap-1 h-8">
+                      <span className={`w-1 rounded-full ${isLoud ? 'bg-amber-400 animate-wave-loud-1' : 'bg-emerald-400 animate-wave-calm-1'}`} />
+                      <span className={`w-1 rounded-full ${isLoud ? 'bg-orange-400 animate-wave-loud-2' : 'bg-emerald-400 animate-wave-calm-2'}`} />
+                      <span className={`w-1 rounded-full ${isLoud ? 'bg-amber-300 animate-wave-loud-3' : 'bg-emerald-400 animate-wave-calm-3'}`} />
                     </div>
                   )}
                   {isSpeaking && (
-                    <div className="absolute -right-10 flex items-center gap-1 h-6">
-                      <span className="w-1 bg-emerald-400 rounded-full animate-wave-3" />
-                      <span className="w-1 bg-emerald-400 rounded-full animate-wave-2" />
-                      <span className="w-1 bg-emerald-400 rounded-full animate-wave-4" />
+                    <div className="absolute -right-10 flex items-center gap-1 h-8">
+                      <span className={`w-1 rounded-full ${isLoud ? 'bg-amber-300 animate-wave-loud-3' : 'bg-emerald-400 animate-wave-calm-3'}`} />
+                      <span className={`w-1 rounded-full ${isLoud ? 'bg-orange-400 animate-wave-loud-2' : 'bg-emerald-400 animate-wave-calm-2'}`} />
+                      <span className={`w-1 rounded-full ${isLoud ? 'bg-amber-400 animate-wave-loud-1' : 'bg-emerald-400 animate-wave-calm-1'}`} />
                     </div>
                   )}
 
@@ -201,14 +210,16 @@ export default function VoiceChatModal({
                       isMuted
                         ? 'bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/60 text-red-400 shadow-red-500/20 scale-100'
                         : isSpeaking
-                        ? 'bg-emerald-500 text-black border-4 border-emerald-300 shadow-[0_0_40px_rgba(16,185,129,0.7)] scale-105'
+                        ? isLoud
+                          ? 'bg-gradient-to-tr from-amber-500 to-orange-500 text-black border-4 border-amber-300 shadow-[0_0_50px_rgba(245,158,11,0.9)] scale-110'
+                          : 'bg-emerald-500 text-black border-4 border-emerald-300 shadow-[0_0_35px_rgba(16,185,129,0.7)] scale-105'
                         : 'bg-emerald-500/20 hover:bg-emerald-500/30 border-2 border-emerald-500/60 text-emerald-400 shadow-emerald-500/20 hover:scale-105'
                     }`}
                   >
                     {isMuted ? (
                       <MicOff className="w-8 h-8" />
                     ) : (
-                      <Mic className={`w-8 h-8 ${isSpeaking ? 'animate-mic-dance' : ''}`} />
+                      <Mic className={`w-8 h-8 ${isSpeaking ? (isLoud ? 'animate-mic-loud' : 'animate-mic-calm') : ''}`} />
                     )}
                   </button>
                 </div>
@@ -216,10 +227,18 @@ export default function VoiceChatModal({
                 {/* Status Text under Mic */}
                 <div className="mt-2 text-center">
                   <div className={`font-display font-extrabold text-xs sm:text-sm ${
-                    isSpeaking ? 'text-emerald-400 animate-pulse' : isMuted ? 'text-red-400' : 'text-emerald-400'
+                    isSpeaking 
+                      ? isLoud 
+                        ? 'text-amber-400 animate-bounce' 
+                        : 'text-emerald-400 animate-pulse' 
+                      : isMuted 
+                      ? 'text-red-400' 
+                      : 'text-emerald-400'
                   }`}>
                     {isSpeaking 
-                      ? (lang === 'uz' ? 'Siz gapiryapsiz...' : lang === 'en' ? 'You are speaking...' : 'Вы говорите...') 
+                      ? isLoud
+                        ? (lang === 'uz' ? '🔥 Baland ovozda gapiryapsiz!' : lang === 'en' ? '🔥 Speaking loud!' : '🔥 Громкий голос!')
+                        : (lang === 'uz' ? 'Siz gapiryapsiz...' : lang === 'en' ? 'You are speaking...' : 'Вы говорите...') 
                       : isMuted 
                       ? (lang === 'uz' ? 'Mikrofon o\'chiq (yoqish uchun bosing)' : lang === 'en' ? 'Muted (tap to unmute)' : 'Микрофон выключен (нажмите для включения)')
                       : (lang === 'uz' ? 'Mikrofon yoniq (efirdasiz)' : lang === 'en' ? 'Microphone on (broadcasting)' : 'Микрофон включен (в эфире)')}
@@ -273,7 +292,7 @@ export default function VoiceChatModal({
                   {isMuted ? (
                     <MicOff className="w-4 h-4 text-red-400" />
                   ) : (
-                    <Mic className={`w-4 h-4 text-emerald-400 ${isSpeaking ? 'animate-mic-dance' : ''}`} />
+                    <Mic className={`w-4 h-4 ${isSpeaking ? (isLoud ? 'text-amber-400 animate-mic-loud' : 'text-emerald-400 animate-mic-calm') : 'text-emerald-400'}`} />
                   )}
                 </div>
               </div>
@@ -318,7 +337,7 @@ export default function VoiceChatModal({
 
                   <div className="flex items-center gap-1.5">
                     {peer.isSpeaking && (
-                      <Mic className="w-4 h-4 text-emerald-400 animate-mic-dance mr-1" />
+                      <Mic className={`w-4 h-4 mr-1 ${peer.isLoud ? 'text-amber-400 animate-mic-loud' : 'text-emerald-400 animate-mic-calm'}`} />
                     )}
                     <button
                       onClick={() => togglePeerMute(peer.socketId)}
