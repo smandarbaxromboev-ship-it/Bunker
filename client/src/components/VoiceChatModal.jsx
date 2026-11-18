@@ -46,7 +46,7 @@ export default function VoiceChatModal({
         className="w-full max-w-md rounded-3xl bg-zinc-950/95 border border-zinc-800 shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col transition-all duration-300"
         style={{ maxHeight: '90vh' }}
       >
-        {/* Header (Telegram Voice Chat Style) */}
+        {/* Header */}
         <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-900/60">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
@@ -54,11 +54,11 @@ export default function VoiceChatModal({
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.3)]' 
                 : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
             }`}>
-              <Radio className={`w-5 h-5 ${isConnected ? 'animate-pulse text-emerald-400' : ''}`} />
+              <Mic className={`w-5 h-5 ${isConnected && isSpeaking ? 'animate-mic-dance text-emerald-400' : isConnected ? 'text-emerald-400' : ''}`} />
             </div>
             <div>
               <h3 className="font-display font-extrabold text-base text-white flex items-center gap-2">
-                <span>{lang === 'uz' ? 'Golosovoy chat (Telegram)' : lang === 'en' ? 'Voice Chat' : 'Голосовой чат'}</span>
+                <span>{lang === 'uz' ? 'Ovozli chat' : lang === 'en' ? 'Voice Chat' : 'Голосовой чат'}</span>
                 {isConnected && (
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                 )}
@@ -80,13 +80,13 @@ export default function VoiceChatModal({
               onClose();
             }}
             className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer"
-            title="Свернуть (звук останется)"
+            title={lang === 'uz' ? "Yopish" : lang === 'en' ? "Close" : "Свернуть"}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Central Telegram-Style Big Microphone Control */}
+        {/* Central Microphone Control */}
         <div className="p-6 flex flex-col items-center justify-center bg-gradient-to-b from-zinc-900/40 to-zinc-950">
           {!isConnected ? (
             <button
@@ -97,18 +97,34 @@ export default function VoiceChatModal({
               className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-display font-extrabold text-sm tracking-wide shadow-xl shadow-emerald-500/25 active:scale-98 transition flex items-center gap-2.5 cursor-pointer animate-pulse"
             >
               <Mic className="w-5 h-5" />
-              <span>{lang === 'uz' ? 'Golosovoy chatga kirish' : lang === 'en' ? 'Connect to Voice Chat' : 'Войти в голосовой чат'}</span>
+              <span>{t.voiceConnect || (lang === 'uz' ? 'Audiochatga ulanish' : lang === 'en' ? 'Connect to Audio Chat' : 'Подключиться к аудиочату')}</span>
             </button>
           ) : (
             <div className="flex flex-col items-center">
-              {/* Telegram-style Circular Pulsing Big Mic */}
-              <div className="relative flex items-center justify-center my-2">
+              {/* Circular Pulsing Big Mic with Speaking Animation */}
+              <div className="relative flex items-center justify-center my-3">
                 {/* Outer Ripple Rings when speaking */}
                 {isSpeaking && (
                   <>
-                    <span className="absolute w-36 h-36 rounded-full bg-emerald-500/20 animate-ping [animation-duration:1.5s]" />
-                    <span className="absolute w-28 h-28 rounded-full bg-emerald-500/30 animate-pulse" />
+                    <span className="absolute w-40 h-40 rounded-full bg-emerald-500/15 animate-ping [animation-duration:1.2s]" />
+                    <span className="absolute w-32 h-32 rounded-full bg-emerald-500/25 animate-pulse" />
                   </>
+                )}
+
+                {/* Animated Equalizer Waves on sides when speaking */}
+                {isSpeaking && (
+                  <div className="absolute -left-12 flex items-center gap-1 h-8">
+                    <span className="w-1 bg-emerald-400 rounded-full animate-wave-1" />
+                    <span className="w-1 bg-emerald-400 rounded-full animate-wave-2" />
+                    <span className="w-1 bg-emerald-400 rounded-full animate-wave-3" />
+                  </div>
+                )}
+                {isSpeaking && (
+                  <div className="absolute -right-12 flex items-center gap-1 h-8">
+                    <span className="w-1 bg-emerald-400 rounded-full animate-wave-3" />
+                    <span className="w-1 bg-emerald-400 rounded-full animate-wave-2" />
+                    <span className="w-1 bg-emerald-400 rounded-full animate-wave-4" />
+                  </div>
                 )}
 
                 <button
@@ -128,7 +144,7 @@ export default function VoiceChatModal({
                   {isMuted ? (
                     <MicOff className="w-9 h-9" />
                   ) : (
-                    <Mic className={`w-9 h-9 ${isSpeaking ? 'animate-bounce' : ''}`} />
+                    <Mic className={`w-9 h-9 ${isSpeaking ? 'animate-mic-dance' : ''}`} />
                   )}
                 </button>
               </div>
@@ -195,7 +211,11 @@ export default function VoiceChatModal({
               </div>
 
               <div className="p-1.5 rounded-xl bg-zinc-800 text-zinc-300">
-                {isMuted ? <MicOff className="w-4 h-4 text-red-400" /> : <Mic className="w-4 h-4 text-emerald-400" />}
+                {isMuted ? (
+                  <MicOff className="w-4 h-4 text-red-400" />
+                ) : (
+                  <Mic className={`w-4 h-4 text-emerald-400 ${isSpeaking ? 'animate-mic-dance' : ''}`} />
+                )}
               </div>
             </div>
           )}
@@ -238,6 +258,9 @@ export default function VoiceChatModal({
                 </div>
 
                 <div className="flex items-center gap-1.5">
+                  {peer.isSpeaking && (
+                    <Mic className="w-4 h-4 text-emerald-400 animate-mic-dance mr-1" />
+                  )}
                   <button
                     onClick={() => togglePeerMute(peer.socketId)}
                     className={`p-1.5 rounded-xl border transition cursor-pointer ${
@@ -256,7 +279,7 @@ export default function VoiceChatModal({
 
           {peers.length === 0 && isConnected && (
             <div className="text-center py-4 text-xs font-mono text-zinc-500">
-              {lang === 'uz' ? 'Hozircha efirda faqat sizsiz. Boshqalar ham mikrofonni yoqishi mumkin!' : lang === 'en' ? 'You are currently alone in voice. Others can join anytime!' : 'Вы пока один в голосовом чате. Другие игроки могут подключиться в любой момент!'}
+              {lang === 'uz' ? 'Hozircha efirda faqat sizsiz. Boshqalar ham mikrofonni yoqishi mumkin!' : lang === 'en' ? 'You are currently alone in audio chat. Others can join anytime!' : 'Вы пока один в голосовом чате. Другие игроки могут подключиться в любой момент!'}
             </div>
           )}
         </div>
@@ -273,7 +296,7 @@ export default function VoiceChatModal({
               className="w-full py-2.5 px-4 rounded-xl bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-800/80 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
             >
               <PhoneOff className="w-4 h-4 text-red-400" />
-              <span>{lang === 'uz' ? 'Golosovoy chatdan chiqish' : lang === 'en' ? 'Leave Voice Chat' : 'Покинуть голосовой чат'}</span>
+              <span>{t.voiceDisconnect || (lang === 'uz' ? 'Audiochatdan chiqish' : lang === 'en' ? 'Leave Audio Chat' : 'Покинуть аудиочат')}</span>
             </button>
           </div>
         )}

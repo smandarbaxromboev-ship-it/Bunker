@@ -323,10 +323,10 @@ export const translations = {
     logoTitle: "БУНКЕР",
     logoSub: "РАУНДОВ ОТКРОВЕНИЙ",
     geigerLabel: "РАДИАЦИЯ • ЗОМБИ-РАДАР АКТИВЕН",
-    voiceChatTitle: "РАЦИЯ",
-    voiceChatDesc: "Голосовая связь выживших",
-    voiceConnect: "Включить рацию",
-    voiceDisconnect: "Отключить рацию",
+    voiceChatTitle: "ГОЛОСОВОЙ ЧАТ",
+    voiceChatDesc: "Аудиочат выживших",
+    voiceConnect: "Подключиться к аудиочату",
+    voiceDisconnect: "Отключиться от аудиочата",
     voiceMicOn: "Микрофон включен",
     voiceMicOff: "Микрофон выключен",
     voiceSpeaking: "Говорит...",
@@ -334,8 +334,8 @@ export const translations = {
     voiceMuteUser: "Заглушить",
     voiceUnmuteUser: "Включить звук",
     voicePermissionError: "Разрешите доступ к микрофону в браузере",
-    voiceActiveBadge: "РАЦИЯ В ЭФИРЕ",
-    voiceNoUsers: "Никого нет на частоте"
+    voiceActiveBadge: "АУДИОЧАТ АКТИВЕН",
+    voiceNoUsers: "Никого нет в аудиочате"
   },
 
   en: {
@@ -659,10 +659,10 @@ export const translations = {
     logoTitle: "BUNKER",
     logoSub: "ROUNDS OF REVELATION",
     geigerLabel: "RADIATION • ZOMBIE RADAR ACTIVE",
-    voiceChatTitle: "RADIO",
-    voiceChatDesc: "Survivors voice comms",
-    voiceConnect: "Join Voice",
-    voiceDisconnect: "Leave Voice",
+    voiceChatTitle: "VOICE CHAT",
+    voiceChatDesc: "Survivors audio chat",
+    voiceConnect: "Connect to Audio Chat",
+    voiceDisconnect: "Leave Audio Chat",
     voiceMicOn: "Microphone on",
     voiceMicOff: "Microphone muted",
     voiceSpeaking: "Speaking...",
@@ -670,8 +670,8 @@ export const translations = {
     voiceMuteUser: "Mute",
     voiceUnmuteUser: "Unmute",
     voicePermissionError: "Allow microphone access in browser",
-    voiceActiveBadge: "RADIO ONLINE",
-    voiceNoUsers: "No one on frequency"
+    voiceActiveBadge: "AUDIO CHAT ACTIVE",
+    voiceNoUsers: "Nobody in audio chat"
   },
 
   uz: {
@@ -995,10 +995,10 @@ export const translations = {
     logoTitle: "BUNKER",
     logoSub: "7 RAUND OCHILISHLAR",
     geigerLabel: "RADIATSIYA • ZOMBI RADARI FAOL",
-    voiceChatTitle: "RATSIYA",
-    voiceChatDesc: "Omon qolganlar ovozli aloqasi",
-    voiceConnect: "Ratsiyaga ulanish",
-    voiceDisconnect: "Ratsiyadan chiqish",
+    voiceChatTitle: "OVOZLI CHAT",
+    voiceChatDesc: "Omon qolganlar audio suhbati",
+    voiceConnect: "Audiochatga ulanish",
+    voiceDisconnect: "Audiochatdan chiqish",
     voiceMicOn: "Mikrofon yoniq",
     voiceMicOff: "Mikrofon o'chiq",
     voiceSpeaking: "Gapirmoqda...",
@@ -1006,8 +1006,8 @@ export const translations = {
     voiceMuteUser: "Ovozini o'chirish",
     voiceUnmuteUser: "Ovozini yoqish",
     voicePermissionError: "Brauzerda mikrofonga ruxsat bering",
-    voiceActiveBadge: "RATSIYA EFIRDA",
-    voiceNoUsers: "Chastotada hech kim yo'q"
+    voiceActiveBadge: "AUDIOCHAT FAOL",
+    voiceNoUsers: "Audiochatda hech kim yo'q"
   }
 };
 

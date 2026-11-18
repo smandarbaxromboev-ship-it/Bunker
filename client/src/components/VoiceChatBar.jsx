@@ -39,17 +39,18 @@ export default function VoiceChatBar({
       <div className="bg-slate-900/95 dark:bg-zinc-950/95 border border-slate-700/80 dark:border-zinc-800 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden transition-all duration-300">
         {/* Main Bar */}
         <div className="p-2 sm:p-2.5 flex items-center gap-2">
-          {/* Radio Status / Join Button */}
+          {/* Join Audio Chat Button */}
           {!isConnected ? (
             <button
               onClick={() => {
                 soundManager.playBeep(800, 0.05);
                 onToggleVoice();
+                onOpenModal();
               }}
               className="px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 active:scale-98 transition cursor-pointer"
             >
-              <Radio className="w-4 h-4 animate-pulse" />
-              <span>{t.voiceConnect || (lang === 'uz' ? "Ratsiyaga ulanish" : lang === 'en' ? "Join Voice" : "Включить рацию")}</span>
+              <Mic className="w-4 h-4 animate-pulse" />
+              <span>{t.voiceConnect || (lang === 'uz' ? "Audiochatga ulanish" : lang === 'en' ? "Join Audio Chat" : "Подключиться к аудиочату")}</span>
             </button>
           ) : (
             <>
@@ -71,15 +72,15 @@ export default function VoiceChatBar({
                 {isMuted ? (
                   <MicOff className="w-4 h-4 text-red-400" />
                 ) : (
-                  <Mic className={`w-4 h-4 ${isSpeaking ? 'animate-bounce' : ''}`} />
+                  <Mic className={`w-4 h-4 ${isSpeaking ? 'animate-mic-dance' : ''}`} />
                 )}
               </button>
 
-              {/* Status Info (clickable to open full Telegram Voice Chat modal) */}
+              {/* Status Info (clickable to open full Voice Chat modal) */}
               <div 
                 onClick={onOpenModal}
                 className="flex-1 min-w-0 pr-1 cursor-pointer hover:opacity-90 transition"
-                title="Нажмите, чтобы открыть окно голосового чата (Telegram)"
+                title={lang === 'uz' ? "Ovozli chat oynasini ochish" : lang === 'en' ? "Open Audio Chat" : "Открыть голосовой чат"}
               >
                 <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-emerald-400">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
@@ -116,7 +117,7 @@ export default function VoiceChatBar({
                   onToggleVoice();
                 }}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-red-950/70 text-slate-400 hover:text-red-400 border border-slate-700/60 hover:border-red-800 transition cursor-pointer"
-                title={t.voiceDisconnect || "Отключить рацию"}
+                title={t.voiceDisconnect || "Отключить аудиочат"}
               >
                 <PhoneOff className="w-3.5 h-3.5" />
               </button>

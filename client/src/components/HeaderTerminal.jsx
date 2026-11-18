@@ -129,14 +129,14 @@ export default function HeaderTerminal({
 
         {/* Right: Voice Chat, Friends, Rules, Atmosphere, Profile, Shop, Theme, Lang, Sound */}
         <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-          {/* Prominent Voice Chat (Telegram-Style) Button */}
+          {/* Prominent Voice Chat Button */}
           {roomState && onOpenVoiceChat && (
             <button
               onClick={() => {
                 soundManager.playBeep(850, 0.05);
                 onOpenVoiceChat();
               }}
-              title={lang === 'uz' ? "Ovozli chat (Telegram kabi)" : lang === 'en' ? "Voice Chat (Telegram style)" : "Голосовой чат (как в Telegram)"}
+              title={lang === 'uz' ? "Ovozli chat" : lang === 'en' ? "Voice Chat" : "Голосовой чат"}
               className={`p-1.5 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-mono font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer ${
                 isVoiceConnected
                   ? isVoiceSpeaking
@@ -147,7 +147,11 @@ export default function HeaderTerminal({
                   : 'bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 hover:border-emerald-400'
               }`}
             >
-              {isVoiceMuted ? <MicOff className="w-3.5 h-3.5 text-red-400" /> : <Mic className={`w-3.5 h-3.5 ${isVoiceSpeaking ? 'animate-bounce' : ''}`} />}
+              {isVoiceMuted ? (
+                <MicOff className="w-3.5 h-3.5 text-red-400" />
+              ) : (
+                <Mic className={`w-3.5 h-3.5 ${isVoiceSpeaking ? 'animate-mic-dance' : ''}`} />
+              )}
               <span className="font-display font-bold">
                 {lang === 'uz' ? 'Ovozli chat' : lang === 'en' ? 'Voice Chat' : 'Голосовой чат'}
               </span>

@@ -398,6 +398,17 @@ export default function App() {
     }
   });
 
+  const handleOpenVoiceChat = () => {
+    setShowVoiceModal(true);
+    if (!isVoiceConnected && roomState) {
+      voiceManagerRef.current?.joinVoice(roomState.code, myPlayerId, myPlayer?.name || playerName)
+        .then(() => setIsVoiceConnected(true))
+        .catch((err) => {
+          console.warn('[VOICE] Auto-connect failed:', err);
+        });
+    }
+  };
+
   const applyNormalizedRoomState = (newState) => {
     if (!newState) {
       setRoomState(null);
@@ -1723,7 +1734,7 @@ export default function App() {
           onOpenProfile={() => setShowProfileModal(true)}
           onOpenRules={() => { setIsRulesMandatory(false); setShowRulesModal(true); }}
           onOpenFriends={() => setShowFriendsModal(true)}
-          onOpenVoiceChat={() => setShowVoiceModal(true)}
+          onOpenVoiceChat={handleOpenVoiceChat}
           isVoiceConnected={isVoiceConnected}
           isVoiceMuted={isVoiceMuted}
           isVoiceSpeaking={isVoiceSpeaking}
@@ -1800,7 +1811,7 @@ export default function App() {
           onOpenProfile={() => setShowProfileModal(true)}
           onOpenRules={() => { setIsRulesMandatory(false); setShowRulesModal(true); }}
           onOpenFriends={() => setShowFriendsModal(true)}
-          onOpenVoiceChat={() => setShowVoiceModal(true)}
+          onOpenVoiceChat={handleOpenVoiceChat}
           isVoiceConnected={isVoiceConnected}
           isVoiceMuted={isVoiceMuted}
           isVoiceSpeaking={isVoiceSpeaking}
@@ -2263,7 +2274,7 @@ export default function App() {
           peers={voicePeers}
           myPlayerId={myPlayerId}
           lang={lang}
-          onOpenModal={() => setShowVoiceModal(true)}
+          onOpenModal={handleOpenVoiceChat}
           onToggleVoice={() => {
             if (isVoiceConnected) {
               voiceManagerRef.current?.leaveVoice();
@@ -2283,7 +2294,7 @@ export default function App() {
         />
       )}
 
-      {/* 12. Telegram-Style Voice Chat Modal */}
+      {/* 12. Voice Chat Modal */}
       <VoiceChatModal
         isOpen={showVoiceModal}
         onClose={() => setShowVoiceModal(false)}
