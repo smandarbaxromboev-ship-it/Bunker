@@ -18,15 +18,8 @@ const BOT_CHARACTERS = [
   { avatar: '👷', name: { ru: 'Строитель', en: 'Builder', uz: 'Quruvchi' }, borderClass: 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)]', glowClass: 'ring-2 ring-rose-400/60', title: { ru: 'Архитектор', en: 'Architect', uz: 'Me\'mor' }, titleColor: 'text-rose-400 font-bold' }
 ];
 
-// Динамический расчет призовых мест:
-// 3..9 игроков -> 2 места
-// 10 игроков -> 3 места
-// 11 игроков -> 4 места
-// 12 игроков -> 5 мест
-function calculateBunkerCapacity(playerCount) {
-  if (playerCount >= 12) return 5;
-  if (playerCount === 11) return 4;
-  if (playerCount === 10) return 3;
+// Фиксированное количество призовых мест в бункере: строго 2 победителя независимо от количества игроков (до 15 чел.)
+function calculateBunkerCapacity() {
   return 2;
 }
 
@@ -174,9 +167,9 @@ class GameManager {
           senderId: 'SYSTEM',
           senderName: { ru: 'ТЕРМИНАЛ', en: 'TERMINAL', uz: 'TERMINAL' },
           text: {
-            ru: `Комната #${code} готова. Ожидание игроков (от 3 до 12 человек).`,
-            en: `Room #${code} is ready. Waiting for players (from 3 to 12 players).`,
-            uz: `#${code} xona tayyor. O'yinchilar kutilmoqda (3 dan 12 tagacha o'yinchi).`
+            ru: `Комната #${code} готова. Ожидание игроков (от 3 до 15 человек, финал до 2 победителей).`,
+            en: `Room #${code} is ready. Waiting for players (from 3 to 15 players, final 2 winners).`,
+            uz: `#${code} xona tayyor. O'yinchilar kutilmoqda (3 dan 15 tagacha o'yinchi, 2 g'olib).`
           },
           timestamp: formatServerTime(),
           createdAt: Date.now(),
@@ -216,8 +209,8 @@ class GameManager {
       }
     }
 
-    if (room.players.length >= 12) {
-      return { error: 'Бункер переполнен (максимум 12 человек).' };
+    if (room.players.length >= 15) {
+      return { error: 'Бункер переполнен (максимум 15 человек).' };
     }
 
     const playerId = 'p_' + Math.random().toString(36).substring(2, 9);
@@ -240,9 +233,9 @@ class GameManager {
     room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
 
     this.addSystemMessage(room, {
-      ru: `Игрок ${newPlayer.name} подключился к комнате (Игроков: ${room.players.length}/12, Призовых мест: ${room.bunkerCapacity}).`,
-      en: `Player ${newPlayer.name} connected to the room (Players: ${room.players.length}/12, Bunker spots: ${room.bunkerCapacity}).`,
-      uz: `${newPlayer.name} xonaga qo'shildi (O'yinchilar: ${room.players.length}/12, Bunkerda joylar: ${room.bunkerCapacity}).`
+      ru: `Игрок ${newPlayer.name} подключился к комнате (Игроков: ${room.players.length}/15, Призовых мест: ${room.bunkerCapacity}).`,
+      en: `Player ${newPlayer.name} connected to the room (Players: ${room.players.length}/15, Bunker spots: ${room.bunkerCapacity}).`,
+      uz: `${newPlayer.name} xonaga qo'shildi (O'yinchilar: ${room.players.length}/15, Bunkerda joylar: ${room.bunkerCapacity}).`
     });
     this.broadcastRoom(code);
 
@@ -254,7 +247,7 @@ class GameManager {
     const candidates = [];
     for (const [code, room] of this.rooms.entries()) {
       const activePlayers = room.players.filter(p => !p.hasLeft);
-      if (room.status === 'LOBBY' && activePlayers.length > 0 && room.players.length < 12) {
+      if (room.status === 'LOBBY' && activePlayers.length > 0 && room.players.length < 15) {
         // Проверяем, не находится ли уже игрок в этой комнате
         const alreadyIn = room.players.some(p => 
           !p.hasLeft && (
@@ -351,7 +344,7 @@ class GameManager {
     const room = this.rooms.get(code);
     if (!room || room.status !== 'LOBBY') return;
     if (room.hostId !== requesterId) return;
-    if (room.players.length >= 12) return;
+    if (room.players.length >= 15) return;
 
     const botNamesByLang = {
       en: [
@@ -397,9 +390,9 @@ class GameManager {
     room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
 
     this.addSystemMessage(room, {
-      ru: `Игрок ${botName} вошел в лобби (Игроков: ${room.players.length}/12, Призовых мест: ${room.bunkerCapacity}).`,
-      en: `Player ${botName} joined the lobby (Players: ${room.players.length}/12, Bunker spots: ${room.bunkerCapacity}).`,
-      uz: `${botName} lobbiga kirdi (O'yinchilar: ${room.players.length}/12, Bunkerda joylar: ${room.bunkerCapacity}).`
+      ru: `Игрок ${botName} вошел в лобби (Игроков: ${room.players.length}/15, Призовых мест: ${room.bunkerCapacity}).`,
+      en: `Player ${botName} joined the lobby (Players: ${room.players.length}/15, Bunker spots: ${room.bunkerCapacity}).`,
+      uz: `${botName} lobbiga kirdi (O'yinchilar: ${room.players.length}/15, Bunkerda joylar: ${room.bunkerCapacity}).`
     });
     this.broadcastRoom(code);
   }
@@ -414,9 +407,9 @@ class GameManager {
       const removed = room.players.splice(idx, 1)[0];
       room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
       this.addSystemMessage(room, {
-        ru: `Игрок ${removed.name} покинул комнату (Игроков: ${room.players.length}/12, Призовых мест: ${room.bunkerCapacity}).`,
-        en: `Player ${removed.name} left the room (Players: ${room.players.length}/12, Bunker spots: ${room.bunkerCapacity}).`,
-        uz: `${removed.name} xonadan chiqdi (O'yinchilar: ${room.players.length}/12, Bunkerda joylar: ${room.bunkerCapacity}).`
+        ru: `Игрок ${removed.name} покинул комнату (Игроков: ${room.players.length}/15, Призовых мест: ${room.bunkerCapacity}).`,
+        en: `Player ${removed.name} left the room (Players: ${room.players.length}/15, Bunker spots: ${room.bunkerCapacity}).`,
+        uz: `${removed.name} xonadan chiqdi (O'yinchilar: ${room.players.length}/15, Bunkerda joylar: ${room.bunkerCapacity}).`
       });
       this.broadcastRoom(code);
     }
@@ -450,9 +443,9 @@ class GameManager {
     room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
 
     this.addSystemMessage(room, {
-      ru: `🚫 Создатель комнаты исключил ${targetPlayer.name} из лобби (Осталось участников: ${room.players.length}/12).`,
-      en: `🚫 Room creator kicked ${targetPlayer.name} from the lobby (${room.players.length}/12 players remaining).`,
-      uz: `🚫 Xona yaratuvchisi ${targetPlayer.name} ni lobbidan chetlatdi (Qolgan o'yinchilar: ${room.players.length}/12).`
+      ru: `🚫 Создатель комнаты исключил ${targetPlayer.name} из лобби (Осталось участников: ${room.players.length}/15).`,
+      en: `🚫 Room creator kicked ${targetPlayer.name} from the lobby (${room.players.length}/15 players remaining).`,
+      uz: `🚫 Xona yaratuvchisi ${targetPlayer.name} ni lobbidan chetlatdi (Qolgan o'yinchilar: ${room.players.length}/15).`
     });
 
     this.broadcastRoom(code);
@@ -470,12 +463,13 @@ class GameManager {
     if (room.players.length < 3) {
       return { error: 'Для старта нужно минимум 3 игрока. Добавьте ботов кнопкой!' };
     }
-    if (room.players.length > 12) {
-      return { error: 'В бункере максимум 12 игроков.' };
+    if (room.players.length > 15) {
+      return { error: 'В бункере максимум 15 игроков.' };
     }
 
     room.currentRound = 1;
-    room.bunkerCapacity = calculateBunkerCapacity(room.players.length);
+    room.maxRounds = 7;
+    room.bunkerCapacity = 2;
     room.usedBotPhrases = new Set();
 
     // Генерируем колоды БЕЗ ДУБЛИКАТОВ для всех игроков
@@ -494,9 +488,9 @@ class GameManager {
     const cap = room.bunkerCapacity;
     const count = room.players.length;
     this.addSystemMessage(room, {
-      ru: `ИГРА НАЧАЛАСЬ! Раунд 1 из 7. Всего участников: ${count}. Призовых мест в бункере: ${cap}!`,
-      en: `GAME STARTED! Round 1 of 7. Total players: ${count}. Winning bunker spots: ${cap}!`,
-      uz: `O'YIN BOSHLANDI! 7 raunddan 1-raund. Jami ishtirokchilar: ${count}. Bunkerda g'oliblik joylari: ${cap} ta!`
+      ru: `ИГРА НАЧАЛАСЬ! Всего участников: ${count}. Призовых мест в бункере: строго ${cap}!`,
+      en: `GAME STARTED! Total players: ${count}. Winning bunker spots: strictly ${cap}!`,
+      uz: `O'YIN BOSHLANDI! Jami ishtirokchilar: ${count}. Bunkerda g'oliblik joylari: qat'iy ${cap} ta!`
     });
     this.startRevealPhase(room);
     return { success: true };
@@ -508,11 +502,34 @@ class GameManager {
     room.status = 'ROUND_REVEAL';
     room.currentRevealingPlayerIndex = 0;
     room.revealCommentsThisRound = 0;
+    room.maxRounds = Math.max(7, room.currentRound);
 
     // Сбрасываем выбор текущего раунда
     room.players.forEach(p => {
       p.revealedCardId = null;
     });
+
+    const alivePlayers = room.players.filter(p => p.isAlive);
+    const hasAnyUnrevealedCards = alivePlayers.some(p => Array.isArray(p.deck) && p.deck.some(c => !c.revealed));
+
+    // Если после 7-го раунда (или раньше) все карты у живых игроков уже открыты, но в игре > 2 человек —
+    // запускаем дополнительный раунд без вскрытия новых карт (сразу обсуждение и голосование)!
+    if (room.currentRound > 7 || !hasAnyUnrevealedCards) {
+      alivePlayers.forEach(p => {
+        if (Array.isArray(p.deck)) {
+          p.deck.forEach(c => { c.revealed = true; });
+        }
+      });
+
+      this.addSystemMessage(room, {
+        ru: `🔥 ДОПОЛНИТЕЛЬНЫЙ РАУНД ${room.currentRound}! Все карты игроков уже открыты. В игре осталось ${alivePlayers.length} чел., а мест в бункере — строго 2! Обсуждайте открытые характеристики и голосуйте на выбывание!`,
+        en: `🔥 EXTRA ROUND ${room.currentRound}! All player cards are already revealed. ${alivePlayers.length} survivors remain for only 2 bunker spots! Discuss revealed traits and vote to eliminate!`,
+        uz: `🔥 QO'SHIMCHA ${room.currentRound}-RAUND! Barcha kartalar ochilgan. ${alivePlayers.length} tirik o'yinchi qoldi, bunkerda esa faqat 2 ta joy bor! Ochiq xususiyatlarni muhokama qiling va ovoz bering!`
+      });
+
+      this.startDiscussionPhase(room);
+      return;
+    }
 
     if (room.currentRound === 1) {
       this.addSystemMessage(room, {
@@ -533,6 +550,15 @@ class GameManager {
   promptNextPlayerReveal(room) {
     this.clearRoomTimer(room.code);
     const alivePlayers = room.players.filter(p => p.isAlive);
+
+    // Пропускаем игроков, у которых уже открыты все карты
+    while (
+      room.currentRevealingPlayerIndex < alivePlayers.length &&
+      (!alivePlayers[room.currentRevealingPlayerIndex].deck ||
+        !alivePlayers[room.currentRevealingPlayerIndex].deck.some(c => !c.revealed))
+    ) {
+      room.currentRevealingPlayerIndex++;
+    }
 
     // Если все живые игроки уже сделали свой ход в этом раунде -> переходим к дебатам!
     if (room.currentRevealingPlayerIndex >= alivePlayers.length) {
@@ -1355,11 +1381,21 @@ class GameManager {
     }
 
     // НИЧЬЯ (равенство голосов) — если кандидатов несколько или никто не проголосовал:
-    const isTie = !room.vetoActive && (candidatesToExile.length !== 1 || maxVotes <= 0 || totalVotesCast === 0);
+    let isTie = !room.vetoActive && (candidatesToExile.length !== 1 || maxVotes <= 0 || totalVotesCast === 0);
+
+    // В дополнительных раундах (после 7-го) при повторной ничьей обязательно выбывает один из лидеров голосования
+    if (isTie && (room.tieCount || 0) >= 1 && room.currentRound > 7) {
+      const tiePool = candidatesToExile.length > 0 ? candidatesToExile : alivePlayers.map(p => p.id);
+      const chosenExileId = tiePool[Math.floor(Math.random() * tiePool.length)];
+      candidatesToExile = [chosenExileId];
+      maxVotes = Math.max(1, maxVotes);
+      totalVotesCast = Math.max(1, totalVotesCast);
+      isTie = false;
+    }
 
     if (isTie) {
       if ((room.tieCount || 0) >= 1) {
-        // Если это уже ВТОРАЯ ничья подряд — объявляем МИРНЫЙ ИСХОД! Никто не выбывает!
+        // Если это уже ВТОРАЯ ничья подряд (в раундах 1-7) — объявляем МИРНЫЙ ИСХОД! Никто не выбывает!
         this.addSystemMessage(room, {
           ru: `⚖️ ПОВТОРНАЯ НИЧЬЯ! Голоса разделились поровну. Бункер не смог выбрать одного кандидата. В этом раунде НИКТО НЕ ИЗГОНЯЕТСЯ! Все остаются в игре.`,
           en: `⚖️ REPEAT TIE! Votes are split equally. Bunker reached no consensus. NO ONE IS EXILED this round! Everyone stays in the bunker.`,
@@ -1377,11 +1413,18 @@ class GameManager {
           exiledPlayer: null
         };
         const remainingAfterTie = room.players.filter(p => p.isAlive);
-        const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
-        if (room.currentRound >= 7 || remainingAfterTie.length <= capacity) {
+        const capacity = 2;
+        if (remainingAfterTie.length <= capacity) {
           this.setRoomTimer(room.code, 4000, () => {
             this.endGame(room);
           });
+        } else {
+          const aliveHumans = remainingAfterTie.filter(p => !p.isBot && !p.hasLeft);
+          if (aliveHumans.length === 0) {
+            this.setRoomTimer(room.code, 4000, () => {
+              this.nextRoundOrEnd(room.code, room.hostId);
+            });
+          }
         }
         this.broadcastRoom(room.code);
         return;
@@ -1503,10 +1546,10 @@ class GameManager {
     room.status = 'ROUND_RESULT';
     room.timerExpiresAt = null;
 
-    // Игра завершается, когда осталось выживших <= вместимости бункера или наступил 7 раунд:
+    // Игра завершается СТРОГО тогда, когда в бункере осталось ровно 2 победителя (или меньше):
     const remainingAlive = room.players.filter(p => p.isAlive);
-    const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
-    if (room.currentRound >= 7 || remainingAlive.length <= capacity) {
+    const capacity = 2;
+    if (remainingAlive.length <= capacity) {
       this.setRoomTimer(room.code, 4000, () => {
         this.endGame(room);
       });
@@ -1529,14 +1572,15 @@ class GameManager {
 
     this.clearRoomTimer(code);
     const alivePlayers = room.players.filter(p => p.isAlive);
-    const capacity = room.bunkerCapacity || calculateBunkerCapacity(room.players.length);
+    const capacity = 2;
 
-    if (room.currentRound >= 7 || alivePlayers.length <= capacity) {
+    if (alivePlayers.length <= capacity) {
       this.endGame(room);
       return;
     }
 
     room.currentRound++;
+    room.maxRounds = Math.max(7, room.currentRound);
     room.players.forEach(p => {
       p.revealedCardId = null;
       p.votedFor = null;
@@ -1999,7 +2043,7 @@ class GameManager {
     const publicRooms = [];
     for (const [code, room] of this.rooms.entries()) {
       // В список открытых комнат попадают ТОЛЬКО лобби ДО начала игры (status === 'LOBBY') со свободными местами!
-      if (room.status !== 'LOBBY' || room.players.length >= 12) continue;
+      if (room.status !== 'LOBBY' || room.players.length >= 15) continue;
 
       const host = room.players.find(p => p.id === room.hostId) || room.players[0];
       publicRooms.push({
@@ -2009,8 +2053,8 @@ class GameManager {
         hostAvatar: host?.character?.avatar || '🥷',
         playersCount: room.players.length,
         totalPlayers: room.players.length,
-        maxPlayers: 12,
-        bunkerCapacity: room.bunkerCapacity || calculateBunkerCapacity(room.players.length),
+        maxPlayers: 15,
+        bunkerCapacity: 2,
         disasterTitle: room.disaster ? room.disaster.title : null,
         canJoin: true
       });

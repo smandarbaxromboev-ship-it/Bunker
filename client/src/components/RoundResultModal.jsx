@@ -18,9 +18,9 @@ export default function RoundResultModal({
   const exiled = results?.exiledPlayer;
   const voteBreakdown = results?.voteBreakdown || [];
   const isExtraTimeElimination = Boolean(results?.isExtraTime);
-  const capacity = roomState?.bunkerCapacity || 2;
+  const capacity = 2;
   const remainingAlive = (roomState?.players || []).filter(p => p.isAlive).length;
-  const willEndNow = remainingAlive <= capacity || roomState?.currentRound >= 7;
+  const willEndNow = remainingAlive <= capacity;
 
   const myPlayer = (roomState?.players || []).find(p => p.id === myPlayerId);
   const isAlive = myPlayer ? myPlayer.isAlive : true;

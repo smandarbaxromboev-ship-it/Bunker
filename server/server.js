@@ -612,8 +612,8 @@ io.on('connection', (socket) => {
         }
         return;
       }
-      if (targetRoom.players.length >= 12) {
-        if (typeof callback === 'function') callback({ error: 'Комната уже заполнена (12/12)!' });
+      if (targetRoom.players.length >= 15) {
+        if (typeof callback === 'function') callback({ error: 'Комната уже заполнена (15/15)!' });
         return;
       }
       const sender = userManager.getUser(fromUsername);

@@ -24,7 +24,7 @@ export default function LobbyView({
   const minPlayers = 3;
   const canStart = players.length >= minPlayers;
   const bots = players.filter(p => p.isBot);
-  const currentSpots = roomState?.bunkerCapacity || (players.length >= 12 ? 5 : players.length === 11 ? 4 : players.length === 10 ? 3 : 2);
+  const currentSpots = 2;
   const formattedRule = typeof t.importantRuleSpots === 'function'
     ? t.importantRuleSpots(currentSpots)
     : (t.importantRule || '').replace(/\{spots\}/g, currentSpots);
@@ -149,7 +149,7 @@ export default function LobbyView({
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-amber-500" />
             <h2 className="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">
-              {t.playersInLobby} ({players.length} / 12)
+              {t.playersInLobby} ({players.length} / 15)
             </h2>
           </div>
           <span className={`text-xs px-3 py-1 rounded-full font-mono font-bold ${
@@ -228,8 +228,8 @@ export default function LobbyView({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-            {/* Add Bot Button (Up to 12 players) */}
-            {isHost && players.length < 12 && (
+            {/* Add Bot Button (Up to 15 players) */}
+            {isHost && players.length < 15 && (
               <button
                 onClick={() => {
                   soundManager.playBeep(650, 0.06);

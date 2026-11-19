@@ -4,7 +4,7 @@
 export const translations = {
   ru: {
     title: "БУНКЕР: 7 РАУНДОВ",
-    subtitle: "Игра на выживание. 3-12 игроков, от 2 до 5 мест в бункере!",
+    subtitle: "Игра на выживание. 3-15 игроков, строго 2 победителя в бункере!",
     createRoom: "СОЗДАТЬ КОМНАТУ",
     createRoomDesc: "Станьте создателем комнаты. Сервер сгенерирует 5-значный код.",
     joinRoom: "ВОЙТИ В КОМНАТУ",
@@ -172,7 +172,7 @@ export const translations = {
     
     // Rules
     rulesTitle: "ПРАВИЛА ИГРЫ:",
-    rule1: "1. От 2 до 5 мест (10 игроков — 3 места, 11 игроков — 4 места, 12 игроков — 5 мест).",
+    rule1: "1. В комнате от 3 до 15 игроков. В бункере строго 2 призовых места для победителей!",
     rule2: "2. Каждый раунд вы сами выбираете 1 карту, чтобы убедить остальных.",
     rule3: "3. Голосуйте против самых бесполезных или подозрительных.",
     rule4: "4. Если вас изгнали — вы становитесь Призраком и видите все тайные голоса!",
@@ -324,10 +324,10 @@ export const translations = {
     atmosphereOnTooltip: "Включить эффекты радиации и зомби",
     profilePhotoDefault: "Фото профиля",
     profileBtnTooltip: "Нажмите, чтобы настроить фото и профиль",
-    heroBadgeText: "ОНЛАЙН-ИГРА • 3-12 ИГРОКОВ • 2-5 ПРИЗОВЫХ МЕСТ",
+    heroBadgeText: "ОНЛАЙН-ИГРА • 3-15 ИГРОКОВ • 2 ПРИЗОВЫХ МЕСТА",
     howToPlayBtn: "Как играть? (Правила)",
     fullRulesLink: "полные правила →",
-    footerInfoText: "БУНКЕР: 7 РАУНДОВ • МУЛЬТИПЛЕЕР 3-12 ЧЕЛОВЕК • 2-5 МЕСТ В БУНКЕРЕ",
+    footerInfoText: "БУНКЕР: МУЛЬТИПЛЕЕР 3-15 ЧЕЛОВЕК • СТРОГО 2 ПОБЕДИТЕЛЯ В БУНКЕРЕ",
     shopLoading: "Загрузка каталога (150+ предметов)...",
     shopEmpty: "Ничего не найдено по вашему запросу.",
     authProcessing: "Обработка...",
@@ -351,7 +351,7 @@ export const translations = {
 
   en: {
     title: "BUNKER: 7 ROUNDS",
-    subtitle: "Survival card bluff game. 3-12 players, 2-5 winning bunker spots!",
+    subtitle: "Survival card bluff game. 3-15 players, strictly 2 winning bunker spots!",
     createRoom: "CREATE ROOM",
     createRoomDesc: "Become the host. Server generates a 5-digit room code.",
     joinRoom: "JOIN A GAME",
@@ -519,7 +519,7 @@ export const translations = {
     
     // Rules
     rulesTitle: "GAME RULES:",
-    rule1: "1. 2 to 5 winning spots (10 players = 3 spots, 11 players = 4 spots, 12 players = 5 spots).",
+    rule1: "1. 3 to 15 players per room. Strictly 2 winning spots in the bunker!",
     rule2: "2. Every round you choose 1 card to reveal to prove your value.",
     rule3: "3. Secretly vote out the least useful or most dangerous person.",
     rule4: "4. If eliminated, you become a Ghost and spy on all secret votes!",
@@ -671,10 +671,10 @@ export const translations = {
     atmosphereOnTooltip: "Enable radiation & zombie animations",
     profilePhotoDefault: "Profile Photo",
     profileBtnTooltip: "Click to customize photo and profile",
-    heroBadgeText: "ONLINE GAME • 3-12 PLAYERS • 2-5 BUNKER SPOTS",
+    heroBadgeText: "ONLINE GAME • 3-15 PLAYERS • 2 BUNKER SPOTS",
     howToPlayBtn: "How to play? (Rules)",
     fullRulesLink: "full rules →",
-    footerInfoText: "BUNKER: 7 ROUNDS • MULTIPLAYER 3-12 PLAYERS • 2-5 WINNING SPOTS",
+    footerInfoText: "BUNKER: MULTIPLAYER 3-15 PLAYERS • STRICTLY 2 WINNING SPOTS",
     shopLoading: "Loading catalog (150+ items)...",
     shopEmpty: "No items found matching your search.",
     authProcessing: "Processing...",
@@ -698,7 +698,7 @@ export const translations = {
 
   uz: {
     title: "BUNKER: 7 RAUND",
-    subtitle: "Omon qolish o'yini. 3-12 o'yinchi, 2 dan 5 tagacha g'oliblik joyi!",
+    subtitle: "Omon qolish o'yini. 3-15 o'yinchi, bunkerda qat'iy 2 ta g'oliblik joyi!",
     createRoom: "XONA YARATISH",
     createRoomDesc: "Boshlovchi bo'ling. Tizim 5 xonali kod yaratadi.",
     joinRoom: "XONAGA KIRISH",
@@ -866,7 +866,7 @@ export const translations = {
     
     // Rules
     rulesTitle: "O'YIN QOIDALARI:",
-    rule1: "1. 2 dan 5 tagacha g'oliblik joyi (10 o'yinchi — 3 joy, 11 o'yinchi — 4 joy, 12 o'yinchi — 5 joy).",
+    rule1: "1. Xonada 3 dan 15 tagacha o'yinchi. Bunkerda qat'iy 2 ta g'oliblik joyi!",
     rule2: "2. Har raundda foydali ekaningizni isbotlash uchun 1 ta kartani ochasiz.",
     rule3: "3. Keraksiz yoki xavfli odamga qarshi yashirin ovoz bering.",
     rule4: "4. Agar haydalsangiz — Arvoh bo'lasiz va barcha yashirin ovozlarni ko'rasiz!",
@@ -1018,10 +1018,10 @@ export const translations = {
     atmosphereOnTooltip: "Radiatsiya va zombi animatsiyalarini yoqish",
     profilePhotoDefault: "Profil rasmi",
     profileBtnTooltip: "Rasm va profilni sozlash uchun bosing",
-    heroBadgeText: "ONLAYN O'YIN • 3-12 O'YINCHI • 2-5 G'OLIBLIK JOYI",
+    heroBadgeText: "ONLAYN O'YIN • 3-15 O'YINCHI • 2 G'OLIBLIK JOYI",
     howToPlayBtn: "Qanday o'ynaladi? (Qoidalar)",
     fullRulesLink: "to'liq qoidalar →",
-    footerInfoText: "BUNKER: 7 RAUND • MULTIPLAYER 3-12 KISHI • BUNKERDA 2-5 JOY",
+    footerInfoText: "BUNKER: MULTIPLAYER 3-15 KISHI • BUNKERDA QAT'IY 2 TA JOY",
     shopLoading: "Katalog yuklanmoqda (150+ buyumlar)...",
     shopEmpty: "So'rovingiz bo'yicha hech narsa topilmadi.",
     authProcessing: "Jarayonda...",

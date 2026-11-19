@@ -1836,7 +1836,7 @@ export default function App() {
           {/* Public Open Rooms Browser (Список открытых комнат на главной странице — ТОЛЬКО до начала игры!) */}
           {(() => {
             const openLobbyRooms = publicRooms.filter(
-              (rm) => rm.status === 'LOBBY' && (rm.playersCount ?? rm.totalPlayers ?? 0) < (rm.maxPlayers || 12)
+              (rm) => rm.status === 'LOBBY' && (rm.playersCount ?? rm.totalPlayers ?? 0) < (rm.maxPlayers || 15)
             );
             return (
               <div className="mt-6 sm:mt-8 p-4 sm:p-5 rounded-3xl bg-white dark:bg-zinc-900/90 border-2 border-cyan-500/40 max-w-3xl mx-auto shadow-lg">
@@ -1887,7 +1887,7 @@ export default function App() {
                   <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                     {openLobbyRooms.map((rm) => {
                       const count = rm.playersCount ?? rm.totalPlayers ?? 1;
-                      const maxP = rm.maxPlayers || 12;
+                      const maxP = rm.maxPlayers || 15;
                       return (
                         <div
                           key={rm.code}

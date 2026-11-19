@@ -30,7 +30,8 @@ export default function AmongUsEjectionScreen({
     : (lang === 'uz' ? 'Noma\'lum kasb' : lang === 'en' ? 'Unknown Profession' : 'Неизвестная профессия');
 
   const aliveRemaining = (roomState?.players || []).filter(p => p.isAlive && p.id !== exiledPlayer?.id).length;
-  const capacity = roomState?.bunkerCapacity || 2;
+  const totalInRoom = (roomState?.players || []).length || 15;
+  const capacity = 2;
 
   const line1 = exiledPlayer
     ? (lang === 'uz' 
@@ -53,10 +54,10 @@ export default function AmongUsEjectionScreen({
     : '';
 
   const line3 = (lang === 'uz'
-    ? `Tirik qolganlar: ${aliveRemaining} / 12  •  Bunkerda joylar: ${capacity}`
+    ? `Tirik qolganlar: ${aliveRemaining} / ${totalInRoom}  •  Bunkerda joylar: ${capacity}`
     : lang === 'en'
-    ? `Survivors remaining: ${aliveRemaining} / 12  •  Bunker capacity: ${capacity}`
-    : `Выживших претендентов: ${aliveRemaining} из 12  •  Мест в бункере: ${capacity}`);
+    ? `Survivors remaining: ${aliveRemaining} / ${totalInRoom}  •  Bunker capacity: ${capacity}`
+    : `Выживших претендентов: ${aliveRemaining} из ${totalInRoom}  •  Мест в бункере: ${capacity}`);
 
   // ===================== REALISTIC CANVAS PARTICLE & STORM ENGINE =====================
   useEffect(() => {
