@@ -678,11 +678,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('sendDirectMessage', ({ fromUsername, toUsername, text }, callback) => {
+  socket.on('sendDirectMessage', ({ fromUsername, toUsername, text, voice }, callback) => {
     try {
-      const res = userManager.sendDirectMessage(fromUsername, toUsername, text);
+      const res = userManager.sendDirectMessage(fromUsername, toUsername, text, voice);
       if (res.success && res.message) {
         io.emit('directMessageReceived', {
+          ...res.message,
           from: res.message.from,
           to: res.message.to,
           message: res.message
@@ -691,6 +692,31 @@ io.on('connection', (socket) => {
       if (typeof callback === 'function') callback(res);
     } catch (e) {
       if (typeof callback === 'function') callback({ error: 'Ошибка отправки сообщения' });
+    }
+  });
+
+  socket.on('inviteFriendVoiceCall', ({ fromUsername, toUsername, voiceRoomCode }, callback) => {
+    try {
+      const sender = userManager.getUser(fromUsername);
+      const target = userManager.findUserByIdOrName(toUsername);
+      if (!target) {
+        if (typeof callback === 'function') callback({ error: 'Игрок не найден' });
+        return;
+      }
+      const callPayload = {
+        id: 'call_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        fromUsername: sender ? sender.username : fromUsername,
+        fromUserId: sender ? sender.userId : null,
+        fromAvatar: sender?.characterDetails?.avatar || '🥷',
+        targetUsername: target.username,
+        targetUserId: target.userId,
+        voiceRoomCode: voiceRoomCode || ['dm_voice', String(fromUsername || '').toLowerCase(), String(target.username || '').toLowerCase()].sort().join('__'),
+        timestamp: Date.now()
+      };
+      io.emit('friendVoiceCallInvite', callPayload);
+      if (typeof callback === 'function') callback({ success: true, call: callPayload });
+    } catch (e) {
+      if (typeof callback === 'function') callback({ error: 'Ошибка вызова аудиочата' });
     }
   });
 
@@ -1052,6 +1078,19 @@ io.on('connection', (socket) => {
     if (!roomCode || !playerId) {
       if (typeof callback === 'function') callback({ error: 'Missing roomCode or playerId' });
       return;
+    }
+    if (socket.voiceRoomCode && socket.voiceRoomCode !== roomCode) {
+      const prevCode = socket.voiceRoomCode;
+      socket.leave(`voice_${prevCode}`);
+      if (global.voiceRooms && global.voiceRooms.has(prevCode)) {
+        const prevMap = global.voiceRooms.get(prevCode);
+        prevMap.delete(socket.id);
+        if (prevMap.size === 0) global.voiceRooms.delete(prevCode);
+        socket.to(`voice_${prevCode}`).emit('voiceUserLeft', {
+          socketId: socket.id,
+          playerId: socket.voicePlayerId
+        });
+      }
     }
     socket.join(`voice_${roomCode}`);
     if (!global.voiceRooms) global.voiceRooms = new Map();

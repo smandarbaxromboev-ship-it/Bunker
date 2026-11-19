@@ -705,13 +705,14 @@ class UserManager {
     return this.directMessages.get(key) || [];
   }
 
-  sendDirectMessage(fromUsername, toUsername, text) {
+  sendDirectMessage(fromUsername, toUsername, text, voice = null) {
     const sender = this.ensureUser(fromUsername);
     const target = this.findUserByIdOrName(toUsername);
     if (!sender || !target) return { error: 'Игрок не найден' };
 
-    const cleanText = String(text || '').trim().substring(0, 400);
-    if (!cleanText) return { error: 'Введите текст сообщения' };
+    const hasVoice = Boolean(voice && voice.audioData);
+    const cleanText = String(text || '').trim().substring(0, 400) || (hasVoice ? '🎤 Голосовое сообщение' : '');
+    if (!cleanText && !hasVoice) return { error: 'Введите текст сообщения' };
 
     const key = this.getDmKey(sender.username, target.username);
     const list = this.directMessages.get(key) || [];
@@ -723,6 +724,10 @@ class UserManager {
       fromAvatar: sender.avatarUrl || null,
       to: target.username,
       text: cleanText,
+      voice: hasVoice ? {
+        audioData: voice.audioData,
+        duration: Math.round(Number(voice.duration) || 0)
+      } : null,
       timestamp: new Date(nowMs).toLocaleTimeString('ru-RU', {
         timeZone: 'Asia/Tashkent',
         hour: '2-digit',

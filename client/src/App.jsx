@@ -27,7 +27,7 @@ import BunkerLogo from './components/BunkerLogo';
 import AtmosphereEffects from './components/AtmosphereEffects';
 import RulesModal from './components/RulesModal';
 import ProfileModal from './components/ProfileModal';
-import FriendsModal from './components/FriendsModal';
+import FriendsModal, { getDmVoiceRoomCode } from './components/FriendsModal';
 import DailyCrateModal from './components/DailyCrateModal';
 import NotFoundView from './components/NotFoundView';
 import InstallAppModal from './components/InstallAppModal';
@@ -365,14 +365,17 @@ export default function App() {
   const [hasShownEjectionForRound, setHasShownEjectionForRound] = useState(null);
   const [typingUsers, setTypingUsers] = useState({});
 
-  // Live WebRTC Group Voice Chat
+  // Live WebRTC Group Voice Chat & Friend Direct Audio Call
   const voiceManagerRef = useRef(null);
   const [isVoiceConnected, setIsVoiceConnected] = useState(false);
+  const [activeVoiceRoomCode, setActiveVoiceRoomCode] = useState(null);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
   const [isVoiceSpeaking, setIsVoiceSpeaking] = useState(false);
   const [isVoiceLoud, setIsVoiceLoud] = useState(false);
   const [voicePeers, setVoicePeers] = useState([]);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [pendingVoiceCall, setPendingVoiceCall] = useState(null);
+  const [autoStartFriendVoice, setAutoStartFriendVoice] = useState(false);
 
   useEffect(() => {
     const vm = new VoiceChatManager(socket);
@@ -407,11 +410,51 @@ export default function App() {
     setShowVoiceModal(true);
     if (!isVoiceConnected && roomState) {
       voiceManagerRef.current?.joinVoice(roomState.code, myPlayerId, myPlayer?.name || playerName)
-        .then(() => setIsVoiceConnected(true))
+        .then(() => {
+          setIsVoiceConnected(true);
+          setActiveVoiceRoomCode(roomState.code);
+        })
         .catch((err) => {
           console.warn('[VOICE] Auto-connect failed:', err);
         });
     }
+  };
+
+  const handleStartFriendVoice = (friend, sendInvite = true) => {
+    if (!user?.username || !friend?.username) return;
+    const dmVoiceCode = getDmVoiceRoomCode(user.username, friend.username);
+    soundManager.playBeep(950, 0.08);
+    voiceManagerRef.current
+      ?.joinVoice(dmVoiceCode, user.username, user.username)
+      .then(() => {
+        setIsVoiceConnected(true);
+        setActiveVoiceRoomCode(dmVoiceCode);
+        if (sendInvite) {
+          socket.emit('inviteFriendVoiceCall', {
+            fromUsername: user.username,
+            toUsername: friend.username,
+            voiceRoomCode: dmVoiceCode
+          });
+        }
+      })
+      .catch(() => {
+        alert(
+          lang === 'uz'
+            ? 'Brauzerda mikrofonga ruxsat bering!'
+            : lang === 'en'
+            ? 'Please allow microphone access in your browser!'
+            : 'Разрешите доступ к микрофону в браузере!'
+        );
+      });
+  };
+
+  const handleLeaveFriendVoice = () => {
+    soundManager.playBeep(450, 0.06);
+    voiceManagerRef.current?.leaveVoice();
+    setIsVoiceConnected(false);
+    setActiveVoiceRoomCode(null);
+    setIsVoiceSpeaking(false);
+    setVoicePeers([]);
   };
 
   const applyNormalizedRoomState = (newState) => {
@@ -582,10 +625,13 @@ export default function App() {
       socket.emit('leaveRoom', { roomCode: codeToLeave, playerId: idToLeave });
     }
 
-    voiceManagerRef.current?.leaveVoice();
-    setIsVoiceConnected(false);
-    setIsVoiceSpeaking(false);
-    setVoicePeers([]);
+    if (!activeVoiceRoomCode || !String(activeVoiceRoomCode).startsWith('dm_voice_')) {
+      voiceManagerRef.current?.leaveVoice();
+      setIsVoiceConnected(false);
+      setActiveVoiceRoomCode(null);
+      setIsVoiceSpeaking(false);
+      setVoicePeers([]);
+    }
 
     setShowVotingModal(false);
     setShowResultModal(false);
@@ -815,6 +861,21 @@ export default function App() {
       } catch (e) {}
     });
 
+    socket.on('friendVoiceCallInvite', (call) => {
+      if (!call || !call.fromUsername) return;
+      const mySaved = localStorage.getItem('bunker_user_v3');
+      if (!mySaved) return;
+      try {
+        const parsed = JSON.parse(mySaved);
+        const matchName = parsed.username && call.targetUsername && parsed.username.toLowerCase() === call.targetUsername.toLowerCase();
+        const matchId = parsed.userId && call.targetUserId && String(parsed.userId) === String(call.targetUserId);
+        if ((matchName || matchId) && parsed.username?.toLowerCase() !== call.fromUsername.toLowerCase()) {
+          soundManager.playBeep(1180, 0.16);
+          setPendingVoiceCall(call);
+        }
+      } catch (e) {}
+    });
+
     return () => {
       socket.off('connect');
       socket.off('publicRoomsUpdated');
@@ -826,6 +887,7 @@ export default function App() {
       socket.off('roomClosedByAdmin');
       socket.off('kickedFromLobby');
       socket.off('roomInvite');
+      socket.off('friendVoiceCallInvite');
       socket.off('messagesReadUpdate');
     };
   }, []);
@@ -1227,7 +1289,7 @@ export default function App() {
                   💬 {lang === 'uz' ? `Do'stdan xabar (${pendingDmNotice.from}):` : lang === 'en' ? `Message from ${pendingDmNotice.from}:` : `Сообщение от друга ${pendingDmNotice.from}:`}
                 </div>
                 <div className="text-xs font-mono text-zinc-100 truncate mt-0.5">
-                  «{pendingDmNotice.text}»
+                  «{pendingDmNotice.text || pendingDmNotice.message?.text || '🎤 Голосовое сообщение'}»
                 </div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
@@ -1252,7 +1314,86 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {pendingVoiceCall && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[75] w-[94vw] max-w-md bg-zinc-950/95 border-2 border-emerald-400 rounded-2xl p-4 shadow-[0_0_45px_rgba(16,185,129,0.5)] animate-bounce text-white">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-xl shrink-0">
+                  🎙️
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold">
+                    {lang === 'uz' ? 'OVOZLI CHAT CHAQIRUVI!' : lang === 'en' ? 'INCOMING AUDIO CALL!' : '🎙️ ЗВОНОК В АУДИОЧАТ!'}
+                  </div>
+                  <div className="text-xs sm:text-sm font-display font-bold text-white truncate">
+                    {pendingVoiceCall.fromUsername}{' '}
+                    {lang === 'uz'
+                      ? 'sizni ovozli chatga chaqiryapti!'
+                      : lang === 'en'
+                      ? 'is calling you in live audio chat!'
+                      : 'зовёт вас в голосовой чат!'}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => {
+                    const caller = { username: pendingVoiceCall.fromUsername, userId: pendingVoiceCall.fromUserId };
+                    setPendingVoiceCall(null);
+                    setInitialChatFriend(caller);
+                    setAutoStartFriendVoice(true);
+                    setShowFriendsModal(true);
+                    handleStartFriendVoice(caller, false);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-display font-bold text-xs transition cursor-pointer shadow-lg"
+                >
+                  {lang === 'uz' ? 'Ulash' : lang === 'en' ? 'Answer' : 'Принять'}
+                </button>
+                <button
+                  onClick={() => setPendingVoiceCall(null)}
+                  className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700 text-xs transition cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </>
+    );
+  };
+
+  const renderFriendsModal = () => {
+    if (!showFriendsModal || !user) return null;
+    return (
+      <FriendsModal
+        user={user}
+        socket={socket}
+        currentRoomCode={roomState?.code || null}
+        initialChatFriend={initialChatFriend}
+        autoStartVoiceWithFriend={autoStartFriendVoice}
+        onJoinFriendRoom={handleJoinRoomByCode}
+        onClose={() => {
+          setShowFriendsModal(false);
+          setInitialChatFriend(null);
+          setAutoStartFriendVoice(false);
+        }}
+        onUserUpdated={handleUserUpdated}
+        voiceManager={voiceManagerRef.current}
+        isVoiceConnected={isVoiceConnected}
+        isVoiceMuted={isVoiceMuted}
+        isVoiceSpeaking={isVoiceSpeaking}
+        voicePeers={voicePeers}
+        activeVoiceRoomCode={activeVoiceRoomCode}
+        onStartFriendVoice={handleStartFriendVoice}
+        onLeaveFriendVoice={handleLeaveFriendVoice}
+        onToggleVoiceMute={() => {
+          const nextMuted = voiceManagerRef.current?.toggleMute();
+          setIsVoiceMuted(Boolean(nextMuted));
+        }}
+        lang={lang}
+      />
     );
   };
 
@@ -1891,19 +2032,23 @@ export default function App() {
         )}
 
         {/* Friends by ID Modal */}
-        {showFriendsModal && user && (
-          <FriendsModal
-            user={user}
-            socket={socket}
-            currentRoomCode={roomState?.code || null}
-            initialChatFriend={initialChatFriend}
-            onJoinFriendRoom={handleJoinRoomByCode}
-            onClose={() => {
-              setShowFriendsModal(false);
-              setInitialChatFriend(null);
-            }}
-            onUserUpdated={handleUserUpdated}
+        {renderFriendsModal()}
+
+        {isVoiceConnected && (
+          <VoiceChatBar
+            voiceManager={voiceManagerRef.current}
+            isConnected={isVoiceConnected}
+            isMuted={isVoiceMuted}
+            isSpeaking={isVoiceSpeaking}
+            peers={voicePeers}
+            myPlayerId={user?.username || myPlayerId}
             lang={lang}
+            onOpenModal={() => setShowFriendsModal(true)}
+            onToggleVoice={handleLeaveFriendVoice}
+            onToggleMute={() => {
+              const nextMuted = voiceManagerRef.current?.toggleMute();
+              setIsVoiceMuted(Boolean(nextMuted));
+            }}
           />
         )}
 
@@ -1962,21 +2107,7 @@ export default function App() {
           <ProfileModal user={user} socket={socket} lang={lang} onClose={() => setShowProfileModal(false)} onProfileUpdated={handleUserUpdated} />
         )}
 
-        {showFriendsModal && user && (
-          <FriendsModal
-            user={user}
-            socket={socket}
-            currentRoomCode={roomState?.code || null}
-            initialChatFriend={initialChatFriend}
-            onJoinFriendRoom={handleJoinRoomByCode}
-            onClose={() => {
-              setShowFriendsModal(false);
-              setInitialChatFriend(null);
-            }}
-            onUserUpdated={handleUserUpdated}
-            lang={lang}
-          />
-        )}
+        {renderFriendsModal()}
 
         <RulesModal
           isOpen={showRulesModal}
@@ -2144,21 +2275,7 @@ export default function App() {
           <ProfileModal user={user} socket={socket} lang={lang} onClose={() => setShowProfileModal(false)} onProfileUpdated={handleUserUpdated} />
         )}
 
-        {showFriendsModal && user && (
-          <FriendsModal
-            user={user}
-            socket={socket}
-            currentRoomCode={roomState?.code || null}
-            initialChatFriend={initialChatFriend}
-            onJoinFriendRoom={handleJoinRoomByCode}
-            onClose={() => {
-              setShowFriendsModal(false);
-              setInitialChatFriend(null);
-            }}
-            onUserUpdated={handleUserUpdated}
-            lang={lang}
-          />
-        )}
+        {renderFriendsModal()}
 
         <RulesModal
           isOpen={showRulesModal}
@@ -2540,21 +2657,7 @@ export default function App() {
       />
 
       {/* 10. Friends by ID Modal */}
-      {showFriendsModal && user && (
-        <FriendsModal
-          user={user}
-          socket={socket}
-          currentRoomCode={roomState?.code || null}
-          initialChatFriend={initialChatFriend}
-          onJoinFriendRoom={handleJoinRoomByCode}
-          onClose={() => {
-            setShowFriendsModal(false);
-            setInitialChatFriend(null);
-          }}
-          onUserUpdated={handleUserUpdated}
-          lang={lang}
-        />
-      )}
+      {renderFriendsModal()}
 
       {/* 11. Live WebRTC Group Voice Chat Bar */}
       {roomState && (
@@ -2571,9 +2674,13 @@ export default function App() {
             if (isVoiceConnected) {
               voiceManagerRef.current?.leaveVoice();
               setIsVoiceConnected(false);
+              setActiveVoiceRoomCode(null);
             } else {
               voiceManagerRef.current?.joinVoice(roomState.code, myPlayerId, myPlayer?.name || playerName)
-                .then(() => setIsVoiceConnected(true))
+                .then(() => {
+                  setIsVoiceConnected(true);
+                  setActiveVoiceRoomCode(roomState.code);
+                })
                 .catch(() => {
                   alert(t.voicePermissionError || (lang === 'uz' ? "Brauzerda mikrofonga ruxsat bering!" : lang === 'en' ? "Please allow microphone access in your browser!" : "Разрешите доступ к микрофону в браузере!"));
                 });
@@ -2603,9 +2710,13 @@ export default function App() {
           if (isVoiceConnected) {
             voiceManagerRef.current?.leaveVoice();
             setIsVoiceConnected(false);
+            setActiveVoiceRoomCode(null);
           } else {
             voiceManagerRef.current?.joinVoice(roomState.code, myPlayerId, myPlayer?.name || playerName)
-              .then(() => setIsVoiceConnected(true))
+              .then(() => {
+                setIsVoiceConnected(true);
+                setActiveVoiceRoomCode(roomState.code);
+              })
               .catch(() => {
                 alert(t.voicePermissionError || (lang === 'uz' ? "Brauzerda mikrofonga ruxsat bering!" : lang === 'en' ? "Please allow microphone access in your browser!" : "Разрешите доступ к микрофону в браузере!"));
               });

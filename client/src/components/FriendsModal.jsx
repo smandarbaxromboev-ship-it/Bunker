@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, UserPlus, Copy, Check, Send, Trash2, X, LogIn, Hash, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Users, UserPlus, Copy, Check, Send, Trash2, X, LogIn, Hash, MessageSquare, ArrowLeft, Mic, MicOff, PhoneCall, PhoneOff, Square, Volume2 } from 'lucide-react';
 import { soundManager } from '../utils/audio';
+import VoiceMessagePlayer from './VoiceMessagePlayer';
 
 function formatLocalTime(msg) {
   if (msg?.createdAt) {
@@ -15,14 +16,29 @@ function formatLocalTime(msg) {
   return msg?.timestamp || '';
 }
 
+export function getDmVoiceRoomCode(userA, userB) {
+  const pair = [String(userA || '').trim().toLowerCase(), String(userB || '').trim().toLowerCase()].sort();
+  return `dm_voice_${pair[0]}__${pair[1]}`;
+}
+
 export default function FriendsModal({
   user,
   socket,
   currentRoomCode,
   initialChatFriend = null,
+  autoStartVoiceWithFriend = false,
   onJoinFriendRoom,
   onClose,
   onUserUpdated,
+  voiceManager = null,
+  isVoiceConnected = false,
+  isVoiceMuted = false,
+  isVoiceSpeaking = false,
+  voicePeers = [],
+  activeVoiceRoomCode = null,
+  onStartFriendVoice,
+  onLeaveFriendVoice,
+  onToggleVoiceMute,
   lang = 'ru'
 }) {
   const [friends, setFriends] = useState([]);
@@ -39,7 +55,16 @@ export default function FriendsModal({
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [unreadMap, setUnreadMap] = useState({});
+  const [callRingNotice, setCallRingNotice] = useState('');
   const chatEndRef = useRef(null);
+
+  // Voice Message Recording State in Direct Chat
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordTimerRef = useRef(null);
+  const recordStartTimeRef = useRef(0);
 
   const loadFriends = (silent = false) => {
     if (!user?.username) return;
@@ -77,6 +102,9 @@ export default function FriendsModal({
           }
         }
       );
+      if (autoStartVoiceWithFriend && onStartFriendVoice) {
+        onStartFriendVoice(typeof initialChatFriend === 'object' ? initialChatFriend : { username: fName }, false);
+      }
     }
 
     const handleFriendsUpdated = (data) => {
@@ -86,7 +114,8 @@ export default function FriendsModal({
       }
     };
 
-    const handleDirectMessage = (msg) => {
+    const handleDirectMessage = (payload) => {
+      const msg = payload?.message || payload;
       if (!msg || !user?.username) return;
       const myLow = user.username.toLowerCase();
       const fromLow = (msg.from || '').toLowerCase();
@@ -124,7 +153,18 @@ export default function FriendsModal({
     }
   }, [chatMessages, activeChatFriend]);
 
-  const openDirectChat = (friend) => {
+  useEffect(() => {
+    return () => {
+      if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {}
+      }
+    };
+  }, []);
+
+  const openDirectChat = (friend, startVoice = false) => {
     setActiveChatFriend(friend);
     const partnerLow = friend.username.toLowerCase();
     setUnreadMap((prev) => ({ ...prev, [partnerLow]: 0 }));
@@ -137,6 +177,9 @@ export default function FriendsModal({
         }
       }
     );
+    if (startVoice && onStartFriendVoice) {
+      onStartFriendVoice(friend, true);
+    }
   };
 
   const handleSendDirectMessage = (e) => {
@@ -162,6 +205,111 @@ export default function FriendsModal({
         }
       }
     );
+  };
+
+  // Запись и отправка голосового сообщения другу
+  const handleStartVoiceRecord = async () => {
+    if (isRecordingVoice || !activeChatFriend || !user?.username) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) {
+          audioChunksRef.current.push(ev.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        if (recordTimerRef.current) {
+          clearInterval(recordTimerRef.current);
+          recordTimerRef.current = null;
+        }
+        const durationSec = Math.max(1, Math.round((Date.now() - recordStartTimeRef.current) / 1000));
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        if (blob.size < 200) {
+          setIsRecordingVoice(false);
+          setRecordingSeconds(0);
+          return;
+        }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Audio = reader.result;
+          if (base64Audio && activeChatFriend) {
+            socket.emit(
+              'sendDirectMessage',
+              {
+                fromUsername: user.username,
+                toUsername: activeChatFriend.username,
+                text: '🎤 Голосовое сообщение',
+                voice: {
+                  audioData: base64Audio,
+                  duration: durationSec
+                }
+              },
+              (res) => {
+                if (res && res.success && res.message) {
+                  setChatMessages((prev) => {
+                    if (prev.some((m) => m.id === res.message.id)) return prev;
+                    return [...prev, res.message];
+                  });
+                }
+              }
+            );
+          }
+        };
+        reader.readAsDataURL(blob);
+        setIsRecordingVoice(false);
+        setRecordingSeconds(0);
+      };
+
+      mediaRecorderRef.current = recorder;
+      recordStartTimeRef.current = Date.now();
+      setRecordingSeconds(0);
+      setIsRecordingVoice(true);
+      soundManager.playBeep(880, 0.05);
+      recorder.start();
+
+      recordTimerRef.current = setInterval(() => {
+        const elapsed = Math.round((Date.now() - recordStartTimeRef.current) / 1000);
+        setRecordingSeconds(elapsed);
+        if (elapsed >= 30 && mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+        }
+      }, 500);
+    } catch (err) {
+      alert(
+        lang === 'uz'
+          ? 'Brauzerda mikrofonga ruxsat bering!'
+          : lang === 'en'
+          ? 'Please allow microphone access in your browser!'
+          : 'Разрешите доступ к микрофону в браузере!'
+      );
+    }
+  };
+
+  const handleStopVoiceRecord = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      soundManager.playBeep(660, 0.05);
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const handleRingFriendForVoice = (friend) => {
+    if (!friend || !user?.username) return;
+    if (onStartFriendVoice) {
+      onStartFriendVoice(friend, true);
+    }
+    setCallRingNotice(
+      lang === 'uz'
+        ? `🔔 ${friend.username} ga ovozli chat taklifi yuborildi!`
+        : lang === 'en'
+        ? `🔔 Audio chat invite sent to ${friend.username}!`
+        : `🔔 Приглашение в аудиочат отправлено ${friend.username}!`
+    );
+    setTimeout(() => setCallRingNotice(''), 3500);
   };
 
   const handleCopyMyId = () => {
@@ -269,66 +417,275 @@ export default function FriendsModal({
       ) || activeChatFriend
     : null;
 
+  const expectedDmVoiceCode =
+    liveChatFriend && user?.username
+      ? getDmVoiceRoomCode(user.username, liveChatFriend.username)
+      : null;
+
+  const isInThisFriendVoice = Boolean(
+    isVoiceConnected && expectedDmVoiceCode && activeVoiceRoomCode === expectedDmVoiceCode
+  );
+
+  const friendVoicePeer = isInThisFriendVoice
+    ? voicePeers.find(
+        (p) =>
+          (p.playerName || '').toLowerCase() === (liveChatFriend?.username || '').toLowerCase() ||
+          (p.playerId || '').toLowerCase() === (liveChatFriend?.username || '').toLowerCase()
+      ) || voicePeers[0] || null
+    : null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div className="bg-zinc-950 border-2 border-cyan-500/60 rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-[0_0_50px_rgba(6,182,212,0.25)] flex flex-col max-h-[90vh] overflow-hidden text-white">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4 shrink-0">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-3 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             {liveChatFriend ? (
               <button
                 type="button"
                 onClick={() => setActiveChatFriend(null)}
-                className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-cyan-400 transition cursor-pointer"
+                className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-cyan-400 transition cursor-pointer shrink-0"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
             ) : (
-              <div className="p-2 rounded-xl bg-cyan-500/15 border border-cyan-500/40 text-cyan-400">
+              <div className="p-2 rounded-xl bg-cyan-500/15 border border-cyan-500/40 text-cyan-400 shrink-0">
                 <Users className="w-5 h-5" />
               </div>
             )}
-            <div>
-              <h2 className="text-base sm:text-lg font-display font-bold text-white tracking-wide">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-display font-bold text-white tracking-wide truncate">
                 {liveChatFriend
-                  ? (lang === 'uz' ? `💬 ${liveChatFriend.username} bilan chat` : lang === 'en' ? `💬 Chat with ${liveChatFriend.username}` : `💬 Чат с ${liveChatFriend.username}`)
+                  ? (lang === 'uz' ? `💬 ${liveChatFriend.username}` : lang === 'en' ? `💬 ${liveChatFriend.username}` : `💬 ${liveChatFriend.username}`)
                   : lang === 'uz'
-                  ? "DO'STLAR, CHAT VA ID"
+                  ? "DO'STLAR, CHAT VA OVOZLI ALOQA"
                   : lang === 'en'
-                  ? 'FRIENDS, DIRECT CHAT & ID'
-                  : 'ДРУЗЬЯ ПО ID И ЛИЧНЫЙ ЧАТ'}
+                  ? 'FRIENDS, CHAT & AUDIO CALL'
+                  : 'ДРУЗЬЯ, ЧАТ И АУДИОЗВОНОК'}
               </h2>
-              <p className="text-[11px] text-zinc-400 font-mono">
+              <p className="text-[11px] text-zinc-400 font-mono truncate">
                 {liveChatFriend
                   ? `ID: #${liveChatFriend.userId || '------'} • ${liveChatFriend.isOnline ? (lang === 'uz' ? '🟢 Onlayn' : lang === 'en' ? '🟢 Online' : '🟢 Онлайн') : (lang === 'uz' ? '⚫ Oflayn' : lang === 'en' ? '⚫ Offline' : '⚫ Оффлайн')}`
                   : lang === 'uz'
-                  ? "ID orqali do'st qo'shing, yozishing va birga o'ynang"
+                  ? "ID orqali do'st qo'shing, yozishing va ovozli gaplashing"
                   : lang === 'en'
-                  ? 'Add friends by ID, chat directly, and invite to rooms'
-                  : 'Переписывайтесь с друзьями напрямую и зовите в бункер'}
+                  ? 'Add friends by ID, text or talk in live audio chat'
+                  : 'Переписывайтесь и общайтесь по голосовой связи вне игры'}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 transition cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {liveChatFriend && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (isInThisFriendVoice) {
+                    if (onLeaveFriendVoice) onLeaveFriendVoice();
+                  } else {
+                    handleRingFriendForVoice(liveChatFriend);
+                  }
+                }}
+                className={`px-3 py-2 rounded-xl font-mono font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md ${
+                  isInThisFriendVoice
+                    ? 'bg-red-600 hover:bg-red-500 text-white'
+                    : 'bg-emerald-500 hover:bg-emerald-400 text-black'
+                }`}
+              >
+                {isInThisFriendVoice ? <PhoneOff className="w-3.5 h-3.5" /> : <PhoneCall className="w-3.5 h-3.5" />}
+                <span>
+                  {isInThisFriendVoice
+                    ? (lang === 'uz' ? 'Yakunlash' : lang === 'en' ? 'End Call' : 'Завершить')
+                    : (lang === 'uz' ? 'Ovozli chat' : lang === 'en' ? 'Audio Call' : 'Аудиочат')}
+                </span>
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* DIRECT CHAT VIEW WITH A FRIEND */}
         {liveChatFriend ? (
-          <div className="flex-1 flex flex-col min-h-[340px] max-h-[65vh]">
+          <div className="flex-1 flex flex-col min-h-[360px] max-h-[68vh]">
+            {/* Live WebRTC Audio Chat Panel inside Friend Chat */}
+            <div
+              className={`mb-2.5 p-2.5 sm:p-3 rounded-2xl border transition-all shrink-0 ${
+                isInThisFriendVoice
+                  ? 'bg-emerald-950/40 border-emerald-500/60 shadow-[0_0_20px_rgba(16,185,129,0.15)]'
+                  : 'bg-zinc-900/90 border-zinc-800'
+              }`}
+            >
+              {!isInThisFriendVoice ? (
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                      <Volume2 className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-mono font-bold text-zinc-200 truncate">
+                        {lang === 'uz'
+                          ? `🎙️ ${liveChatFriend.username} bilan ovozli chat`
+                          : lang === 'en'
+                          ? `🎙️ Live Audio Chat with ${liveChatFriend.username}`
+                          : `🎙️ Голосовой чат с ${liveChatFriend.username}`}
+                      </div>
+                      <div className="text-[10px] font-mono text-zinc-400 truncate">
+                        {lang === 'uz'
+                          ? "O'yindan tashqarida jonli ovozda gaplashing"
+                          : lang === 'en'
+                          ? 'Talk live via microphone outside the game'
+                          : 'Разговаривайте вживую по микрофону прямо здесь'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRingFriendForVoice(liveChatFriend)}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-mono font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-md shadow-emerald-500/20"
+                  >
+                    <Mic className="w-3.5 h-3.5" />
+                    <span>{lang === 'uz' ? "Ulash" : lang === 'en' ? 'Connect' : 'Включить'}</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-400">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      <span>
+                        {lang === 'uz'
+                          ? 'OVOZLI CHAT FAOL'
+                          : lang === 'en'
+                          ? 'LIVE AUDIO CHAT ACTIVE'
+                          : 'ГОЛОСОВОЙ ЧАТ АКТИВЕН'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          soundManager.playBeep(isVoiceMuted ? 850 : 500, 0.05);
+                          if (onToggleVoiceMute) onToggleVoiceMute();
+                        }}
+                        className={`px-2.5 py-1 rounded-xl font-mono font-bold text-[11px] flex items-center gap-1 transition cursor-pointer border ${
+                          isVoiceMuted
+                            ? 'bg-red-500/20 border-red-500/50 text-red-300'
+                            : isVoiceSpeaking
+                            ? 'bg-emerald-500 text-black border-white animate-pulse'
+                            : 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                        }`}
+                      >
+                        {isVoiceMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                        <span>
+                          {isVoiceMuted
+                            ? (lang === 'uz' ? "Mikrofon o'chiq" : lang === 'en' ? 'Muted' : 'Микрофон выкл')
+                            : (lang === 'uz' ? 'Mikrofon yoqiq' : lang === 'en' ? 'Mic On' : 'Микрофон вкл')}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRingFriendForVoice(liveChatFriend)}
+                        title={lang === 'uz' ? 'Takror chaqirish' : lang === 'en' ? 'Ring again' : 'Позвать друга ещё раз'}
+                        className="px-2 py-1 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-[11px] font-mono font-bold transition cursor-pointer"
+                      >
+                        🔔 {lang === 'uz' ? 'Chaqirish' : lang === 'en' ? 'Ring' : 'Позвать'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Participants row */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Me */}
+                    <div
+                      className={`p-2 rounded-xl border flex items-center gap-2 transition ${
+                        isVoiceSpeaking && !isVoiceMuted
+                          ? 'bg-emerald-500/20 border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                          : 'bg-zinc-900/80 border-zinc-800'
+                      }`}
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center text-sm shrink-0">
+                        {user?.characterDetails?.avatar || '🥷'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] font-mono font-bold text-white truncate">
+                          {user?.username} ({lang === 'uz' ? 'Siz' : lang === 'en' ? 'You' : 'Вы'})
+                        </div>
+                        <div className="text-[10px] font-mono text-emerald-400 truncate">
+                          {isVoiceMuted
+                            ? (lang === 'uz' ? '🔇 Ovoz o‘chiq' : lang === 'en' ? '🔇 Muted' : '🔇 Выкл.')
+                            : isVoiceSpeaking
+                            ? (lang === 'uz' ? '🗣️ Gapiryapsiz...' : lang === 'en' ? '🗣️ Speaking...' : '🗣️ Говорите...')
+                            : (lang === 'uz' ? '🟢 Efirda' : lang === 'en' ? '🟢 Connected' : '🟢 В эфире')}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Friend */}
+                    <div
+                      className={`p-2 rounded-xl border flex items-center gap-2 transition ${
+                        friendVoicePeer?.isSpeaking
+                          ? 'bg-emerald-500/20 border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                          : 'bg-zinc-900/80 border-zinc-800'
+                      }`}
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center text-sm shrink-0">
+                        {liveChatFriend.characterDetails?.avatar || '🥷'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] font-mono font-bold text-white truncate">
+                          {liveChatFriend.username}
+                        </div>
+                        <div className="text-[10px] font-mono truncate">
+                          {friendVoicePeer ? (
+                            friendVoicePeer.isMuted ? (
+                              <span className="text-red-400">
+                                {lang === 'uz' ? '🔇 Mikrofon o‘chiq' : lang === 'en' ? '🔇 Muted' : '🔇 Микрофон выкл'}
+                              </span>
+                            ) : friendVoicePeer.isSpeaking ? (
+                              <span className="text-emerald-400 font-bold animate-pulse">
+                                {lang === 'uz' ? '🗣️ Gapiryapti...' : lang === 'en' ? '🗣️ Speaking...' : '🗣️ Говорит...'}
+                              </span>
+                            ) : (
+                              <span className="text-emerald-400">
+                                {lang === 'uz' ? '🟢 Efirda' : lang === 'en' ? '🟢 Connected' : '🟢 В эфире'}
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-amber-400">
+                              {lang === 'uz' ? '⏳ Kutilmoqda...' : lang === 'en' ? '⏳ Waiting...' : '⏳ Ожидание...'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {callRingNotice && (
+                <div className="mt-2 text-[11px] font-mono text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 rounded-xl px-2.5 py-1 text-center">
+                  {callRingNotice}
+                </div>
+              )}
+            </div>
+
             <div className="flex-1 overflow-y-auto space-y-2.5 p-3 rounded-2xl bg-zinc-900/70 border border-zinc-800 mb-3">
               {chatMessages.length === 0 ? (
                 <div className="text-center py-12 text-zinc-500 font-mono text-xs">
                   {lang === 'uz' 
-                    ? <>Do'stingiz <strong className="text-cyan-400">{liveChatFriend.username}</strong> ga birinchi xabarni yozing!</>
+                    ? <>Do'stingiz <strong className="text-cyan-400">{liveChatFriend.username}</strong> ga birinchi xabarni yozing yoki ovozli chatni yoqing!</>
                     : lang === 'en'
-                    ? <>Send the first message to your friend <strong className="text-cyan-400">{liveChatFriend.username}</strong>!</>
-                    : <>Напишите первое сообщение другу <strong className="text-cyan-400">{liveChatFriend.username}</strong>!</>}
+                    ? <>Send a message or start an audio chat with <strong className="text-cyan-400">{liveChatFriend.username}</strong>!</>
+                    : <>Напишите сообщение или включите аудиочат с <strong className="text-cyan-400">{liveChatFriend.username}</strong>!</>}
                 </div>
               ) : (
                 chatMessages.map((m) => {
@@ -338,18 +695,32 @@ export default function FriendsModal({
                       key={m.id}
                       className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
                     >
-                      <div
-                        className={`max-w-[82%] px-3.5 py-2 rounded-2xl text-xs font-mono break-words ${
-                          isMine
-                            ? 'bg-cyan-500 text-black font-semibold rounded-br-none'
-                            : 'bg-zinc-800 text-zinc-100 border border-zinc-700 rounded-bl-none'
-                        }`}
-                      >
-                        <div>{m.text}</div>
-                        <div className={`text-[9px] mt-0.5 ${isMine ? 'text-black/70 text-right' : 'text-zinc-400'}`}>
-                          {formatLocalTime(m)}
+                      {m.voice && m.voice.audioData ? (
+                        <div className="space-y-0.5">
+                          <VoiceMessagePlayer
+                            audioData={m.voice.audioData}
+                            duration={m.voice.duration}
+                            isMe={isMine}
+                            isGhost={false}
+                          />
+                          <div className={`text-[9px] font-mono px-1 ${isMine ? 'text-zinc-400 text-right' : 'text-zinc-500'}`}>
+                            {formatLocalTime(m)}
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div
+                          className={`max-w-[82%] px-3.5 py-2 rounded-2xl text-xs font-mono break-words ${
+                            isMine
+                              ? 'bg-cyan-500 text-black font-semibold rounded-br-none'
+                              : 'bg-zinc-800 text-zinc-100 border border-zinc-700 rounded-bl-none'
+                          }`}
+                        >
+                          <div>{m.text}</div>
+                          <div className={`text-[9px] mt-0.5 ${isMine ? 'text-black/70 text-right' : 'text-zinc-400'}`}>
+                            {formatLocalTime(m)}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -358,27 +729,66 @@ export default function FriendsModal({
             </div>
 
             <form onSubmit={handleSendDirectMessage} className="flex items-center gap-2 shrink-0">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder={
-                  lang === 'uz'
-                    ? `${activeChatFriend.username} ga xabar yozing...`
-                    : lang === 'en'
-                    ? `Message ${activeChatFriend.username}...`
-                    : `Написать сообщение ${activeChatFriend.username}...`
-                }
-                maxLength={350}
-                className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-cyan-400 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-zinc-500 font-mono outline-none"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-md"
-              >
-                <Send className="w-4 h-4" />
-                <span>{lang === 'uz' ? 'Yuborish' : lang === 'en' ? 'Send' : 'Отправить'}</span>
-              </button>
+              {isRecordingVoice ? (
+                <div className="flex-1 flex items-center justify-between bg-red-950/60 border border-red-500/60 rounded-xl px-3.5 py-2 text-xs font-mono text-red-200">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+                    <span>
+                      {lang === 'uz'
+                        ? `Ovoz yozilmoqda: ${recordingSeconds}s`
+                        : lang === 'en'
+                        ? `Recording voice: ${recordingSeconds}s`
+                        : `Запись голоса: ${recordingSeconds} сек...`}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleStopVoiceRecord}
+                    className="px-2.5 py-1 rounded-lg bg-red-500 hover:bg-red-400 text-black font-bold text-xs flex items-center gap-1 cursor-pointer"
+                  >
+                    <Square className="w-3 h-3 fill-current" />
+                    <span>{lang === 'uz' ? 'Yuborish' : lang === 'en' ? 'Send' : 'Отправить'}</span>
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleStartVoiceRecord}
+                    title={
+                      lang === 'uz'
+                        ? 'Ovozli xabar yozish'
+                        : lang === 'en'
+                        ? 'Record voice message'
+                        : 'Записать голосовое сообщение'
+                    }
+                    className="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-emerald-400 border border-zinc-700 hover:border-emerald-500/50 transition cursor-pointer shrink-0"
+                  >
+                    <Mic className="w-4 h-4" />
+                  </button>
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder={
+                      lang === 'uz'
+                        ? `${activeChatFriend.username} ga xabar yozing...`
+                        : lang === 'en'
+                        ? `Message ${activeChatFriend.username}...`
+                        : `Написать сообщение ${activeChatFriend.username}...`
+                    }
+                    maxLength={350}
+                    className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-cyan-400 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-zinc-500 font-mono outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-md"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span className="hidden sm:inline">{lang === 'uz' ? 'Yuborish' : lang === 'en' ? 'Send' : 'Отправить'}</span>
+                  </button>
+                </>
+              )}
             </form>
           </div>
         ) : (
@@ -474,6 +884,8 @@ export default function FriendsModal({
               ) : (
                 friends.map((f) => {
                   const unread = unreadMap[f.username.toLowerCase()] || 0;
+                  const fVoiceCode = user?.username ? getDmVoiceRoomCode(user.username, f.username) : null;
+                  const isInCallWithF = Boolean(isVoiceConnected && fVoiceCode && activeVoiceRoomCode === fVoiceCode);
                   return (
                     <div
                       key={f.username}
@@ -529,7 +941,7 @@ export default function FriendsModal({
                         {/* Direct Chat Button */}
                         <button
                           type="button"
-                          onClick={() => openDirectChat(f)}
+                          onClick={() => openDirectChat(f, false)}
                           className="px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-cyan-500 hover:text-black text-cyan-300 border border-cyan-500/40 font-mono font-bold text-xs flex items-center gap-1 transition cursor-pointer relative"
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
@@ -539,6 +951,27 @@ export default function FriendsModal({
                               {unread}
                             </span>
                           )}
+                        </button>
+
+                        {/* Audio Call with Friend Button */}
+                        <button
+                          type="button"
+                          onClick={() => openDirectChat(f, true)}
+                          title={
+                            lang === 'uz'
+                              ? "Do'st bilan ovozli chat"
+                              : lang === 'en'
+                              ? 'Audio Chat with friend'
+                              : 'Голосовой аудиочат с другом'
+                          }
+                          className={`px-2.5 py-1.5 rounded-xl font-mono font-bold text-xs flex items-center gap-1 transition cursor-pointer border ${
+                            isInCallWithF
+                              ? 'bg-emerald-500 text-black border-emerald-300 animate-pulse'
+                              : 'bg-emerald-950/70 hover:bg-emerald-500 hover:text-black text-emerald-300 border-emerald-500/40'
+                          }`}
+                        >
+                          <PhoneCall className="w-3.5 h-3.5" />
+                          <span>{lang === 'uz' ? 'Ovozli' : lang === 'en' ? 'Call' : 'Звонок'}</span>
                         </button>
 
                         {/* Invite friend to OUR current room */}

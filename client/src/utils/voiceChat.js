@@ -24,6 +24,7 @@ export class VoiceChatManager {
     this.playerId = null;
     this.playerName = null;
     this.isMuted = false;
+    this.roomCode = null;
     this.isConnected = false;
     this.isSpeaking = false;
     this.isLoud = false;
@@ -140,7 +141,10 @@ export class VoiceChatManager {
   }
 
   async joinVoice(roomCode, playerId, playerName) {
-    if (this.isConnected) return;
+    if (this.isConnected) {
+      if (this.roomCode === roomCode) return;
+      this.leaveVoice();
+    }
     this.roomCode = roomCode;
     this.playerId = playerId;
     this.playerName = playerName;
@@ -417,6 +421,7 @@ export class VoiceChatManager {
       this.socket.emit('voiceLeave', { roomCode: this.roomCode });
     }
 
+    this.roomCode = null;
     this.isConnected = false;
     this.isSpeaking = false;
     this.notifyPeersUpdate();
