@@ -339,6 +339,7 @@ export default function App() {
   const [showDailyModal, setShowDailyModal] = useState(false);
   const [publicRooms, setPublicRooms] = useState([]);
   const [isQuickJoining, setIsQuickJoining] = useState(false);
+  const [noRoomsFound, setNoRoomsFound] = useState(false);
   const [pendingInvite, setPendingInvite] = useState(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [isRulesMandatory, setIsRulesMandatory] = useState(false);
@@ -927,6 +928,7 @@ export default function App() {
   const handleCreateRoom = (e) => {
     e.preventDefault();
     setErrorMessage('');
+    setNoRoomsFound(false);
 
     if (!user) {
       setErrorMessage(lang === 'uz' ? '⚠️ Bunker yaratish uchun tizimga kiring yoki ro\'yxatdan o\'ting!' : lang === 'en' ? '⚠️ Registration or login required to create a bunker!' : '⚠️ Для создания бункера необходимо зарегистрироваться или войти в аккаунт!');
@@ -955,6 +957,7 @@ export default function App() {
   const handleJoinRoom = (e) => {
     e.preventDefault();
     setErrorMessage('');
+    setNoRoomsFound(false);
 
     if (!user) {
       setErrorMessage(lang === 'uz' ? '⚠️ Bunkerga ulanish uchun tizimga kiring yoki ro\'yxatdan o\'ting!' : lang === 'en' ? '⚠️ Registration or login required to join a bunker!' : '⚠️ Для подключения к бункеру необходимо зарегистрироваться или войти в аккаунт!');
@@ -991,6 +994,7 @@ export default function App() {
     const clean = String(targetCode || '').trim();
     if (!clean) return;
     setErrorMessage('');
+    setNoRoomsFound(false);
 
     if (!user) {
       setErrorMessage(
@@ -1064,6 +1068,7 @@ export default function App() {
 
   const handleQuickJoinRoom = () => {
     setErrorMessage('');
+    setNoRoomsFound(false);
 
     if (!user) {
       setErrorMessage(
@@ -1094,6 +1099,11 @@ export default function App() {
 
     socket.emit('joinRandomRoom', { playerName: name, userProfile: user }, (res) => {
       setIsQuickJoining(false);
+      if (res?.noRoomsAvailable || res?.error === 'NO_ROOMS_AVAILABLE') {
+        soundManager.playBeep(450, 0.08);
+        setNoRoomsFound(true);
+        return;
+      }
       if (res?.error) {
         setErrorMessage(res.error);
         return;
@@ -1522,42 +1532,66 @@ export default function App() {
 
           {/* Quick Match / Dunyo bilan o'ynash (Play with the World) Card */}
           <div className="mb-4 sm:mb-6 max-w-3xl mx-auto">
-            <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-zinc-900 border-2 border-cyan-500/50 shadow-xl hover:border-cyan-400 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-              <div className="flex items-start sm:items-center gap-4 text-left">
-                <div className="p-3 w-fit rounded-2xl bg-blue-500/15 dark:bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/30 shrink-0">
-                  <Globe className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.2]" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2.5">
-                    <h2 className="text-lg sm:text-2xl font-display font-bold text-slate-900 dark:text-white tracking-wide">
-                      {lang === 'uz' ? "Dunyo bilan o'ynash" : lang === 'en' ? "Play with the World" : "Играть со всем миром"}
-                    </h2>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-bold animate-pulse">
-                      ONLINE
-                    </span>
+            <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-zinc-900 border-2 border-cyan-500/50 shadow-xl hover:border-cyan-400 transition-all flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+                <div className="flex items-start sm:items-center gap-4 text-left">
+                  <div className="p-3 w-fit rounded-2xl bg-blue-500/15 dark:bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/30 shrink-0">
+                    <Globe className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.2]" />
                   </div>
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 font-mono mt-1 max-w-xl leading-relaxed">
-                    {lang === 'uz'
-                      ? "Ochiq xonaga notanish o'yinchilar bilan avtomatik qo'shilasiz va o'yin topib o'ynaysiz."
-                      : lang === 'en'
-                      ? "Automatically join open rooms with players from around the world and start playing."
-                      : "Автоматически подключайтесь к открытым комнатам с другими игроками онлайн."}
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="text-lg sm:text-2xl font-display font-bold text-slate-900 dark:text-white tracking-wide">
+                        {lang === 'uz' ? "Dunyo bilan o'ynash" : lang === 'en' ? "Play with the World" : "Играть со всем миром"}
+                      </h2>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-bold animate-pulse">
+                        ONLINE
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 font-mono mt-1 max-w-xl leading-relaxed">
+                      {lang === 'uz'
+                        ? "Ochiq xonaga notanish o'yinchilar bilan avtomatik qo'shilasiz va o'yin topib o'ynaysiz."
+                        : lang === 'en'
+                        ? "Automatically join open rooms with players from around the world and start playing."
+                        : "Автоматически подключайтесь к открытым комнатам с другими игроками онлайн."}
+                    </p>
+                  </div>
                 </div>
+
+                <button
+                  onClick={handleQuickJoinRoom}
+                  disabled={isQuickJoining}
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black font-display font-black text-xs sm:text-sm tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25 transition cursor-pointer shrink-0 active:scale-95"
+                >
+                  <Globe className={`w-4 h-4 ${isQuickJoining ? 'animate-spin' : ''}`} />
+                  <span>
+                    {isQuickJoining
+                      ? (lang === 'uz' ? 'Qidirilmoqda...' : lang === 'en' ? 'Searching...' : 'Поиск бункера...')
+                      : (lang === 'uz' ? "DUNYO BILAN O'YNASH" : lang === 'en' ? "PLAY WITH THE WORLD" : "ИГРАТЬ СО ВСЕМ МИРОМ")}
+                  </span>
+                </button>
               </div>
 
-              <button
-                onClick={handleQuickJoinRoom}
-                disabled={isQuickJoining}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black font-display font-black text-xs sm:text-sm tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25 transition cursor-pointer shrink-0 active:scale-95"
-              >
-                <Globe className={`w-4 h-4 ${isQuickJoining ? 'animate-spin' : ''}`} />
-                <span>
-                  {isQuickJoining
-                    ? (lang === 'uz' ? 'Qidirilmoqda...' : lang === 'en' ? 'Searching...' : 'Поиск бункера...')
-                    : (lang === 'uz' ? "DUNYO BILAN O'YNASH" : lang === 'en' ? "PLAY WITH THE WORLD" : "ИГРАТЬ СО ВСЕМ МИРОМ")}
-                </span>
-              </button>
+              {noRoomsFound && (
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/40 text-amber-700 dark:text-amber-300 text-xs sm:text-sm font-mono flex items-center justify-between gap-3 animate-fadeIn">
+                  <div className="flex items-center gap-2.5 text-left">
+                    <Radio className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 shrink-0" />
+                    <span>
+                      {lang === 'uz'
+                        ? "Hozircha bo'sh xonalar topilmadi. O'z xonangizni yaratishingiz yoki keyinroq urinib ko'rishingiz mumkin."
+                        : lang === 'en'
+                        ? "No available rooms found at the moment. You can create your own room or try again later."
+                        : "На данный момент свободных комнат не найдено. Вы можете создать свою комнату или попробовать позже."}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNoRoomsFound(false)}
+                    className="text-amber-500 hover:text-amber-400 font-bold px-1.5 py-0.5 rounded-lg hover:bg-amber-500/10 transition cursor-pointer shrink-0"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

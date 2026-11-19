@@ -250,14 +250,17 @@ class GameManager {
   }
 
   joinRandomRoom(playerName, socketId, userProfile = null) {
-    // 1. Поиск открытых комнат в статусе LOBBY со свободными местами
+    // 1. Поиск только среди уже существующих открытых комнат в статусе LOBBY со свободными местами
     const candidates = [];
     for (const [code, room] of this.rooms.entries()) {
-      if (room.status === 'LOBBY' && room.players.length < 12) {
+      const activePlayers = room.players.filter(p => !p.hasLeft);
+      if (room.status === 'LOBBY' && activePlayers.length > 0 && room.players.length < 12) {
         // Проверяем, не находится ли уже игрок в этой комнате
         const alreadyIn = room.players.some(p => 
-          (userProfile?.username && p.username && p.username.toLowerCase() === userProfile.username.toLowerCase()) || 
-          p.socketId === socketId
+          !p.hasLeft && (
+            (userProfile?.username && p.username && p.username.toLowerCase() === userProfile.username.toLowerCase()) || 
+            p.socketId === socketId
+          )
         );
         if (!alreadyIn) {
           candidates.push(room);
@@ -273,17 +276,18 @@ class GameManager {
       return Math.random() - 0.5;
     });
 
-    if (candidates.length > 0) {
-      const chosenRoom = candidates[0];
+    for (const chosenRoom of candidates) {
       const res = this.joinRoom(chosenRoom.code, playerName, socketId, userProfile);
       if (!res.error) {
         return { ...res, isNewRoom: false };
       }
     }
 
-    // 3. Если открытых комнат нет — автоматически создаем новый бункер!
-    const createRes = this.createRoom(playerName, socketId, userProfile);
-    return { ...createRes, isNewRoom: true };
+    // 3. Если свободных комнат нет — НЕ создаем автоматически новую комнату!
+    return {
+      noRoomsAvailable: true,
+      error: 'NO_ROOMS_AVAILABLE'
+    };
   }
 
   reconnectPlayer(code, playerId, socketId) {
