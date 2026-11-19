@@ -1449,31 +1449,31 @@ export default function App() {
         {/* Apocalyptic Ambient Animations */}
         <AtmosphereEffects enabled={atmosphereEnabled} lang={lang} />
 
-        <div className="max-w-4xl mx-auto w-full pt-2 sm:pt-6 relative z-10">
-          {/* Top Bar with User Profile, Rules, Atmosphere, Shop, Theme Toggle & Language Selector */}
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4 sm:mb-6">
+        <div className="max-w-5xl mx-auto w-full pt-2 sm:pt-6 relative z-10">
+          {/* Top Bar with User Profile, Rules, Atmosphere, Shop, Theme Toggle & Language Selector (Single Non-Wrapping Line) */}
+          <div className="flex flex-nowrap justify-between items-center gap-2 mb-4 sm:mb-6 overflow-x-auto no-scrollbar pb-1">
             {/* Left: User Auth / BunCoins Pill */}
-            <div>
+            <div className="shrink-0">
               {user ? (
-                <div className="flex items-center space-x-2 bg-white dark:bg-zinc-900 border border-amber-500/40 rounded-2xl p-1.5 px-3 shadow-sm">
+                <div className="flex items-center space-x-2 bg-white dark:bg-zinc-900 border border-amber-500/40 rounded-2xl p-1.5 px-2.5 shadow-sm shrink-0">
                   <button
                     onClick={() => setShowProfileModal(true)}
-                    className="flex items-center space-x-2 cursor-pointer hover:opacity-85 transition text-left"
+                    className="flex items-center space-x-2 cursor-pointer hover:opacity-85 transition text-left shrink-0"
                     title={t.profileBtnTooltip || "Нажмите, чтобы настроить фото и профиль"}
                   >
                     {user.characterDetails?.avatarUrl ? (
                       <img 
                         src={user.characterDetails.avatarUrl} 
                         alt="Avatar" 
-                        className="w-7 h-7 rounded-xl object-cover border border-amber-500/50" 
+                        className="w-7 h-7 rounded-xl object-cover border border-amber-500/50 shrink-0" 
                         onError={(e) => { e.currentTarget.style.display = 'none'; }}
                       />
                     ) : (
-                      <span className="text-xl">{user.characterDetails?.avatar || '🥷'}</span>
+                      <span className="text-xl shrink-0">{user.characterDetails?.avatar || '🥷'}</span>
                     )}
                     <div className="font-mono">
-                      <div className="text-xs font-bold text-slate-800 dark:text-zinc-100 flex items-center space-x-1">
-                        <span>{user.username}</span>
+                      <div className="text-xs font-bold text-slate-800 dark:text-zinc-100 flex items-center space-x-1 whitespace-nowrap">
+                        <span className="truncate max-w-[110px]">{user.username}</span>
                         {user.userId && (
                           <span className="bg-cyan-500/20 text-cyan-500 dark:text-cyan-400 px-1.5 py-0.2 rounded text-[10px] font-bold">
                             ID: #{user.userId}
@@ -1483,7 +1483,7 @@ export default function App() {
                           🪙 {user.bunCoins}
                         </span>
                       </div>
-                      <div className="text-[10px] text-zinc-400">
+                      <div className="text-[10px] text-zinc-400 truncate max-w-[180px]">
                         {user.characterDetails?.title ? getLocalized(user.characterDetails.title, lang) : (t.profilePhotoDefault || 'Фото профиля')}
                       </div>
                     </div>
@@ -1491,7 +1491,7 @@ export default function App() {
                   <button
                     onClick={handleLogout}
                     title={t.authLogout}
-                    className="text-zinc-400 hover:text-red-400 text-xs font-mono ml-1 px-1 cursor-pointer"
+                    className="text-zinc-400 hover:text-red-400 text-xs font-mono ml-1 px-1 cursor-pointer shrink-0"
                   >
                     ✕
                   </button>
@@ -1499,7 +1499,7 @@ export default function App() {
               ) : (
                 <button
                   onClick={() => setShowAuthModal(true)}
-                  className="px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-mono font-bold text-xs uppercase shadow transition flex items-center space-x-1.5 cursor-pointer animate-pulse"
+                  className="px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-mono font-bold text-xs uppercase shadow transition flex items-center space-x-1.5 cursor-pointer animate-pulse shrink-0 whitespace-nowrap"
                 >
                   <span>🔐</span>
                   <span>{t.btnAuth}</span>
@@ -1511,16 +1511,16 @@ export default function App() {
             </div>
 
             {/* Right: Friends, Daily Crate / Promo, Rules, Atmosphere, Shop, Theme & Language */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 shrink-0 flex-nowrap">
               {/* Daily Bonus Crate & Promo Code Button */}
               {user && (
                 <button
                   onClick={() => setShowDailyModal(true)}
                   title={lang === 'uz' ? 'Kunlik quti va Promokod' : lang === 'en' ? 'Daily Supply Crate & Promo Code' : 'Ежедневный ящик снабжения и Промокоды'}
-                  className="px-3 py-1.5 rounded-2xl bg-amber-500/15 hover:bg-amber-500 hover:text-zinc-950 border border-amber-500/50 text-amber-600 dark:text-amber-300 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1.5 cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-2xl bg-amber-500/15 hover:bg-amber-500 hover:text-zinc-950 border border-amber-500/50 text-amber-600 dark:text-amber-300 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer shrink-0 whitespace-nowrap"
                 >
                   <span>🎁</span>
-                  <span>{lang === 'uz' ? 'Bonus / Kod' : lang === 'en' ? 'Bonus / Promo' : 'Ящик / Промокод'}</span>
+                  <span>{lang === 'uz' ? 'Bonus' : lang === 'en' ? 'Bonus' : 'Бонус'}</span>
                 </button>
               )}
 
@@ -1534,13 +1534,10 @@ export default function App() {
                     setShowFriendsModal(true);
                   }}
                   title={lang === 'uz' ? "Do'stlar (ID orqali)" : lang === 'en' ? 'Friends (by ID)' : 'Добавить друзей по ID и играть вместе'}
-                  className="px-3 py-1.5 rounded-2xl bg-cyan-500/15 hover:bg-cyan-500 hover:text-zinc-950 border border-cyan-500/40 text-cyan-600 dark:text-cyan-300 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1.5 cursor-pointer relative"
+                  className="px-2.5 py-1.5 rounded-2xl bg-cyan-500/15 hover:bg-cyan-500 hover:text-zinc-950 border border-cyan-500/40 text-cyan-600 dark:text-cyan-300 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer relative shrink-0 whitespace-nowrap"
                 >
                   <span>👥</span>
                   <span>{lang === 'uz' ? "Do'stlar" : lang === 'en' ? 'Friends' : 'Друзья'}</span>
-                  {user.userId && (
-                    <span className="hidden sm:inline text-[10px] opacity-80">#{user.userId}</span>
-                  )}
                   {unreadDmCount > 0 && (
                     <span className="ml-1 px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[9px] font-bold animate-bounce">
                       💬 {unreadDmCount}
@@ -1554,10 +1551,10 @@ export default function App() {
                 <button
                   onClick={handleInstallApp}
                   title={lang === 'uz' ? "Android APK ilovasini yuklab olish" : lang === 'en' ? 'Download Android APK / Install App' : 'Скачать официальный Android APK и вывести на главный экран телефона'}
-                  className="px-3 py-1.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500 hover:text-zinc-950 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer animate-pulse"
+                  className="px-2.5 py-1.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500 hover:text-zinc-950 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer animate-pulse shrink-0 whitespace-nowrap"
                 >
                   <span>📲</span>
-                  <span>{lang === 'uz' ? "APK Yuklash" : lang === 'en' ? 'Get APK' : 'Скачать APK'}</span>
+                  <span>APK</span>
                 </button>
               )}
 
@@ -1568,7 +1565,7 @@ export default function App() {
                   setShowRulesModal(true);
                 }}
                 title={t.btnRulesTooltip || "Правила и условия игры"}
-                className="px-3 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer"
+                className="px-2.5 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer shrink-0 whitespace-nowrap"
               >
                 <span>📜</span>
                 <span className="hidden sm:inline">{t.btnRules || "Правила"}</span>
@@ -1578,21 +1575,21 @@ export default function App() {
               <button
                 onClick={() => handleToggleAtmosphere(!atmosphereEnabled)}
                 title={atmosphereEnabled ? (t.atmosphereOffTooltip || "Отключить эффекты") : (t.atmosphereOnTooltip || "Включить эффекты")}
-                className={`px-2.5 py-1.5 rounded-2xl border text-xs font-mono font-bold transition shadow-sm flex items-center space-x-1 cursor-pointer ${
+                className={`px-2.5 py-1.5 rounded-2xl border text-xs font-mono font-bold transition shadow-sm flex items-center space-x-1 cursor-pointer shrink-0 whitespace-nowrap ${
                   atmosphereEnabled
                     ? 'bg-amber-500/20 text-amber-500 border-amber-500/50'
                     : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-400 dark:text-zinc-500'
                 }`}
               >
                 <span>☢️</span>
-                <span className="hidden md:inline text-[10px]">{t.btnEffects || "Эффекты"}</span>
+                <span className="hidden lg:inline text-[10px]">{t.btnEffects || "Эффекты"}</span>
               </button>
 
               {/* Shop Button */}
               <button
                 onClick={() => setShowShopModal(true)}
                 title={t.shopBtn}
-                className="px-3 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer"
+                className="px-2.5 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer shrink-0 whitespace-nowrap"
               >
                 <span>🛒</span>
                 <span className="hidden sm:inline">{t.shopBtn}</span>
@@ -1602,16 +1599,16 @@ export default function App() {
               <button
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                 title={theme === 'dark' ? t.lightThemeTooltip : t.darkThemeTooltip}
-                className="p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 shadow-sm transition cursor-pointer"
+                className="p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 shadow-sm transition cursor-pointer shrink-0"
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
               </button>
 
               {/* Language Selector */}
-              <div className="flex items-center bg-white dark:bg-zinc-900 rounded-2xl p-1 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold shadow-sm">
+              <div className="flex items-center bg-white dark:bg-zinc-900 rounded-2xl p-1 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold shadow-sm shrink-0">
                 <button
                   onClick={() => handleSetLang('ru')}
-                  className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
+                  className={`px-2 py-1 rounded-xl transition cursor-pointer ${
                     lang === 'ru' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -1619,7 +1616,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => handleSetLang('en')}
-                  className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
+                  className={`px-2 py-1 rounded-xl transition cursor-pointer ${
                     lang === 'en' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -1627,7 +1624,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => handleSetLang('uz')}
-                  className={`px-2.5 py-1 rounded-xl transition cursor-pointer ${
+                  className={`px-2 py-1 rounded-xl transition cursor-pointer ${
                     lang === 'uz' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -1659,7 +1656,7 @@ export default function App() {
               </button>
             </div>
 
-            <p className="text-xs sm:text-base text-slate-500 dark:text-zinc-400 max-w-lg mx-auto font-mono">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-2xl mx-auto font-mono">
               {t.subtitle}
             </p>
           </div>
@@ -2124,7 +2121,7 @@ export default function App() {
   // LOBBY VIEW (With Full Pre-Game Chat & Voice Messages)
   if (roomState?.status === 'LOBBY') {
     return (
-      <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 p-2.5 sm:p-6 pb-20 md:pb-6 text-slate-800 dark:text-zinc-100 flex flex-col justify-between transition-colors duration-200 relative overflow-hidden">
+      <div className="min-h-[100dvh] bg-slate-50 dark:bg-zinc-950 pb-20 md:pb-6 text-slate-800 dark:text-zinc-100 flex flex-col transition-colors duration-200 relative overflow-hidden">
         <AtmosphereEffects enabled={atmosphereEnabled} lang={lang} />
         {renderInviteBanner()}
 
@@ -2154,7 +2151,7 @@ export default function App() {
           onLogout={handleLogout}
         />
 
-        <main className="flex-1 max-w-7xl mx-auto w-full py-3 sm:py-6 pb-24 md:pb-6 relative z-10 grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-5">
+        <main className="flex-1 max-w-7xl mx-auto w-full p-2.5 sm:p-4 md:p-6 pb-24 md:pb-6 relative z-10 grid grid-cols-1 md:grid-cols-12 items-start gap-3 sm:gap-5">
           {/* Left Column: Lobby View (Players, Settings, Bots, Start) */}
           <div className={`md:col-span-7 lg:col-span-8 ${mobileTab === 'chat' ? 'hidden md:block' : 'block'}`}>
             <LobbyView

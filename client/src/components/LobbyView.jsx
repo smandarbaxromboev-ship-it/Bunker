@@ -86,51 +86,51 @@ export default function LobbyView({
 
       {/* Top Banner with 5-digit code */}
       <div className="border border-amber-500/30 bg-white dark:bg-zinc-900/90 rounded-3xl p-5 sm:p-7 relative overflow-hidden shadow-xl">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:flex-nowrap items-start sm:items-center justify-between gap-4">
+          <div className="min-w-0 flex-1">
             <div className="text-xs uppercase tracking-wider text-amber-600 dark:text-amber-500 font-bold mb-1 flex items-center gap-2 font-mono">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
               {t.title}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold text-slate-900 dark:text-white tracking-wide">
+            <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-900 dark:text-white tracking-wide truncate">
               {t.playersInLobby} #{roomState?.code}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1 sm:truncate" title={t.shareCodeHint}>
               {t.shareCodeHint}
             </p>
           </div>
 
           {/* Big Code Badge & Invite Friends Button */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-nowrap items-center gap-2.5 shrink-0">
             {onOpenFriends && (
               <button
                 onClick={() => {
                   soundManager.playBeep(850, 0.05);
                   onOpenFriends();
                 }}
-                className="px-4 py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition cursor-pointer"
+                className="px-3.5 py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-black font-display font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-lg shadow-cyan-500/20 transition cursor-pointer shrink-0 whitespace-nowrap"
               >
-                <UserPlus className="w-4 h-4" />
+                <UserPlus className="w-4 h-4 shrink-0" />
                 <span>
                   {lang === 'uz'
-                    ? "Do'stlarni ID orqali chaqirish"
+                    ? "Do'stlarni chaqirish"
                     : lang === 'en'
-                    ? 'Invite Friends by ID'
-                    : 'Позвать друзей по ID'}
+                    ? 'Invite Friends'
+                    : 'Позвать друзей'}
                 </span>
               </button>
             )}
 
-            <div className="flex items-center gap-2 bg-slate-50 dark:bg-black/90 border-2 border-amber-500/60 rounded-2xl p-3 px-5 shadow-[0_0_25px_rgba(245,158,11,0.12)]">
-              <span className="text-3xl sm:text-4xl font-display font-bold text-amber-600 dark:text-amber-400 tracking-widest">
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-black/90 border-2 border-amber-500/60 rounded-2xl p-2.5 px-4 shadow-[0_0_25px_rgba(245,158,11,0.12)] shrink-0">
+              <span className="text-2xl sm:text-3xl font-display font-bold text-amber-600 dark:text-amber-400 tracking-widest">
                 {roomState?.code}
               </span>
               <button
                 onClick={copyCode}
                 title={t.copyCodeTooltip || (lang === 'ru' ? "Скопировать цифровой код" : lang === 'uz' ? "Xona kodini nusxalash" : "Copy room code")}
-                className="p-2 rounded-xl bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-amber-500 transition ml-2 cursor-pointer"
+                className="p-2 rounded-xl bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-amber-500 transition ml-1 cursor-pointer shrink-0"
               >
-                {copied ? <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-5 h-5" />}
+                {copied ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
           </div>
@@ -139,7 +139,7 @@ export default function LobbyView({
         {/* Dynamic Places rule badge */}
         <div className="mt-5 p-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 flex items-center gap-2.5 text-xs text-amber-800 dark:text-amber-300 font-mono">
           <Trophy className="w-4 h-4 text-amber-500 shrink-0" />
-          <span>{formattedRule}</span>
+          <span className="sm:truncate" title={formattedRule}>{formattedRule}</span>
         </div>
       </div>
 
@@ -222,12 +222,12 @@ export default function LobbyView({
         </div>
 
         {/* Action Controls */}
-        <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-xs text-slate-500 dark:text-zinc-400 font-mono">
+        <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:flex-nowrap items-center justify-between gap-4">
+          <div className="text-xs text-slate-500 dark:text-zinc-400 font-mono min-w-0">
             {t.rulesShort}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto shrink-0">
             {/* Add Bot Button (Up to 15 players) */}
             {isHost && players.length < 15 && (
               <button
@@ -235,7 +235,7 @@ export default function LobbyView({
                   soundManager.playBeep(650, 0.06);
                   onAddBot();
                 }}
-                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-cyan-700 dark:text-cyan-300 border border-slate-300 dark:border-cyan-800/40 text-xs font-bold font-mono transition cursor-pointer shadow-sm"
+                className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-cyan-700 dark:text-cyan-300 border border-slate-300 dark:border-cyan-800/40 text-xs font-bold font-mono transition cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
               >
                 {t.btnAddBot}
               </button>
@@ -245,9 +245,9 @@ export default function LobbyView({
             {isHost && bots.length > 0 && (
               <button
                 onClick={handleRemoveLastBot}
-                className="px-3.5 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/60 dark:hover:bg-red-900 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 text-xs font-bold font-mono transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                className="px-3 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/60 dark:hover:bg-red-900 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 text-xs font-bold font-mono transition flex items-center gap-1.5 cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
               >
-                <UserMinus className="w-3.5 h-3.5" />
+                <UserMinus className="w-3.5 h-3.5 shrink-0" />
                 <span>{t.btnRemoveBot}</span>
               </button>
             )}
@@ -256,18 +256,18 @@ export default function LobbyView({
             {isHost ? (
               <button
                 onClick={handleStartClick}
-                className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-display font-bold text-sm tracking-wide flex items-center justify-center gap-2 transition cursor-pointer ${
+                className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-display font-bold text-sm tracking-wide flex items-center justify-center gap-2 transition cursor-pointer shrink-0 whitespace-nowrap ${
                   canStart
                     ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-lg shadow-amber-500/20 animate-pulse'
                     : 'bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-slate-500 dark:text-zinc-400 border border-slate-300 dark:border-zinc-700'
                 }`}
               >
-                <Play className="w-4 h-4 fill-current" />
+                <Play className="w-4 h-4 fill-current shrink-0" />
                 <span>{t.btnStart}</span>
                 {!canStart && <span className="text-[10px] font-mono opacity-80">{t.min3Players || (lang === 'uz' ? '(kamida 3)' : lang === 'en' ? '(min 3)' : '(минимум 3)')}</span>}
               </button>
             ) : (
-              <div className="text-xs text-amber-600 dark:text-amber-400 font-mono bg-amber-50 dark:bg-zinc-950 px-4 py-2 rounded-xl border border-amber-200 dark:border-zinc-800 animate-pulse">
+              <div className="text-xs text-amber-600 dark:text-amber-400 font-mono bg-amber-50 dark:bg-zinc-950 px-4 py-2 rounded-xl border border-amber-200 dark:border-zinc-800 animate-pulse shrink-0 whitespace-nowrap">
                 {t.waitingHost}
               </div>
             )}

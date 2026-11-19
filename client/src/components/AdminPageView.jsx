@@ -306,13 +306,15 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
     });
   };
 
-  // Grant BunCoins
-  const handleGrantCoins = (e, customTarget = null, customAmount = null) => {
+  // Grant or Deduct BunCoins (supports positive to add and negative to subtract)
+  const handleGrantCoins = (e, customTarget = null, customAmount = null, isSubtract = false) => {
     if (e) e.preventDefault();
     const target = (customTarget || coinTargetUser).trim();
-    const parsedAmt = parseInt(customAmount !== null && customAmount !== undefined ? customAmount : coinAmount, 10);
-    const amt = isNaN(parsedAmt) || parsedAmt <= 0 ? 5000 : parsedAmt;
-    if (!target) return;
+    const rawVal = customAmount !== null && customAmount !== undefined ? customAmount : coinAmount;
+    const parsedAmt = parseInt(String(rawVal).replace(/\s+/g, ''), 10);
+    if (isNaN(parsedAmt) || parsedAmt === 0 || !target) return;
+
+    const amt = isSubtract ? -Math.abs(parsedAmt) : parsedAmt;
 
     socket.emit('adminAddCoins', {
       login: adminLogin.trim(),
@@ -321,11 +323,15 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
       amount: amt
     }, (res) => {
       if (res && res.success) {
-        setFeedback(`✓ Успешно начислено ${amt.toLocaleString()} BunCoins игроку "${target}"! Новый баланс: ${(res.newBalance || 0).toLocaleString()} 🪙`);
+        if (amt > 0) {
+          setFeedback(`✓ Успешно начислено +${amt.toLocaleString()} BunCoins игроку "${target}"! Новый баланс: ${(res.newBalance || 0).toLocaleString()} 🪙`);
+        } else {
+          setFeedback(`✓ Успешно списано −${Math.abs(amt).toLocaleString()} BunCoins у игрока "${target}"! Новый баланс: ${(res.newBalance || 0).toLocaleString()} 🪙`);
+        }
         loadRegisteredUsers(adminLogin, adminPassword);
         setTimeout(() => setFeedback(''), 5000);
       } else {
-        setFeedback(`Ошибка: ${(res && res.error) || 'Не удалось начислить монеты'}`);
+        setFeedback(`Ошибка: ${(res && res.error) || 'Не удалось изменить баланс монет'}`);
       }
     });
   };
@@ -591,10 +597,10 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
             {/* ==================================================== */}
             {mainSection === 'USERS' && (
               <div className="flex-1 flex flex-col min-h-0 space-y-4">
-                {/* Manual Grant Input */}
-                <form onSubmit={(e) => handleGrantCoins(e)} className="bg-zinc-950/80 p-3 sm:p-4 rounded-2xl border border-zinc-800 flex flex-wrap items-center gap-2.5">
+                {/* Manual Grant / Deduct Input */}
+                <form onSubmit={(e) => handleGrantCoins(e, null, null, false)} className="bg-zinc-950/80 p-3 sm:p-4 rounded-2xl border border-zinc-800 flex flex-wrap items-center gap-2.5">
                   <Coins className="w-5 h-5 text-amber-400 shrink-0 ml-1" />
-                  <span className="text-xs font-mono font-bold text-zinc-200">Выдать BunCoins:</span>
+                  <span className="text-xs font-mono font-bold text-zinc-200">Баланс BunCoins:</span>
                   <input
                     type="text"
                     placeholder="Логин или имя игрока"
@@ -611,20 +617,27 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                   />
                   <button
                     type="submit"
-                    className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl font-mono text-xs font-bold transition shadow cursor-pointer whitespace-nowrap"
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl font-mono text-xs font-bold transition shadow cursor-pointer whitespace-nowrap"
                   >
                     + Начислить
                   </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleGrantCoins(e, null, null, true)}
+                    className="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-mono text-xs font-bold transition shadow cursor-pointer whitespace-nowrap"
+                  >
+                    − Отнять
+                  </button>
 
                   <div className="flex items-center gap-1.5 ml-auto flex-wrap">
-                    {[5000, 10000, 50000, 100000, 500000, 1000000].map(amt => (
+                    {[1000, 5000, 10000, 50000, 100000, 1000000].map(amt => (
                       <button
                         key={amt}
                         type="button"
                         onClick={() => setCoinAmount(String(amt))}
                         className="px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-amber-400 text-[10px] font-mono font-bold transition cursor-pointer"
                       >
-                        +{amt >= 1000000 ? `${amt / 1000000}M` : amt >= 1000 ? `${amt / 1000}k` : amt} 🪙
+                        {amt >= 1000000 ? `${amt / 1000000}M` : amt >= 1000 ? `${amt / 1000}k` : amt} 🪙
                       </button>
                     ))}
                   </div>
@@ -715,11 +728,11 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                           </div>
                         </div>
 
-                        {/* User Actions: Add coins, Block, Delete */}
+                        {/* User Actions: Add / Subtract coins, Block, Delete */}
                         <div className="flex items-center gap-1.5 flex-wrap self-end sm:self-auto">
                           <button
                             type="button"
-                            onClick={() => handleGrantCoins(null, u.username, 5000)}
+                            onClick={() => handleGrantCoins(null, u.username, 5000, false)}
                             className="px-2 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500 hover:text-black border border-amber-500/40 text-amber-400 text-xs font-mono font-bold transition cursor-pointer"
                             title="Добавить +5 000 BunCoins"
                           >
@@ -727,7 +740,7 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleGrantCoins(null, u.username, 50000)}
+                            onClick={() => handleGrantCoins(null, u.username, 50000, false)}
                             className="px-2 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500 hover:text-black border border-amber-500/60 text-amber-300 text-xs font-mono font-bold transition cursor-pointer"
                             title="Добавить +50 000 BunCoins"
                           >
@@ -736,24 +749,48 @@ export default function AdminPageView({ socket, lang = 'ru', onBack }) {
                           <button
                             type="button"
                             onClick={() => {
-                              const input = window.prompt(`Введите любое количество BunCoins для "${u.username}" (например: 100000, 1000000):`, '100000');
+                              const input = window.prompt(`Сколько BunCoins НАЧИСЛИТЬ игроку "${u.username}" (текущий баланс: ${u.bunCoins})?`, '100000');
                               if (input) {
                                 const parsed = parseInt(input.replace(/\s+/g, ''), 10);
                                 if (!isNaN(parsed) && parsed > 0) {
-                                  handleGrantCoins(null, u.username, parsed);
+                                  handleGrantCoins(null, u.username, parsed, false);
                                 }
                               }
                             }}
                             className="px-2.5 py-1 rounded-xl bg-amber-500/30 hover:bg-amber-400 hover:text-black border border-amber-400 text-amber-200 text-xs font-mono font-bold transition cursor-pointer shadow-sm"
                             title="Выдать любую произвольную сумму BunCoins"
                           >
-                            + Любая сумма 🪙
+                            + Сумма 🪙
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleGrantCoins(null, u.username, 5000, true)}
+                            className="px-2 py-1 rounded-xl bg-red-500/15 hover:bg-red-500 hover:text-white border border-red-500/40 text-red-400 text-xs font-mono font-bold transition cursor-pointer"
+                            title="Отнять −5 000 BunCoins"
+                          >
+                            −5k 🪙
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const input = window.prompt(`Сколько BunCoins ОТНЯТЬ у игрока "${u.username}" (текущий баланс: ${u.bunCoins})?`, String(u.bunCoins || 5000));
+                              if (input) {
+                                const parsed = parseInt(input.replace(/\s+/g, ''), 10);
+                                if (!isNaN(parsed) && parsed > 0) {
+                                  handleGrantCoins(null, u.username, parsed, true);
+                                }
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded-xl bg-red-600/30 hover:bg-red-600 hover:text-white border border-red-500 text-red-200 text-xs font-mono font-bold transition cursor-pointer shadow-sm"
+                            title="Отнять любую сумму BunCoins у игрока"
+                          >
+                            − Отнять 🪙
                           </button>
                           <button
                             type="button"
                             onClick={() => setCoinTargetUser(u.username)}
                             className="px-2 py-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 text-xs font-mono transition cursor-pointer"
-                            title="Выбрать этого игрока в форме начисления"
+                            title="Выбрать этого игрока в форме начисления/списания"
                           >
                             В форму ↗
                           </button>
