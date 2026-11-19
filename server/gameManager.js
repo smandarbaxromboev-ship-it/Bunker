@@ -623,8 +623,8 @@ class GameManager {
           uz: `${bot.name} kartani ochdi: [${nameUz}] — "${valUz}"`
         });
 
-        // Бот с умеренной вероятностью (и не более 2 раз за раунд) комментирует свою карту уникальной фразой
-        if ((room.revealCommentsThisRound || 0) < 2 && Math.random() < 0.25) {
+        // Бот пишет очень редко (не более 1 раза за раунд, шанс 10%) и максимально коротко
+        if ((room.revealCommentsThisRound || 0) < 1 && Math.random() < 0.10) {
           const reaction = botAiManager.generateRevealReaction(bot, chosen, room);
           if (reaction) {
             room.revealCommentsThisRound = (room.revealCommentsThisRound || 0) + 1;
@@ -774,22 +774,7 @@ class GameManager {
       this.handleRoundTimeout(room.code);
     });
 
-    // Живой старт дебатов: случайный бот изредка начинает обсуждение уникальной репликой по ситуации за столом
-    const aliveBots = room.players.filter(p => p.isAlive && p.isBot);
-    if (aliveBots.length > 0 && Math.random() < 0.25) {
-      const firstSpeaker = aliveBots[Math.floor(Math.random() * aliveBots.length)];
-      const openingRemark = botAiManager.generateDiscussionRemark(firstSpeaker, room);
-      if (openingRemark) {
-        this.setPlayerTyping(room.code, firstSpeaker.id, firstSpeaker.name);
-        setTimeout(() => {
-          const live = this.rooms.get(room.code);
-          if (!live || live.status !== 'ROUND_DISCUSSION') return;
-          this.sendBotChatMessage(live, firstSpeaker, openingRemark);
-        }, 1800);
-      }
-    }
-
-    // Живой периодический обмен мнениями ботов во время дискуссии
+    // Живой периодический обмен мнениями ботов во время дискуссии (редко)
     this.scheduleDiscussionChatter(room);
 
     // Запускаем реалистичное поведение ботов: они думают, обсуждают новые карты в чате и голосуют по очереди!
@@ -1023,10 +1008,10 @@ class GameManager {
 
         bot.votedFor = target.id;
 
-        // Бот с вероятностью 30% (не более 2 комментариев за раунд и по разным целям) коротко поясняет свой голос уникальной фразой
+        // Бот пишет очень редко (не более 1 комментария за раунд, шанс 15%) и максимально коротко
         if (!currentRoom.commentedTargetsThisRound) currentRoom.commentedTargetsThisRound = new Set();
-        const canCommentVote = (currentRoom.voteCommentsThisRound || 0) < 2 && !currentRoom.commentedTargetsThisRound.has(target.id);
-        if (canCommentVote && Math.random() < 0.35) {
+        const canCommentVote = (currentRoom.voteCommentsThisRound || 0) < 1 && !currentRoom.commentedTargetsThisRound.has(target.id);
+        if (canCommentVote && Math.random() < 0.15) {
           const votingArg = botAiManager.generateVotingArgument(bot, target, currentRoom);
           if (votingArg) {
             currentRoom.voteCommentsThisRound = (currentRoom.voteCommentsThisRound || 0) + 1;
@@ -1465,20 +1450,22 @@ class GameManager {
           uz: `KO'PCHILIK OVOZI BILAN (${maxVotes} ovoz)${extraNote}: ${exiledPlayer.name} BUNKERDAN HAYDALDI! Endi u Arvoh 👻.`
         });
 
-        // Живая эмоциональная реакция в чате при изгнании (уникальная фраза, не повторяется)
-        const exileReaction = botAiManager.generateExileReaction(exiledPlayer, exiledPlayer.isBot, room);
-        if (exileReaction) {
-          const aliveBotsList = alivePlayers.filter(p => p.isBot);
-          const reactingBot = exiledPlayer.isBot
-            ? exiledPlayer
-            : (aliveBotsList.length > 0 ? aliveBotsList[Math.floor(Math.random() * aliveBotsList.length)] : null);
-          if (reactingBot) {
-            this.setPlayerTyping(room.code, reactingBot.id, reactingBot.name);
-            setTimeout(() => {
-              const currentRoom = this.rooms.get(room.code);
-              if (!currentRoom) return;
-              this.sendBotChatMessage(currentRoom, reactingBot, exileReaction);
-            }, 1400);
+        // Короткая реакция в чате при изгнании только изредка (шанс 30%)
+        if (Math.random() < 0.30) {
+          const exileReaction = botAiManager.generateExileReaction(exiledPlayer, exiledPlayer.isBot, room);
+          if (exileReaction) {
+            const aliveBotsList = alivePlayers.filter(p => p.isBot);
+            const reactingBot = exiledPlayer.isBot
+              ? exiledPlayer
+              : (aliveBotsList.length > 0 ? aliveBotsList[Math.floor(Math.random() * aliveBotsList.length)] : null);
+            if (reactingBot) {
+              this.setPlayerTyping(room.code, reactingBot.id, reactingBot.name);
+              setTimeout(() => {
+                const currentRoom = this.rooms.get(room.code);
+                if (!currentRoom) return;
+                this.sendBotChatMessage(currentRoom, reactingBot, exileReaction);
+              }, 1400);
+            }
           }
         }
       }
@@ -1695,18 +1682,20 @@ class GameManager {
       }, 1200);
     }
 
-    // Если реальный человек написал в чат во время дискуссии — бот осмысленно отвечает или комментирует
-    if (!sender.isBot && room.status === 'ROUND_DISCUSSION' && text && text.trim().length > 1) {
+    // Если реальный человек написал в чат во время дискуссии — бот отвечает коротко и с кулдауном 8 сек
+    const cooldownOk = nowMs - (room.lastBotReplyAt || 0) > 8000;
+    if (!sender.isBot && cooldownOk && room.status === 'ROUND_DISCUSSION' && text && text.trim().length > 1) {
       const lower = text.toLowerCase();
       const isQuestionOrMention = lower.includes('?') || lower.includes('кого') || lower.includes('кто') ||
                                   lower.includes('кому') || lower.includes('ким') || lower.includes('kim') ||
                                   lower.includes('who') || lower.includes('бот') || lower.includes('bot') ||
                                   lower.includes('почему') || lower.includes('за что') || lower.includes('nega');
-      const replyChance = isQuestionOrMention ? 0.6 : 0.22;
+      const replyChance = isQuestionOrMention ? 0.45 : 0.08;
 
       if (Math.random() < replyChance) {
         const availableBots = room.players.filter(p => p.isAlive && p.isBot);
         if (availableBots.length > 0) {
+          room.lastBotReplyAt = nowMs;
           const replyingBot = availableBots[Math.floor(Math.random() * availableBots.length)];
           const delay = 900 + Math.floor(Math.random() * 800);
 
@@ -1726,7 +1715,7 @@ class GameManager {
               if (remark) {
                 this.sendBotChatMessage(finalRoom, replyingBot, remark);
               }
-            }, 1200);
+            }, 1000);
           }, delay);
         }
       }
@@ -1834,8 +1823,8 @@ class GameManager {
     const aliveBots = room.players.filter(p => p.isAlive && p.isBot);
     if (aliveBots.length === 0) return;
 
-    // Редкий обмен репликами ботов в чате (не чаще 1 раза за раунд и только с вероятностью 30%)
-    if (Math.random() > 0.3) return;
+    // Редкая реплика бота в чате (не чаще 1 раза за раунд и только с вероятностью 12%)
+    if (Math.random() > 0.12) return;
     const chatterDelays = [22000];
     chatterDelays.forEach((delay, idx) => {
       const timer = setTimeout(() => {
