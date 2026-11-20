@@ -1,5 +1,5 @@
 // WebRTC Audio Mesh Voice Chat Manager for Bunker
-// Low-latency, high-quality audio with Web Audio API speech detection & auto-unmute
+// Low-latency, high-quality audio with Web Audio API speech detection, background persistence, and auto-recovery
 
 const ICE_SERVERS = {
   iceServers: [
@@ -11,6 +11,9 @@ const ICE_SERVERS = {
     { urls: 'stun:stun.cloudflare.com:3478' }
   ]
 };
+
+// 1-second silent WAV loop to ensure mobile browser (Android Chrome, iOS Safari) preserves audio in background
+const SILENT_AUDIO_WAV = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
 
 export class VoiceChatManager {
   constructor(socket) {
@@ -24,7 +27,6 @@ export class VoiceChatManager {
     this.playerId = null;
     this.playerName = null;
     this.isMuted = false;
-    this.roomCode = null;
     this.isConnected = false;
     this.isSpeaking = false;
     this.isLoud = false;
@@ -33,6 +35,11 @@ export class VoiceChatManager {
     this.audioCtx = null;
     this.analyser = null;
     this.animFrameId = null;
+    this.bgCheckTimeout = null;
+
+    // Background Audio & WakeLock state
+    this.keepAliveAudio = null;
+    this.wakeLock = null;
 
     // Callbacks
     this.onPeersUpdate = null;
@@ -41,12 +48,16 @@ export class VoiceChatManager {
 
     this.bindSocketEvents();
     this.setupAudioUnlocker();
+    this.setupVisibilityHandler();
   }
 
   setupAudioUnlocker() {
     const unlock = () => {
       if (this.audioCtx && this.audioCtx.state === 'suspended') {
         this.audioCtx.resume().catch(() => {});
+      }
+      if (this.keepAliveAudio && this.keepAliveAudio.paused && this.isConnected) {
+        this.keepAliveAudio.play().catch(() => {});
       }
       this.audioElements.forEach((audio) => {
         if (audio && audio.paused) {
@@ -57,6 +68,127 @@ export class VoiceChatManager {
     window.addEventListener('click', unlock);
     window.addEventListener('touchstart', unlock);
     this._unlockHandler = unlock;
+  }
+
+  setupVisibilityHandler() {
+    this._visibilityHandler = () => {
+      if (document.visibilityState === 'visible') {
+        this.onForeground();
+      }
+    };
+    document.addEventListener('visibilitychange', this._visibilityHandler);
+  }
+
+  onForeground() {
+    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+      this.audioCtx.resume().catch(() => {});
+    }
+    if (this.keepAliveAudio && this.keepAliveAudio.paused && this.isConnected) {
+      this.keepAliveAudio.play().catch(() => {});
+    }
+    this.audioElements.forEach((audio) => {
+      if (audio && audio.paused) {
+        audio.play().catch(() => {});
+      }
+    });
+    if (this.isConnected) {
+      this.requestWakeLock();
+      this.updateMediaSession();
+      // Sync state with server in case mobile OS temporarily paused socket
+      this.syncWithServer();
+    }
+  }
+
+  async requestWakeLock() {
+    if ('wakeLock' in navigator && !this.wakeLock && this.isConnected) {
+      try {
+        this.wakeLock = await navigator.wakeLock.request('screen');
+        this.wakeLock.addEventListener('release', () => {
+          this.wakeLock = null;
+        });
+      } catch (e) {
+        // WakeLock request can fail if screen is already locked or battery saver is active
+      }
+    }
+  }
+
+  releaseWakeLock() {
+    if (this.wakeLock) {
+      try {
+        this.wakeLock.release();
+      } catch (e) {}
+      this.wakeLock = null;
+    }
+  }
+
+  startKeepAliveAudio() {
+    if (!this.keepAliveAudio) {
+      this.keepAliveAudio = document.createElement('audio');
+      this.keepAliveAudio.id = 'bunker_voice_keepalive';
+      this.keepAliveAudio.src = SILENT_AUDIO_WAV;
+      this.keepAliveAudio.loop = true;
+      this.keepAliveAudio.volume = 0.01;
+      this.keepAliveAudio.autoplay = true;
+      this.keepAliveAudio.playsInline = true;
+      this.keepAliveAudio.setAttribute('playsinline', '');
+      this.keepAliveAudio.setAttribute('webkit-playsinline', '');
+      this.keepAliveAudio.style.display = 'none';
+      document.body.appendChild(this.keepAliveAudio);
+    }
+    this.keepAliveAudio.play().catch(() => {});
+  }
+
+  stopKeepAliveAudio() {
+    if (this.keepAliveAudio) {
+      try {
+        this.keepAliveAudio.pause();
+        this.keepAliveAudio.src = '';
+        this.keepAliveAudio.remove();
+      } catch (e) {}
+      this.keepAliveAudio = null;
+    }
+  }
+
+  updateMediaSession() {
+    if ('mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.metadata = new window.MediaMetadata({
+          title: 'Бункер — Голосовой чат',
+          artist: this.roomCode ? `Комната #${this.roomCode}` : 'В эфире',
+          album: 'Bunker Survival Online',
+          artwork: [
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }
+          ]
+        });
+        navigator.mediaSession.playbackState = 'playing';
+
+        navigator.mediaSession.setActionHandler('pause', () => {
+          this.setMute(true);
+        });
+        navigator.mediaSession.setActionHandler('play', () => {
+          this.setMute(false);
+        });
+        navigator.mediaSession.setActionHandler('stop', () => {
+          this.leaveVoice();
+        });
+        try {
+          navigator.mediaSession.setActionHandler('togglemicrophone', () => {
+            this.toggleMute();
+          });
+        } catch (e) {}
+      } catch (e) {
+        console.warn('[VOICE] MediaSession setup warning:', e);
+      }
+    }
+  }
+
+  clearMediaSession() {
+    if ('mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
+      } catch (e) {}
+    }
   }
 
   bindSocketEvents() {
@@ -170,10 +302,15 @@ export class VoiceChatManager {
       // Initially set local tracks to match mute state
       this.setLocalTracksEnabled(!this.isMuted);
 
-      // 2. Setup audio analysis for local speech detection
+      // 2. Setup audio analysis for local speech detection (supports background tabs)
       this.setupAudioAnalyser();
 
-      // 3. Join voice room on server
+      // 3. Start keepalive background audio, MediaSession notification, and Screen WakeLock
+      this.startKeepAliveAudio();
+      this.updateMediaSession();
+      this.requestWakeLock();
+
+      // 4. Join voice room on server
       this.socket.emit('voiceJoin', {
         roomCode,
         playerId,
@@ -202,11 +339,39 @@ export class VoiceChatManager {
       this.isConnected = true;
     } catch (err) {
       console.warn('[VOICE] Microphone access error:', err);
+      this.stopKeepAliveAudio();
+      this.releaseWakeLock();
+      this.clearMediaSession();
       if (this.onError) {
         this.onError(err);
       }
       throw err;
     }
+  }
+
+  syncWithServer() {
+    if (!this.isConnected || !this.socket || !this.roomCode) return;
+    this.socket.emit('voiceJoin', {
+      roomCode: this.roomCode,
+      playerId: this.playerId,
+      playerName: this.playerName,
+      isMuted: this.isMuted
+    }, async (res) => {
+      if (res && res.peers) {
+        for (const peer of res.peers) {
+          this.peers.set(peer.socketId, {
+            playerId: peer.playerId,
+            playerName: peer.playerName,
+            isMuted: Boolean(peer.isMuted),
+            isSpeaking: Boolean(peer.isSpeaking)
+          });
+          if (!this.peerConnections.has(peer.socketId) && this.localStream && this.isConnected) {
+            await this.createPeerConnection(peer.socketId, true);
+          }
+        }
+        this.notifyPeersUpdate();
+      }
+    });
   }
 
   async createPeerConnection(remoteSocketId, isInitiator) {
@@ -245,6 +410,8 @@ export class VoiceChatManager {
         audio.id = `remote_voice_${remoteSocketId}`;
         audio.autoplay = true;
         audio.playsInline = true;
+        audio.setAttribute('playsinline', '');
+        audio.setAttribute('webkit-playsinline', '');
         audio.style.display = 'none';
         document.body.appendChild(audio);
         this.audioElements.set(remoteSocketId, audio);
@@ -258,7 +425,8 @@ export class VoiceChatManager {
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      // Only close on terminal failure or closure; 'disconnected' can self-heal during app switch
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         this.closePeer(remoteSocketId);
       }
     };
@@ -298,6 +466,15 @@ export class VoiceChatManager {
       const dataArray = new Uint8Array(bufferLength);
 
       let speakingCounter = 0;
+      const scheduleNextCheck = () => {
+        if (!this.isConnected || !this.analyser) return;
+        if (typeof document !== 'undefined' && document.hidden) {
+          this.bgCheckTimeout = setTimeout(checkVolume, 150);
+        } else {
+          this.animFrameId = requestAnimationFrame(checkVolume);
+        }
+      };
+
       const checkVolume = () => {
         if (!this.isConnected || !this.analyser) return;
 
@@ -307,7 +484,7 @@ export class VoiceChatManager {
             this.isLoud = false;
             this.emitSpeaking(false, false);
           }
-          this.animFrameId = requestAnimationFrame(checkVolume);
+          scheduleNextCheck();
           return;
         }
 
@@ -337,10 +514,10 @@ export class VoiceChatManager {
           this.emitSpeaking(this.isSpeaking, this.isLoud);
         }
 
-        this.animFrameId = requestAnimationFrame(checkVolume);
+        scheduleNextCheck();
       };
 
-      checkVolume();
+      scheduleNextCheck();
     } catch (e) {
       console.warn('[VOICE] Web Audio analyser error:', e);
     }
@@ -398,6 +575,15 @@ export class VoiceChatManager {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
     }
+
+    if (this.bgCheckTimeout) {
+      clearTimeout(this.bgCheckTimeout);
+      this.bgCheckTimeout = null;
+    }
+
+    this.stopKeepAliveAudio();
+    this.releaseWakeLock();
+    this.clearMediaSession();
 
     if (this.audioCtx && this.audioCtx.state !== 'closed') {
       try {

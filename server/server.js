@@ -1099,6 +1099,17 @@ io.on('connection', (socket) => {
     }
     const roomMap = global.voiceRooms.get(roomCode);
 
+    // If this player was already registered in this room under a previous socket (e.g. mobile app switch / reconnect), purge previous socket
+    for (const [peerSocketId, peerData] of roomMap.entries()) {
+      if (peerData.playerId === playerId && peerSocketId !== socket.id) {
+        roomMap.delete(peerSocketId);
+        socket.to(`voice_${roomCode}`).emit('voiceUserLeft', {
+          socketId: peerSocketId,
+          playerId
+        });
+      }
+    }
+
     const existingPeers = [];
     for (const [peerSocketId, peerData] of roomMap.entries()) {
       if (peerSocketId !== socket.id) {
@@ -1173,16 +1184,25 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     unbindSocket(socket.id);
     const code = socket.voiceRoomCode;
+    const pId = socket.voicePlayerId;
+    const oldSocketId = socket.id;
+
     if (code && global.voiceRooms && global.voiceRooms.has(code)) {
-      const roomMap = global.voiceRooms.get(code);
-      roomMap.delete(socket.id);
-      if (roomMap.size === 0) {
-        global.voiceRooms.delete(code);
-      }
-      socket.to(`voice_${code}`).emit('voiceUserLeft', {
-        socketId: socket.id,
-        playerId: socket.voicePlayerId
-      });
+      // 15-second grace period for background tab throttling, app switching, lock screen, or transient network blips
+      setTimeout(() => {
+        if (!global.voiceRooms || !global.voiceRooms.has(code)) return;
+        const roomMap = global.voiceRooms.get(code);
+        if (roomMap.has(oldSocketId)) {
+          roomMap.delete(oldSocketId);
+          if (roomMap.size === 0) {
+            global.voiceRooms.delete(code);
+          }
+          io.to(`voice_${code}`).emit('voiceUserLeft', {
+            socketId: oldSocketId,
+            playerId: pId
+          });
+        }
+      }, 15000);
     }
     console.log(`[SOCKET] Клиент отключился: ${socket.id}`);
   });

@@ -695,6 +695,10 @@ export default function App() {
           }
         });
       }
+      // Re-sync WebRTC voice chat if user was connected before connection drop / backgrounding
+      if (voiceManagerRef.current && voiceManagerRef.current.isConnected) {
+        voiceManagerRef.current.syncWithServer();
+      }
     });
 
     socket.on('publicRoomsUpdated', (rooms) => {
@@ -1450,64 +1454,107 @@ export default function App() {
         <AtmosphereEffects enabled={atmosphereEnabled} lang={lang} />
 
         <div className="max-w-5xl mx-auto w-full pt-2 sm:pt-6 relative z-10">
-          {/* Top Bar: Profile on Left, Action Buttons in Center, Theme & Language Pinned Top-Right (Never clips, never drops down) */}
-          <div className="flex flex-wrap md:flex-nowrap justify-between items-center gap-2 mb-4 sm:mb-6">
-            {/* 1. Left: Compact User Auth / BunCoins Pill */}
-            <div className="order-1 shrink-0">
-              {user ? (
-                <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-amber-500/40 rounded-2xl p-1.5 px-2.5 shadow-sm shrink-0">
-                  <button
-                    onClick={() => setShowProfileModal(true)}
-                    className="flex items-center gap-2 cursor-pointer hover:opacity-85 transition text-left shrink-0"
-                    title={t.profileBtnTooltip || "Нажмите, чтобы настроить фото и профиль"}
-                  >
-                    {user.characterDetails?.avatarUrl ? (
-                      <img 
-                        src={user.characterDetails.avatarUrl} 
-                        alt="Avatar" 
-                        className="w-7 h-7 rounded-xl object-cover border border-amber-500/50 shrink-0" 
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      />
-                    ) : (
-                      <span className="text-xl shrink-0">{user.characterDetails?.avatar || '🥷'}</span>
-                    )}
-                    <div className="font-mono leading-tight">
-                      <div className="text-xs font-bold text-slate-800 dark:text-zinc-100 flex items-center gap-1 whitespace-nowrap">
-                        <span className="truncate max-w-[95px] sm:max-w-[120px]">{user.username}</span>
-                        <span className="bg-amber-500/20 text-amber-500 px-1.5 py-0.2 rounded text-[10px] font-bold">
-                          🪙 {user.bunCoins}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-zinc-400 flex items-center gap-1 whitespace-nowrap mt-0.5">
-                        {user.userId && (
-                          <span className="text-cyan-500 dark:text-cyan-400 font-bold">
-                            ID: #{user.userId}
+          {/* Top Bar: Fixed non-shifting 2-row layout on mobile, elegant 1-row layout on desktop */}
+          <div className="mb-4 sm:mb-6 space-y-2 md:space-y-0 md:flex md:items-center md:justify-between md:gap-3">
+            {/* Row 1 on Mobile (Left: User Auth/Profile, Right: Theme + Language) -> NEVER WRAPS, NEVER DROPS, NEVER CLIPS */}
+            <div className="flex items-center justify-between gap-1.5 w-full md:w-auto shrink-0">
+              {/* Left: Compact User Auth / BunCoins Pill */}
+              <div className="min-w-0 max-w-[calc(100%-115px)] sm:max-w-none">
+                {user ? (
+                  <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-amber-500/40 rounded-2xl p-1.5 px-2 sm:px-2.5 shadow-sm min-w-0">
+                    <button
+                      onClick={() => setShowProfileModal(true)}
+                      className="flex items-center gap-1.5 sm:gap-2 cursor-pointer hover:opacity-85 transition text-left min-w-0 shrink"
+                      title={t.profileBtnTooltip || "Нажмите, чтобы настроить фото и профиль"}
+                    >
+                      {user.characterDetails?.avatarUrl ? (
+                        <img 
+                          src={user.characterDetails.avatarUrl} 
+                          alt="Avatar" 
+                          className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl object-cover border border-amber-500/50 shrink-0" 
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <span className="text-lg sm:text-xl shrink-0">{user.characterDetails?.avatar || '🥷'}</span>
+                      )}
+                      <div className="font-mono leading-tight min-w-0">
+                        <div className="text-xs font-bold text-slate-800 dark:text-zinc-100 flex items-center gap-1">
+                          <span className="truncate max-w-[70px] sm:max-w-[120px]">{user.username}</span>
+                          <span className="bg-amber-500/20 text-amber-500 px-1 py-0.2 rounded text-[10px] font-bold shrink-0">
+                            🪙 {user.bunCoins}
                           </span>
-                        )}
+                        </div>
+                        <div className="text-[10px] text-zinc-400 flex items-center gap-1 whitespace-nowrap mt-0.5">
+                          {user.userId && (
+                            <span className="text-cyan-500 dark:text-cyan-400 font-bold">
+                              ID: #{user.userId}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      title={t.authLogout}
+                      className="text-zinc-400 hover:text-red-400 text-xs font-mono px-1 cursor-pointer shrink-0 ml-auto"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-mono font-bold text-xs uppercase shadow transition flex items-center gap-1.5 cursor-pointer animate-pulse shrink-0 whitespace-nowrap"
+                  >
+                    <span>🔐</span>
+                    <span>{t.btnAuth}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Mobile-only Theme Toggle & Language Selector (Pinned Top-Right on Row 1) */}
+              <div className="flex md:hidden items-center gap-1 shrink-0">
+                {/* Theme Toggle */}
+                <button
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  title={theme === 'dark' ? t.lightThemeTooltip : t.darkThemeTooltip}
+                  className="p-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 shadow-sm transition cursor-pointer shrink-0"
+                >
+                  {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-700" />}
+                </button>
+
+                {/* Language Selector (Exact fixed dimensions: 3 buttons of 23px = 69px, total ~75px, never clips) */}
+                <div className="flex items-center bg-white dark:bg-zinc-900 rounded-xl p-0.5 border border-slate-200 dark:border-zinc-800 text-[10px] font-mono font-bold shadow-sm shrink-0">
+                  <button
+                    onClick={() => handleSetLang('ru')}
+                    className={`w-[23px] py-1 rounded-lg text-center transition cursor-pointer ${
+                      lang === 'ru' ? 'bg-amber-500 text-black shadow-sm font-bold' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    RU
                   </button>
                   <button
-                    onClick={handleLogout}
-                    title={t.authLogout}
-                    className="text-zinc-400 hover:text-red-400 text-xs font-mono px-1 cursor-pointer shrink-0"
+                    onClick={() => handleSetLang('en')}
+                    className={`w-[23px] py-1 rounded-lg text-center transition cursor-pointer ${
+                      lang === 'en' ? 'bg-amber-500 text-black shadow-sm font-bold' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
                   >
-                    ✕
+                    EN
+                  </button>
+                  <button
+                    onClick={() => handleSetLang('uz')}
+                    className={`w-[23px] py-1 rounded-lg text-center transition cursor-pointer ${
+                      lang === 'uz' ? 'bg-amber-500 text-black shadow-sm font-bold' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    UZ
                   </button>
                 </div>
-              ) : (
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="px-3 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-mono font-bold text-xs uppercase shadow transition flex items-center gap-1.5 cursor-pointer animate-pulse shrink-0 whitespace-nowrap"
-                >
-                  <span>🔐</span>
-                  <span>{t.btnAuth}</span>
-                </button>
-              )}
+              </div>
             </div>
 
-            {/* 2. Center Action Buttons (Inline on Desktop, cleanly on 2nd row on small mobile screens) */}
-            <div className="order-3 md:order-2 w-full md:w-auto flex items-center justify-center md:justify-end gap-1.5 flex-wrap md:flex-nowrap md:ml-auto">
+            {/* Action Buttons: Row 2 on Mobile (centered, cleanly wrapped), In-Between on Desktop */}
+            <div className="w-full md:w-auto flex items-center justify-center md:justify-end gap-1.5 flex-wrap md:flex-nowrap md:ml-auto shrink-0">
               {/* Daily Bonus Crate & Promo Code Button */}
               {user && (
                 <button
@@ -1591,8 +1638,8 @@ export default function App() {
               </button>
             </div>
 
-            {/* 3. Far Right: Theme Toggle & Language Selector (Always pinned top-right, fixed width, never clips or drops) */}
-            <div className="order-2 md:order-3 flex items-center gap-1.5 shrink-0">
+            {/* Desktop-only Far Right: Theme Toggle & Language Selector (Pinned Far Right) */}
+            <div className="hidden md:flex items-center gap-1.5 shrink-0">
               {/* Theme Toggle */}
               <button
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -1606,24 +1653,24 @@ export default function App() {
               <div className="flex items-center bg-white dark:bg-zinc-900 rounded-2xl p-1 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold shadow-sm shrink-0">
                 <button
                   onClick={() => handleSetLang('ru')}
-                  className={`w-8 py-1 rounded-xl text-center transition cursor-pointer ${
-                    lang === 'ru' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                  className={`w-7 py-1 rounded-xl text-center transition cursor-pointer ${
+                    lang === 'ru' ? 'bg-amber-500 text-black shadow-sm font-bold' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   RU
                 </button>
                 <button
                   onClick={() => handleSetLang('en')}
-                  className={`w-8 py-1 rounded-xl text-center transition cursor-pointer ${
-                    lang === 'en' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                  className={`w-7 py-1 rounded-xl text-center transition cursor-pointer ${
+                    lang === 'en' ? 'bg-amber-500 text-black shadow-sm font-bold' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   EN
                 </button>
                 <button
                   onClick={() => handleSetLang('uz')}
-                  className={`w-8 py-1 rounded-xl text-center transition cursor-pointer ${
-                    lang === 'uz' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                  className={`w-7 py-1 rounded-xl text-center transition cursor-pointer ${
+                    lang === 'uz' ? 'bg-amber-500 text-black shadow-sm font-bold' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   UZ
