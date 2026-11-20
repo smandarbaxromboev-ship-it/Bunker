@@ -391,7 +391,15 @@ export default function App() {
     };
     voiceManagerRef.current = vm;
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        vm.onForeground();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       vm.leaveVoice();
     };
   }, []);

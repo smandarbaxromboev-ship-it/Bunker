@@ -79,23 +79,98 @@ export class VoiceChatManager {
     document.addEventListener('visibilitychange', this._visibilityHandler);
   }
 
-  onForeground() {
+  async onForeground() {
     if (this.audioCtx && this.audioCtx.state === 'suspended') {
       this.audioCtx.resume().catch(() => {});
     }
-    if (this.keepAliveAudio && this.keepAliveAudio.paused && this.isConnected) {
+    if (this.keepAliveAudio && this.isConnected) {
       this.keepAliveAudio.play().catch(() => {});
     }
     this.audioElements.forEach((audio) => {
-      if (audio && audio.paused) {
+      if (audio) {
         audio.play().catch(() => {});
       }
     });
     if (this.isConnected) {
       this.requestWakeLock();
       this.updateMediaSession();
-      // Sync state with server in case mobile OS temporarily paused socket
+      await this.checkAndRestoreMicrophone();
       this.syncWithServer();
+
+      // Check all peer connections; if any dropped during background, restart connection
+      for (const [socketId, pc] of this.peerConnections) {
+        if (pc.connectionState === 'failed' || pc.iceConnectionState === 'failed' || pc.connectionState === 'disconnected') {
+          this.restartPeerConnection(socketId);
+        }
+      }
+    }
+  }
+
+  async checkAndRestoreMicrophone() {
+    if (!this.isConnected) return;
+    let needsNewStream = false;
+    if (!this.localStream) {
+      needsNewStream = true;
+    } else {
+      const tracks = this.localStream.getAudioTracks();
+      if (tracks.length === 0 || tracks.some(t => t.readyState === 'ended')) {
+        needsNewStream = true;
+      }
+    }
+
+    if (needsNewStream) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: { ideal: true },
+            noiseSuppression: { ideal: true },
+            autoGainControl: { ideal: true },
+            channelCount: { ideal: 1 }
+          },
+          video: false
+        });
+        this.localStream = stream;
+        this.setLocalTracksEnabled(!this.isMuted);
+        this.setupAudioAnalyser();
+
+        // Update tracks in existing peer connections
+        const newTrack = stream.getAudioTracks()[0];
+        if (newTrack) {
+          for (const [, pc] of this.peerConnections) {
+            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+            if (sender) {
+              sender.replaceTrack(newTrack).catch(() => {});
+            } else {
+              pc.addTrack(newTrack, stream);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[VOICE] Mic auto-restore error:', err);
+      }
+    }
+  }
+
+  async restartPeerConnection(remoteSocketId) {
+    const pc = this.peerConnections.get(remoteSocketId);
+    if (pc) {
+      try {
+        if (pc.signalingState !== 'closed') {
+          const offer = await pc.createOffer({ iceRestart: true });
+          await pc.setLocalDescription(offer);
+          this.socket.emit('voiceSignal', {
+            toSocketId: remoteSocketId,
+            signal: offer
+          });
+          return;
+        }
+      } catch (e) {
+        console.warn('[VOICE] ICE restart error:', e);
+      }
+      this.closePeer(remoteSocketId);
+    }
+    if (this.localStream && this.isConnected) {
+      await this.createPeerConnection(remoteSocketId, true);
     }
   }
 
@@ -125,14 +200,21 @@ export class VoiceChatManager {
     if (!this.keepAliveAudio) {
       this.keepAliveAudio = document.createElement('audio');
       this.keepAliveAudio.id = 'bunker_voice_keepalive';
-      this.keepAliveAudio.src = SILENT_AUDIO_WAV;
+      this.keepAliveAudio.src = '/silent-keepalive.wav';
       this.keepAliveAudio.loop = true;
-      this.keepAliveAudio.volume = 0.01;
+      this.keepAliveAudio.volume = 0.05;
       this.keepAliveAudio.autoplay = true;
       this.keepAliveAudio.playsInline = true;
       this.keepAliveAudio.setAttribute('playsinline', '');
       this.keepAliveAudio.setAttribute('webkit-playsinline', '');
-      this.keepAliveAudio.style.display = 'none';
+      // Never use display:none on mobile browsers as it pauses background playback
+      this.keepAliveAudio.style.position = 'fixed';
+      this.keepAliveAudio.style.left = '-9999px';
+      this.keepAliveAudio.style.top = '-9999px';
+      this.keepAliveAudio.style.width = '1px';
+      this.keepAliveAudio.style.height = '1px';
+      this.keepAliveAudio.style.opacity = '0.01';
+      this.keepAliveAudio.style.pointerEvents = 'none';
       document.body.appendChild(this.keepAliveAudio);
     }
     this.keepAliveAudio.play().catch(() => {});
@@ -413,7 +495,14 @@ export class VoiceChatManager {
         audio.playsInline = true;
         audio.setAttribute('playsinline', '');
         audio.setAttribute('webkit-playsinline', '');
-        audio.style.display = 'none';
+        // Never use display:none on mobile browsers as it pauses background playback
+        audio.style.position = 'fixed';
+        audio.style.left = '-9999px';
+        audio.style.top = '-9999px';
+        audio.style.width = '1px';
+        audio.style.height = '1px';
+        audio.style.opacity = '0.01';
+        audio.style.pointerEvents = 'none';
         document.body.appendChild(audio);
         this.audioElements.set(remoteSocketId, audio);
       }
@@ -423,6 +512,13 @@ export class VoiceChatManager {
       audio.play().catch((err) => {
         console.warn('[VOICE] Audio playback waiting for gesture:', err);
       });
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'failed') {
+        console.warn('[VOICE] ICE connection failed for peer:', remoteSocketId, 'auto-restarting ICE...');
+        this.restartPeerConnection(remoteSocketId);
+      }
     };
 
     pc.onconnectionstatechange = () => {
