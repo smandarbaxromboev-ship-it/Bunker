@@ -66,8 +66,8 @@ export default function HeaderTerminal({
   const aliveCount = roomState?.players ? roomState.players.filter(p => p.isAlive).length : 0;
 
   return (
-    <header className="border-b border-slate-200 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md sticky top-0 z-40 px-2 sm:px-3 py-1.5 transition-colors duration-200 shadow-sm relative w-full overflow-x-auto no-scrollbar">
-      <div className="w-full flex items-center justify-between gap-1.5 flex-nowrap min-w-max">
+    <header className="border-b border-slate-200 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md sticky top-0 z-40 px-2 sm:px-3 py-1.5 transition-colors duration-200 shadow-sm relative w-full">
+      <div className="w-full flex items-center justify-between gap-1 sm:gap-1.5 flex-nowrap">
         {/* Left: Brand & Room code & Back button */}
         <div className="flex items-center gap-1.5 shrink-0">
           {onLeaveRoom && (
@@ -81,10 +81,10 @@ export default function HeaderTerminal({
                 }
               }}
               title={t.btnLeaveGame || t.btnBack}
-              className="p-1 sm:px-2.5 sm:py-1 rounded-xl bg-slate-100 hover:bg-red-50 dark:bg-zinc-900 dark:hover:bg-red-950/60 text-slate-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm cursor-pointer shrink-0"
+              className="p-1.5 xl:px-2.5 xl:py-1 rounded-xl bg-slate-100 hover:bg-red-50 dark:bg-zinc-900 dark:hover:bg-red-950/60 text-slate-700 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm cursor-pointer shrink-0 whitespace-nowrap"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">{t.btnLeaveGame || t.btnBack}</span>
+              <ArrowLeft className="w-4 h-4 shrink-0" />
+              <span className="hidden xl:inline">{t.btnLeaveGame || t.btnBack}</span>
             </button>
           )}
 
@@ -94,7 +94,7 @@ export default function HeaderTerminal({
               className="p-1 sm:px-2 sm:py-1 rounded-xl bg-purple-950/60 border border-purple-800/80 text-purple-300 text-xs font-mono font-bold flex items-center gap-1 shadow-sm shrink-0 select-none"
             >
               <span className="text-sm">👻</span>
-              <span className="hidden sm:inline text-[11px]">{lang === 'uz' ? 'Arvoh' : lang === 'en' ? 'Ghost' : 'Призрак'}</span>
+              <span className="hidden xl:inline text-[11px]">{lang === 'uz' ? 'Arvoh' : lang === 'en' ? 'Ghost' : 'Призрак'}</span>
             </div>
           )}
 
@@ -102,9 +102,6 @@ export default function HeaderTerminal({
           <div className="flex items-center gap-1 shrink-0">
             <span className="text-[10px] sm:text-xs px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-900 text-amber-600 dark:text-amber-400 font-mono font-bold border border-slate-300 dark:border-zinc-700 shrink-0">
               #{roomState?.code || '-----'}
-            </span>
-            <span className="text-[10px] text-slate-500 dark:text-zinc-400 hidden lg:inline font-mono truncate">
-              • {t.bunkerCapacity} <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{roomState?.bunkerCapacity || 2}</strong>
             </span>
           </div>
         </div>
@@ -137,8 +134,8 @@ export default function HeaderTerminal({
           </div>
         )}
 
-        {/* Desktop Right Navigation: All Buttons in One Line (NO BURGER) */}
-        <div className="hidden md:flex items-center gap-1 sm:gap-1.5 shrink-0 justify-end flex-nowrap">
+        {/* Desktop Right Navigation: All Buttons in One Line (NO BURGER, NEVER CLIPPED) */}
+        <div className="hidden md:flex items-center gap-1 shrink-0 justify-end flex-nowrap">
           {/* 1. Voice Chat Button */}
           {roomState && onOpenVoiceChat && (
             <button
@@ -147,7 +144,7 @@ export default function HeaderTerminal({
                 onOpenVoiceChat();
               }}
               title={lang === 'uz' ? "Ovozli chat" : lang === 'en' ? "Voice Chat" : "Голосовой чат"}
-              className={`px-2 py-1 sm:px-2.5 sm:py-1 rounded-xl border text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm active:scale-95 cursor-pointer shrink-0 ${
+              className={`px-2 py-1 rounded-xl border text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm active:scale-95 cursor-pointer shrink-0 whitespace-nowrap ${
                 isVoiceConnected
                   ? isVoiceSpeaking
                     ? 'bg-emerald-500 text-black border-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] animate-pulse'
@@ -162,7 +159,7 @@ export default function HeaderTerminal({
               ) : (
                 <Mic className={`w-3.5 h-3.5 shrink-0 ${isVoiceSpeaking ? (isVoiceLoud ? 'animate-mic-loud text-amber-300' : 'animate-mic-calm') : ''}`} />
               )}
-              <span className="font-display font-bold text-xs">
+              <span className="font-display font-bold text-xs hidden lg:inline">
                 {lang === 'uz' ? 'Ovozli chat' : lang === 'en' ? 'Voice Chat' : 'Голосовой чат'}
               </span>
               {isVoiceConnected ? (
@@ -183,10 +180,10 @@ export default function HeaderTerminal({
                 onOpenFriends();
               }}
               title={lang === 'uz' ? "Do'stlar (ID orqali)" : lang === 'en' ? 'Friends (by ID)' : 'Друзья по ID'}
-              className="px-2 py-1 sm:px-2.5 sm:py-1 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-600 dark:text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm cursor-pointer shrink-0"
+              className="px-2 py-1 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-600 dark:text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm cursor-pointer shrink-0 whitespace-nowrap"
             >
               <Users className="w-3.5 h-3.5 shrink-0" />
-              <span>{lang === 'uz' ? "Do'stlar" : lang === 'en' ? 'Friends' : 'Друзья'}</span>
+              <span className="hidden lg:inline">{lang === 'uz' ? "Do'stlar" : lang === 'en' ? 'Friends' : 'Друзья'}</span>
             </button>
           )}
 
@@ -198,10 +195,10 @@ export default function HeaderTerminal({
                 onOpenRules();
               }}
               title={t.btnRulesTooltip || "Правила и условия игры"}
-              className="px-2 py-1 sm:px-2.5 sm:py-1 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-amber-600 dark:text-amber-400 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm cursor-pointer shrink-0"
+              className="px-2 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-amber-600 dark:text-amber-400 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm cursor-pointer shrink-0 whitespace-nowrap"
             >
               <BookOpen className="w-3.5 h-3.5 shrink-0" />
-              <span>{t.btnRules || "Правила"}</span>
+              <span className="hidden lg:inline">{t.btnRules || "Правила"}</span>
             </button>
           )}
 
@@ -213,14 +210,14 @@ export default function HeaderTerminal({
                 setAtmosphereEnabled(!atmosphereEnabled);
               }}
               title={atmosphereEnabled ? (t.atmosphereOffTooltip || "Отключить эффекты") : (t.atmosphereOnTooltip || "Включить эффекты")}
-              className={`px-2 py-1 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1 cursor-pointer border shrink-0 ${
+              className={`px-2 py-1 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1 cursor-pointer border shrink-0 whitespace-nowrap ${
                 atmosphereEnabled 
                   ? 'bg-amber-500/20 text-amber-500 dark:text-amber-400 border-amber-500/50 shadow-sm animate-pulse' 
                   : 'bg-slate-100 dark:bg-zinc-900 text-slate-400 dark:text-zinc-500 border-slate-200 dark:border-zinc-800'
               }`}
             >
               <span>☢️</span>
-              <span className="text-[10px] hidden sm:inline">{t.btnAtmosphere || "Атмосфера"}</span>
+              <span className="text-[10px] hidden 2xl:inline">{t.btnAtmosphere || "Атмосфера"}</span>
             </button>
           )}
 
@@ -242,7 +239,7 @@ export default function HeaderTerminal({
                 ) : (
                   <span className="text-xs">{user.characterDetails?.avatar || '🥷'}</span>
                 )}
-                <span className="truncate max-w-[70px] sm:max-w-[90px]">{user.username}</span>
+                <span className="truncate max-w-[65px] sm:max-w-[85px]">{user.username}</span>
               </button>
               
               <button
@@ -265,7 +262,7 @@ export default function HeaderTerminal({
           ) : (
             <button
               onClick={onOpenAuth}
-              className="px-2.5 py-1 text-xs font-mono font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 transition shadow flex items-center space-x-1 cursor-pointer shrink-0"
+              className="px-2.5 py-1 text-xs font-mono font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 transition shadow flex items-center space-x-1 cursor-pointer shrink-0 whitespace-nowrap"
             >
               <User className="w-3.5 h-3.5" />
               <span>{t.btnAuth}</span>
@@ -276,7 +273,7 @@ export default function HeaderTerminal({
           <button
             onClick={onOpenShop}
             title={t.shopBtn}
-            className="p-1 sm:p-1.5 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 transition shadow-sm cursor-pointer shrink-0"
+            className="p-1.5 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 transition shadow-sm cursor-pointer shrink-0"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
           </button>
@@ -285,16 +282,16 @@ export default function HeaderTerminal({
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? t.lightThemeTooltip : t.darkThemeTooltip}
-            className="p-1 sm:p-1.5 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 transition cursor-pointer shrink-0"
+            className="p-1.5 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 transition cursor-pointer shrink-0"
           >
             {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-700" />}
           </button>
 
-          {/* 8. Language Selector */}
+          {/* 8. Language Selector (Fixed width per button so it never shifts or clips) */}
           <div className="flex items-center bg-slate-100 dark:bg-zinc-900 rounded-xl p-0.5 border border-slate-200 dark:border-zinc-800 text-[10px] font-mono font-bold shrink-0">
             <button
               onClick={() => setLang('ru')}
-              className={`px-1.5 py-0.5 rounded-lg transition cursor-pointer ${
+              className={`w-6 py-0.5 rounded-lg text-center transition cursor-pointer ${
                 lang === 'ru' ? 'bg-amber-500 text-black shadow-sm font-bold' : 'text-slate-600 dark:text-zinc-400 hover:text-white'
               }`}
             >
@@ -302,7 +299,7 @@ export default function HeaderTerminal({
             </button>
             <button
               onClick={() => setLang('en')}
-              className={`px-1.5 py-0.5 rounded-lg transition cursor-pointer ${
+              className={`w-6 py-0.5 rounded-lg text-center transition cursor-pointer ${
                 lang === 'en' ? 'bg-amber-500 text-black shadow-sm font-bold' : 'text-slate-600 dark:text-zinc-400 hover:text-white'
               }`}
             >
@@ -310,7 +307,7 @@ export default function HeaderTerminal({
             </button>
             <button
               onClick={() => setLang('uz')}
-              className={`px-1.5 py-0.5 rounded-lg transition cursor-pointer ${
+              className={`w-6 py-0.5 rounded-lg text-center transition cursor-pointer ${
                 lang === 'uz' ? 'bg-amber-500 text-black shadow-sm font-bold' : 'text-slate-600 dark:text-zinc-400 hover:text-white'
               }`}
             >
@@ -321,7 +318,7 @@ export default function HeaderTerminal({
           {/* 9. Sound Toggle */}
           <button
             onClick={toggleSound}
-            className="p-1 sm:p-1.5 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 transition cursor-pointer shrink-0"
+            className="p-1.5 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-amber-500 transition cursor-pointer shrink-0"
             title={isMuted ? (lang === 'uz' ? "Ovozni yoqish" : lang === 'en' ? "Unmute sound" : "Включить звук") : (lang === 'uz' ? "Ovozni o'chirish" : lang === 'en' ? "Mute sound" : "Выключить звук")}
           >
             {isMuted ? <VolumeX className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500" /> : <Volume2 className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />}

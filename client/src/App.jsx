@@ -1450,15 +1450,15 @@ export default function App() {
         <AtmosphereEffects enabled={atmosphereEnabled} lang={lang} />
 
         <div className="max-w-5xl mx-auto w-full pt-2 sm:pt-6 relative z-10">
-          {/* Top Bar with User Profile, Rules, Atmosphere, Shop, Theme Toggle & Language Selector (Single Non-Wrapping Line) */}
-          <div className="flex flex-nowrap justify-between items-center gap-2 mb-4 sm:mb-6 overflow-x-auto no-scrollbar pb-1">
-            {/* Left: User Auth / BunCoins Pill */}
-            <div className="shrink-0">
+          {/* Top Bar: Profile on Left, Action Buttons in Center, Theme & Language Pinned Top-Right (Never clips, never drops down) */}
+          <div className="flex flex-wrap md:flex-nowrap justify-between items-center gap-2 mb-4 sm:mb-6">
+            {/* 1. Left: Compact User Auth / BunCoins Pill */}
+            <div className="order-1 shrink-0">
               {user ? (
-                <div className="flex items-center space-x-2 bg-white dark:bg-zinc-900 border border-amber-500/40 rounded-2xl p-1.5 px-2.5 shadow-sm shrink-0">
+                <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-amber-500/40 rounded-2xl p-1.5 px-2.5 shadow-sm shrink-0">
                   <button
                     onClick={() => setShowProfileModal(true)}
-                    className="flex items-center space-x-2 cursor-pointer hover:opacity-85 transition text-left shrink-0"
+                    className="flex items-center gap-2 cursor-pointer hover:opacity-85 transition text-left shrink-0"
                     title={t.profileBtnTooltip || "Нажмите, чтобы настроить фото и профиль"}
                   >
                     {user.characterDetails?.avatarUrl ? (
@@ -1471,27 +1471,26 @@ export default function App() {
                     ) : (
                       <span className="text-xl shrink-0">{user.characterDetails?.avatar || '🥷'}</span>
                     )}
-                    <div className="font-mono">
-                      <div className="text-xs font-bold text-slate-800 dark:text-zinc-100 flex items-center space-x-1 whitespace-nowrap">
-                        <span className="truncate max-w-[110px]">{user.username}</span>
-                        {user.userId && (
-                          <span className="bg-cyan-500/20 text-cyan-500 dark:text-cyan-400 px-1.5 py-0.2 rounded text-[10px] font-bold">
-                            ID: #{user.userId}
-                          </span>
-                        )}
+                    <div className="font-mono leading-tight">
+                      <div className="text-xs font-bold text-slate-800 dark:text-zinc-100 flex items-center gap-1 whitespace-nowrap">
+                        <span className="truncate max-w-[95px] sm:max-w-[120px]">{user.username}</span>
                         <span className="bg-amber-500/20 text-amber-500 px-1.5 py-0.2 rounded text-[10px] font-bold">
                           🪙 {user.bunCoins}
                         </span>
                       </div>
-                      <div className="text-[10px] text-zinc-400 truncate max-w-[180px]">
-                        {user.characterDetails?.title ? getLocalized(user.characterDetails.title, lang) : (t.profilePhotoDefault || 'Фото профиля')}
+                      <div className="text-[10px] text-zinc-400 flex items-center gap-1 whitespace-nowrap mt-0.5">
+                        {user.userId && (
+                          <span className="text-cyan-500 dark:text-cyan-400 font-bold">
+                            ID: #{user.userId}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </button>
                   <button
                     onClick={handleLogout}
                     title={t.authLogout}
-                    className="text-zinc-400 hover:text-red-400 text-xs font-mono ml-1 px-1 cursor-pointer shrink-0"
+                    className="text-zinc-400 hover:text-red-400 text-xs font-mono px-1 cursor-pointer shrink-0"
                   >
                     ✕
                   </button>
@@ -1499,25 +1498,22 @@ export default function App() {
               ) : (
                 <button
                   onClick={() => setShowAuthModal(true)}
-                  className="px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-mono font-bold text-xs uppercase shadow transition flex items-center space-x-1.5 cursor-pointer animate-pulse shrink-0 whitespace-nowrap"
+                  className="px-3 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-mono font-bold text-xs uppercase shadow transition flex items-center gap-1.5 cursor-pointer animate-pulse shrink-0 whitespace-nowrap"
                 >
                   <span>🔐</span>
                   <span>{t.btnAuth}</span>
-                  <span className="bg-black/20 text-[10px] px-1.5 py-0.5 rounded text-amber-200">
-                    +500 🪙
-                  </span>
                 </button>
               )}
             </div>
 
-            {/* Right: Friends, Daily Crate / Promo, Rules, Atmosphere, Shop, Theme & Language */}
-            <div className="flex items-center gap-1.5 shrink-0 flex-nowrap">
+            {/* 2. Center Action Buttons (Inline on Desktop, cleanly on 2nd row on small mobile screens) */}
+            <div className="order-3 md:order-2 w-full md:w-auto flex items-center justify-center md:justify-end gap-1.5 flex-wrap md:flex-nowrap md:ml-auto">
               {/* Daily Bonus Crate & Promo Code Button */}
               {user && (
                 <button
                   onClick={() => setShowDailyModal(true)}
                   title={lang === 'uz' ? 'Kunlik quti va Promokod' : lang === 'en' ? 'Daily Supply Crate & Promo Code' : 'Ежедневный ящик снабжения и Промокоды'}
-                  className="px-2.5 py-1.5 rounded-2xl bg-amber-500/15 hover:bg-amber-500 hover:text-zinc-950 border border-amber-500/50 text-amber-600 dark:text-amber-300 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer shrink-0 whitespace-nowrap"
+                  className="px-2.5 py-1.5 rounded-2xl bg-amber-500/15 hover:bg-amber-500 hover:text-zinc-950 border border-amber-500/50 text-amber-600 dark:text-amber-300 font-mono font-bold text-xs transition shadow-sm flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap"
                 >
                   <span>🎁</span>
                   <span>{lang === 'uz' ? 'Bonus' : lang === 'en' ? 'Bonus' : 'Бонус'}</span>
@@ -1534,24 +1530,24 @@ export default function App() {
                     setShowFriendsModal(true);
                   }}
                   title={lang === 'uz' ? "Do'stlar (ID orqali)" : lang === 'en' ? 'Friends (by ID)' : 'Добавить друзей по ID и играть вместе'}
-                  className="px-2.5 py-1.5 rounded-2xl bg-cyan-500/15 hover:bg-cyan-500 hover:text-zinc-950 border border-cyan-500/40 text-cyan-600 dark:text-cyan-300 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer relative shrink-0 whitespace-nowrap"
+                  className="px-2.5 py-1.5 rounded-2xl bg-cyan-500/15 hover:bg-cyan-500 hover:text-zinc-950 border border-cyan-500/40 text-cyan-600 dark:text-cyan-300 font-mono font-bold text-xs transition shadow-sm flex items-center gap-1 cursor-pointer relative shrink-0 whitespace-nowrap"
                 >
                   <span>👥</span>
                   <span>{lang === 'uz' ? "Do'stlar" : lang === 'en' ? 'Friends' : 'Друзья'}</span>
                   {unreadDmCount > 0 && (
-                    <span className="ml-1 px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[9px] font-bold animate-bounce">
+                    <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[9px] font-bold animate-bounce">
                       💬 {unreadDmCount}
                     </span>
                   )}
                 </button>
               )}
 
-              {/* Install PWA / Download Android APK Button (Automatically hidden once installed!) */}
+              {/* Install PWA / Download Android APK Button */}
               {!isAppInstalled && (
                 <button
                   onClick={handleInstallApp}
-                  title={lang === 'uz' ? "Android APK ilovasini yuklab olish" : lang === 'en' ? 'Download Android APK / Install App' : 'Скачать официальный Android APK и вывести на главный экран телефона'}
-                  className="px-2.5 py-1.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500 hover:text-zinc-950 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer animate-pulse shrink-0 whitespace-nowrap"
+                  title={lang === 'uz' ? "Android APK ilovasini yuklab olish" : lang === 'en' ? 'Download Android APK / Install App' : 'Скачать официальный Android APK'}
+                  className="px-2.5 py-1.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500 hover:text-zinc-950 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs transition shadow-sm flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap"
                 >
                   <span>📲</span>
                   <span>APK</span>
@@ -1565,36 +1561,38 @@ export default function App() {
                   setShowRulesModal(true);
                 }}
                 title={t.btnRulesTooltip || "Правила и условия игры"}
-                className="px-2.5 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer shrink-0 whitespace-nowrap"
+                className="px-2.5 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap"
               >
                 <span>📜</span>
-                <span className="hidden sm:inline">{t.btnRules || "Правила"}</span>
+                <span className="hidden lg:inline">{t.btnRules || "Правила"}</span>
               </button>
 
               {/* Atmosphere Toggle */}
               <button
                 onClick={() => handleToggleAtmosphere(!atmosphereEnabled)}
                 title={atmosphereEnabled ? (t.atmosphereOffTooltip || "Отключить эффекты") : (t.atmosphereOnTooltip || "Включить эффекты")}
-                className={`px-2.5 py-1.5 rounded-2xl border text-xs font-mono font-bold transition shadow-sm flex items-center space-x-1 cursor-pointer shrink-0 whitespace-nowrap ${
+                className={`p-2 rounded-2xl border text-xs font-mono font-bold transition shadow-sm flex items-center justify-center cursor-pointer shrink-0 ${
                   atmosphereEnabled
                     ? 'bg-amber-500/20 text-amber-500 border-amber-500/50'
                     : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-400 dark:text-zinc-500'
                 }`}
               >
                 <span>☢️</span>
-                <span className="hidden lg:inline text-[10px]">{t.btnEffects || "Эффекты"}</span>
               </button>
 
               {/* Shop Button */}
               <button
                 onClick={() => setShowShopModal(true)}
                 title={t.shopBtn}
-                className="px-2.5 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center space-x-1 cursor-pointer shrink-0 whitespace-nowrap"
+                className="px-2.5 py-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 font-mono font-bold text-xs transition shadow-sm flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap"
               >
                 <span>🛒</span>
-                <span className="hidden sm:inline">{t.shopBtn}</span>
+                <span className="hidden lg:inline">{t.shopBtn}</span>
               </button>
+            </div>
 
+            {/* 3. Far Right: Theme Toggle & Language Selector (Always pinned top-right, fixed width, never clips or drops) */}
+            <div className="order-2 md:order-3 flex items-center gap-1.5 shrink-0">
               {/* Theme Toggle */}
               <button
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -1608,7 +1606,7 @@ export default function App() {
               <div className="flex items-center bg-white dark:bg-zinc-900 rounded-2xl p-1 border border-slate-200 dark:border-zinc-800 text-xs font-mono font-bold shadow-sm shrink-0">
                 <button
                   onClick={() => handleSetLang('ru')}
-                  className={`px-2 py-1 rounded-xl transition cursor-pointer ${
+                  className={`w-8 py-1 rounded-xl text-center transition cursor-pointer ${
                     lang === 'ru' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -1616,7 +1614,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => handleSetLang('en')}
-                  className={`px-2 py-1 rounded-xl transition cursor-pointer ${
+                  className={`w-8 py-1 rounded-xl text-center transition cursor-pointer ${
                     lang === 'en' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -1624,7 +1622,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => handleSetLang('uz')}
-                  className={`px-2 py-1 rounded-xl transition cursor-pointer ${
+                  className={`w-8 py-1 rounded-xl text-center transition cursor-pointer ${
                     lang === 'uz' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
