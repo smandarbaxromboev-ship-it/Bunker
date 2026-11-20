@@ -152,9 +152,10 @@ export class VoiceChatManager {
   updateMediaSession() {
     if ('mediaSession' in navigator) {
       try {
+        const isDm = this.roomCode && String(this.roomCode).startsWith('dm_voice_');
         navigator.mediaSession.metadata = new window.MediaMetadata({
-          title: 'Бункер — Голосовой чат',
-          artist: this.roomCode ? `Комната #${this.roomCode}` : 'В эфире',
+          title: isDm ? 'Бункер — Звонок с другом' : 'Бункер — Голосовой чат',
+          artist: isDm ? 'Личный аудиочат' : (this.roomCode ? `Комната #${this.roomCode}` : 'В эфире'),
           album: 'Bunker Survival Online',
           artwork: [
             { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
